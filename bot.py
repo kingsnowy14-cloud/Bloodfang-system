@@ -6252,7 +6252,7 @@ async def build_bot_welcome_embeds(guild: discord.Guild):
 
 async def notify_bot_server_change(guild: discord.Guild, joined: bool):
     """Send IronWolf guild join/leave notices to the central security log."""
-    channel_id = os.getenv("IRONWOLF_LOG_CHANNEL_ID", "1566192543375433869").strip()
+    channel_id = "1566196935667359754"
     if not channel_id.isdigit():
         print("[SERVER-LOG] Invalid IRONWOLF_LOG_CHANNEL_ID.")
         return
