@@ -2987,11 +2987,11 @@ async def anmeldepannel(ctx):
     embed = create_embed(
         title="🦖 The Isle — Server Sign-In",
         description=(
-            "Welcome to the server sign-in panel!\\n\\n"
-            "━━━━━━━━━━━━━━━━━━━━\\n"
-            "**How to use**\\n"
-            "1. Press **Sign In** and fill in Dinosaur, Skin and Location.\\n"
-            "2. When you leave, press **Sign Out**.\\n"
+            "Welcome to the server sign-in panel!\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "**How to use**\n"
+            "1. Press **Sign In** and fill in Dinosaur, Skin and Location.\n"
+            "2. When you leave, press **Sign Out**.\n"
             "━━━━━━━━━━━━━━━━━━━━"
         ),
         color=discord.Color.blurple(),
@@ -5798,7 +5798,7 @@ async def ai_knowledge_command(interaction: discord.Interaction):
         text_value = item.get("text", "") if isinstance(item, dict) else str(item)
         source = item.get("source", "Dashboard") if isinstance(item, dict) else "Dashboard"
         lines.append(f"**{index}.** [{source}] {str(text_value)[:220]}")
-    await interaction.response.send_message("**Gespeichertes KI-Serverwissen**\\n" + "\\n".join(lines)[:1850], ephemeral=True)
+    await interaction.response.send_message("**Gespeichertes KI-Serverwissen**\n" + "\n".join(lines)[:1850], ephemeral=True)
 
 
 @bot.event
@@ -6271,8 +6271,8 @@ async def notify_bot_server_change(guild: discord.Guild, joined: bool):
         embed = discord.Embed(
             title="🟢 IronWolf joined a server" if joined else "🔴 IronWolf left a server",
             description=(
-                f"**Server name:** {discord.utils.escape_markdown(guild.name)}\\n"
-                f"**Server ID:** `{guild.id}`\\n"
+                f"**Server name:** {discord.utils.escape_markdown(guild.name)}\n"
+                f"**Server ID:** `{guild.id}`\n"
                 f"**Members:** {guild.member_count if guild.member_count is not None else 'Unknown'}"
             ),
             color=discord.Color.green() if joined else discord.Color.red(),
@@ -9500,7 +9500,7 @@ class RPStatusButton(discord.ui.Button):
             announcement = "Roleplay is now starting!" if self.action == "start" else "Roleplay has ended."
         status_embed = discord.Embed(
             title="🟢 Roleplay Started" if self.action == "start" else "🔴 Roleplay Stopped",
-            description=announcement + f"\\n\\nStatus changed by {member.mention}.",
+            description=announcement + f"\n\nStatus changed by {member.mention}.",
             color=color,
             timestamp=datetime.now(timezone.utc),
         )
@@ -10608,7 +10608,7 @@ async def refresh_ironwolf_guild_directory():
                     if member_count is not None:
                         value += f" · Mitglieder: **{member_count:,}**"
                     link = invite_links.get(item.id)
-                    value += f"\\n[Zum Server beitreten]({link})" if link else "\\n*Kein Link verfügbar – Berechtigung fehlt.*"
+                    value += f"\n[Zum Server beitreten]({link})" if link else "\n*Kein Link verfügbar – Berechtigung fehlt.*"
                     embed.add_field(
                         name=discord.utils.escape_markdown(item.name)[:256],
                         value=value,
