@@ -6254,7 +6254,7 @@ async def notify_bot_server_change(guild: discord.Guild, joined: bool):
     """Send IronWolf guild join/leave notices to the central server-log channel."""
     # Use the same channel as the live server directory by default. It can be
     # overridden in Railway without changing the source code.
-    channel_id = os.getenv("IRONWOLF_LOG_CHANNEL_ID", "1566192543375433869").strip()
+    channel_id = str(_IRONWOLF_DIRECTORY_CHANNEL_ID)
     if not channel_id.isdigit():
         print(f"[SERVER-LOG] Invalid IRONWOLF_LOG_CHANNEL_ID: {channel_id!r}", flush=True)
         return
