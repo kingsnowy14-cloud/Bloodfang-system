@@ -1,0 +1,47 @@
+name: Bloodfang source backup
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Create source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE="$RUNNER_TEMP/${GITHUB_REPOSITORY##*/}-${GITHUB_RUN_ID}-${GITHUB_RUN_NUMBER}.tar.gz"
+          tar -czf "$ARCHIVE" \
+            --exclude='./.git' \
+            --exclude='./.env' \
+            --exclude='./.env.*' \
+            --exclude='*.pem' \
+            --exclude='*.key' \
+            --exclude='*credentials*' \
+            --exclude='*secret*' \
+            --exclude='./.venv' \
+            --exclude='./venv' \
+            --exclude='./node_modules' \
+            --exclude='*/__pycache__' \
+            --exclude='*.pyc' \
+            -C "$GITHUB_WORKSPACE" .
+          echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+
+      - name: Upload backup archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: bloodfang-backup-${{ github.event.repository.name }}-${{ github.run_number }}
+          path: ${{ env.ARCHIVE }}
+          if-no-files-found: error
+          retention-days: 90
