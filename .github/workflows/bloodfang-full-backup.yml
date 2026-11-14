@@ -1,0 +1,32 @@
+name: Bloodfang full-code backup
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create full repository mirror
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git clone --mirror "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" bloodfang-repo.git
+          git -C bloodfang-repo.git bundle create "${GITHUB_WORKSPACE}/${GITHUB_REPOSITORY##*/}-full-backup.bundle" --all
+          sha256sum "${GITHUB_WORKSPACE}/${GITHUB_REPOSITORY##*/}-full-backup.bundle" > "${GITHUB_WORKSPACE}/${GITHUB_REPOSITORY##*/}-full-backup.sha256"
+      - name: Upload downloadable backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-full-backup-${{ github.run_id }}
+          path: |
+            *-full-backup.bundle
+            *-full-backup.sha256
+          if-no-files-found: error
+          retention-days: 90
