@@ -6251,46 +6251,67 @@ async def build_bot_welcome_embeds(guild: discord.Guild):
 
 
 async def notify_bot_server_change(guild: discord.Guild, joined: bool):
-    """Send IronWolf guild join/leave notices to the central security log."""
-    channel_id = "1566196935667359754"
+    """Send IronWolf guild join/leave notices to the central server-log channel."""
+    # Use the same channel as the live server directory by default. It can be
+    # overridden in Railway without changing the source code.
+    channel_id = os.getenv("IRONWOLF_LOG_CHANNEL_ID", "1566192543375433869").strip()
     if not channel_id.isdigit():
-        print("[SERVER-LOG] Invalid IRONWOLF_LOG_CHANNEL_ID.")
+        print(f"[SERVER-LOG] Invalid IRONWOLF_LOG_CHANNEL_ID: {channel_id!r}", flush=True)
         return
+
     try:
         channel = bot.get_channel(int(channel_id))
         if channel is None:
             channel = await bot.fetch_channel(int(channel_id))
         if not hasattr(channel, "send"):
-            print(f"[SERVER-LOG] Configured channel {channel_id} cannot receive messages.")
+            print(f"[SERVER-LOG] Configured channel {channel_id} cannot receive messages.", flush=True)
             return
 
+        event_time = datetime.now(timezone.utc)
         embed = discord.Embed(
             title="🟢 IronWolf joined a server" if joined else "🔴 IronWolf left a server",
             description=(
-                f"**Server name:** {discord.utils.escape_markdown(guild.name)}\n"
-                f"**Server ID:** `{guild.id}`\n"
+                f"**Server name:** {discord.utils.escape_markdown(guild.name)}\\n"
+                f"**Server ID:** `{guild.id}`\\n"
                 f"**Members:** {guild.member_count if guild.member_count is not None else 'Unknown'}"
             ),
             color=discord.Color.green() if joined else discord.Color.red(),
-            timestamp=datetime.now(timezone.utc),
+            timestamp=event_time,
         )
 
-        actor_text = "Unknown — Discord audit-log access may be missing."
-        audit_action = discord.AuditLogAction.bot_add if joined else discord.AuditLogAction.kick
+        actor_text = "Unknown — Discord did not provide an accessible audit-log entry."
+        # Discord records additions as bot_add and removals as kick/ban.
+        audit_actions = (
+            [discord.AuditLogAction.bot_add]
+            if joined
+            else [discord.AuditLogAction.kick, discord.AuditLogAction.ban]
+        )
         try:
-            async for entry in guild.audit_logs(limit=15, action=audit_action):
-                target = getattr(entry, "target", None)
-                target_id = getattr(target, "id", None) or getattr(entry, "target_id", None)
-                if bot.user and target_id == bot.user.id:
-                    actor = entry.user
+            for audit_action in audit_actions:
+                async for entry in guild.audit_logs(limit=25, action=audit_action):
+                    target = getattr(entry, "target", None)
+                    target_id = getattr(target, "id", None) or getattr(entry, "target_id", None)
+                    if not bot.user or target_id != bot.user.id:
+                        continue
+                    # Avoid attributing an older add/remove action to this event.
+                    created_at = getattr(entry, "created_at", None)
+                    if created_at is not None and (event_time - created_at).total_seconds() > 600:
+                        continue
+                    actor = getattr(entry, "user", None)
                     actor_text = (
                         f"{actor.mention} (`{actor}`, ID: `{actor.id}`)"
                         if actor else "Unknown"
                     )
                     break
+                if actor_text != "Unknown — Discord did not provide an accessible audit-log entry.":
+                    break
         except (discord.Forbidden, discord.HTTPException, AttributeError) as exc:
             event_name = "inviter" if joined else "remover"
-            print(f"[SERVER-LOG] Could not read {event_name} audit log for guild {guild.id}: {type(exc).__name__}: {exc}")
+            print(
+                f"[SERVER-LOG] Could not read {event_name} audit log for guild "
+                f"{guild.id}: {type(exc).__name__}: {exc}",
+                flush=True,
+            )
 
         embed.add_field(
             name="Invited by" if joined else "Removed by",
@@ -6304,9 +6325,19 @@ async def notify_bot_server_change(guild: discord.Guild, joined: bool):
         )
         embed.set_footer(text="IronWolf · Global Server Logs")
         await channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
-        print(f"[SERVER-LOG] Sent {'join' if joined else 'leave'} notice for guild {guild.id}.")
-    except (discord.HTTPException, discord.Forbidden, ValueError) as exc:
-        print(f"[SERVER-LOG] Could not send server change notice: {type(exc).__name__}: {exc}")
+        print(
+            f"[SERVER-LOG] Sent {'join' if joined else 'leave'} notice for guild "
+            f"{guild.id} to channel {channel_id}.",
+            flush=True,
+        )
+    except Exception as exc:
+        # Logging must never prevent the normal guild join/leave handlers
+        # (and the live server-directory refresh listeners) from running.
+        print(
+            f"[SERVER-LOG] Could not send server change notice for guild "
+            f"{guild.id}: {type(exc).__name__}: {exc}",
+            flush=True,
+        )
 
 
 async def send_main_server_inviter_dm(guild: discord.Guild) -> bool:
