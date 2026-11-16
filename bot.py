@@ -9209,10 +9209,7 @@ async def server_statistics_worker():
                 if not isinstance(configured, dict):
                     legacy = cfg.get("server_statistics_channel")
                     configured = {"members": legacy} if legacy else {}
-                role_configured = cfg.get("server_statistics_role_channels", {})
-                if not isinstance(role_configured, dict):
-                    role_configured = {}
-                if not configured and not role_configured:
+                if not configured:
                     continue
 
                 me = guild.me
@@ -9244,21 +9241,6 @@ async def server_statistics_worker():
                 for stat_key, raw_channel_id in configured.items():
                     if raw_channel_id and stat_key in templates:
                         statistics_to_update.append((stat_key, raw_channel_id, templates[stat_key].format(count=counts[stat_key])))
-
-                # Each selected Discord role gets its own live member-count channel.
-                for raw_role_id, raw_channel_id in role_configured.items():
-                    if not raw_channel_id:
-                        continue
-                    try:
-                        role_id = int(raw_role_id)
-                        role = guild.get_role(role_id)
-                    except (ValueError, TypeError):
-                        role = None
-                    if role is None:
-                        print(f"[SERVER-STATS] Configured role {raw_role_id!r} was not found in guild {guild.id}; reselect it in the dashboard.", flush=True)
-                        continue
-                    role_count = sum(1 for member in members if role in member.roles)
-                    statistics_to_update.append((f"role_{role.id}", raw_channel_id, f"👥・{role.name}: {role_count}"))
 
                 for stat_key, raw_channel_id, desired_name in statistics_to_update:
                     try:
