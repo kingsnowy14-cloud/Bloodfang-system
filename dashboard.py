@@ -6062,9 +6062,7 @@ def guild_server_statistics(guild_id):
         if not _csrf_ok():
             abort(400, "CSRF-Prüfung fehlgeschlagen. Bitte Seite neu laden.")
         selected = {}
-        selected_roles = {}
         valid_ids = {str(channel.id) for channel in guild.voice_channels}
-        valid_role_ids = {str(role.id) for role in guild.roles}
         used_ids = []
         for key, _label, _template, _counter in stats_types:
             raw = request.form.get("stat_" + key, "").strip()
@@ -6073,19 +6071,11 @@ def guild_server_statistics(guild_id):
             if raw:
                 used_ids.append(raw)
             selected[key] = int(raw) if raw else None
-        for role in guild.roles:
-            raw = request.form.get("role_stat_" + str(role.id), "").strip()
-            if raw and str(role.id) not in valid_role_ids:
-                abort(400, "Ungültige Discord-Rolle ausgewählt.")
-            if raw and raw not in valid_ids:
-                abort(400, "Bitte für jede Rollenstatistik einen gültigen Sprachkanal auswählen.")
-            if raw:
-                used_ids.append(raw)
-                selected_roles[str(role.id)] = int(raw)
         if len(used_ids) != len(set(used_ids)):
             abort(400, "Jede Statistik benötigt einen eigenen Sprachkanal. Bitte doppelte Auswahl korrigieren.")
         cfg["server_statistics_channels"] = selected
-        cfg["server_statistics_role_channels"] = selected_roles
+        # Remove the old per-role channel configuration; Roles is one total counter.
+        cfg.pop("server_statistics_role_channels", None)
         # Clear the legacy single-channel setting so the old worker cannot overwrite a channel.
         cfg.pop("server_statistics_channel", None)
         _save_json(data_path("config.json"), _config)
@@ -6100,9 +6090,6 @@ def guild_server_statistics(guild_id):
     if legacy and not saved.get("members"):
         saved = dict(saved)
         saved["members"] = legacy
-    role_saved = cfg.get("server_statistics_role_channels", {})
-    if not isinstance(role_saved, dict):
-        role_saved = {}
     voice_channels_sorted = sorted(guild.voice_channels, key=lambda item: item.position)
 
     def channel_options(current):
@@ -6126,23 +6113,9 @@ def guild_server_statistics(guild_id):
             + '<select name="stat_' + key + '">' + options_by_type[key] + '</select>'
             + '<small class="muted">Vorschau: ' + html.escape(current_preview) + '</small></div>'
         )
-    # Include every role that currently exists in this Discord server, including @everyone.
-    for role in sorted(guild.roles, key=lambda item: item.position, reverse=True):
-        role_key = str(role.id)
-        role_count = sum(1 for member in guild.members if role in member.roles)
-        role_label = "@" + role.name
-        role_preview = f"👥・{role.name}: {role_count}"
-        role_channel = guild.get_channel(int(role_saved.get(role_key) or 0)) if str(role_saved.get(role_key) or "").isdigit() else None
-        current_preview = role_preview if role_channel else "Nicht aktiviert"
-        rows.append(
-            '<div class="stat-setting" style="padding:12px 0;border-bottom:1px solid var(--border)">'
-            + '<label>' + html.escape(role_label) + ' · Rollenmitglieder</label>'
-            + '<select name="role_stat_' + role_key + '">' + channel_options(role_saved.get(role_key)) + '</select>'
-            + '<small class="muted">Vorschau: ' + html.escape(current_preview) + '</small></div>'
-        )
     body = (
         '<section class="card"><h1>📊 Server-Statistik</h1>'
-        '<p class="muted">Wähle für jede Statistik und jede vorhandene Discord-Rolle einen eigenen Sprachkanal oder „Nicht verwenden“. Mitglieder zählt nur menschliche Accounts; Bots und Booster werden separat gezählt. Rollenkanäle zeigen die Anzahl aller Accounts mit der jeweiligen Rolle. Die Namen werden etwa alle fünf Minuten aktualisiert.</p>'
+        '<p class="muted">Wähle für jede Statistik einen eigenen Sprachkanal oder „Nicht verwenden“. Die Statistik „Rollen“ zählt alle aktuell auf diesem Discord-Server vorhandenen Rollen zusammen. Mitglieder zählt nur menschliche Accounts; Bots und Booster werden separat gezählt. Die Namen werden etwa alle fünf Minuten aktualisiert.</p>'
         + ('<p class="pill">Einstellungen gespeichert</p>' if request.args.get("saved") == "1" else '')
         + '<form method="post">' + _csrf_field() + ''.join(rows)
         + '<button type="submit">Statistikkanäle speichern</button></form>'
