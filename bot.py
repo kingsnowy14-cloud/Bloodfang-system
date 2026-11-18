@@ -2532,18 +2532,6 @@ async def _change_ticket_member(interaction: discord.Interaction, member: discor
     await interaction.response.send_message(f"✅ {member.mention} has been {action.lower()} {direction} this ticket.", ephemeral=False)
 
 
-@bot.tree.command(name="add", description="Add a member to the current private ticket")
-@app_commands.guild_only()
-@app_commands.describe(user="Member to add to this ticket")
-async def add_ticket_member(interaction: discord.Interaction, user: discord.Member):
-    await _change_ticket_member(interaction, user, True)
-
-
-@bot.tree.command(name="remove", description="Remove a member from the current private ticket")
-@app_commands.guild_only()
-@app_commands.describe(user="Member to remove from this ticket")
-async def remove_ticket_member(interaction: discord.Interaction, user: discord.Member):
-    await _change_ticket_member(interaction, user, False)
 
 @bot.tree.command(name="ticket-settings", description="Configure AI support and pre-ticket questions for a ticket panel")
 @app_commands.checks.has_permissions(manage_guild=True)
