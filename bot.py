@@ -9846,6 +9846,16 @@ async def on_ready():
 
         global_synced = await bot.tree.sync()
         print(f"Synced {len(global_synced)} global slash commands.")
+        # Remove legacy ticket-member slash commands that may still be registered remotely.
+        try:
+            _app_id = bot.application_id or (bot.user.id if bot.user else None)
+            if _app_id:
+                for _remote_command in await bot.http.get_global_commands(_app_id):
+                    if _remote_command.get("name") in {"add", "remove"}:
+                        await bot.http.delete_global_command(_app_id, _remote_command["id"])
+                        print(f"[COMMAND CLEANUP] Deleted stale global /{_remote_command['name']}.", flush=True)
+        except Exception as _cleanup_exc:
+            print(f"[COMMAND CLEANUP] Global cleanup failed: {type(_cleanup_exc).__name__}: {_cleanup_exc}", flush=True)
         for guild_obj in bot.guilds:
             # Do not copy all global commands into each guild: that would recreate
             # the 100-command limit locally. Global commands sync globally above.
@@ -9856,6 +9866,13 @@ async def on_ready():
                     pass
             guild_synced = await bot.tree.sync(guild=guild_obj)
             print(f"Synced {len(guild_synced)} slash commands to guild {guild_obj.id}.")
+            try:
+                for _remote_command in await bot.http.get_guild_commands(_app_id, guild_obj.id):
+                    if _remote_command.get("name") in {"add", "remove"}:
+                        await bot.http.delete_guild_command(_app_id, guild_obj.id, _remote_command["id"])
+                        print(f"[COMMAND CLEANUP] Deleted stale guild /{_remote_command['name']} in {guild_obj.id}.", flush=True)
+            except Exception as _cleanup_exc:
+                print(f"[COMMAND CLEANUP] Guild cleanup failed for {guild_obj.id}: {type(_cleanup_exc).__name__}: {_cleanup_exc}", flush=True)
         if not bot.guilds and economy_commands:
             print("[ECONOMY] Commands loaded, but no guilds available for guild-scoped sync.", flush=True)
     except Exception as exc:
