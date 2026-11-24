@@ -7272,6 +7272,60 @@ class ApplicationDecisionButton(discord.ui.Button):
             await log_channel.send(embed=log, allowed_mentions=discord.AllowedMentions.none())
         await interaction.followup.send("Decision saved and logged.", ephemeral=True)
 
+async def _estimate_application_ai_authorship(answers):
+    """Use the existing Gemini integration for a cautious writing-style estimate."""
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        print("[APPLICATION AI] Missing GEMINI_API_KEY/GOOGLE_API_KEY.", flush=True)
+        return None
+    text = "\n".join(
+        str(item.get("question", "")) + ": " + str(item.get("answer", ""))
+        for item in answers if isinstance(item, dict)
+    ).strip()
+    if len(text) < 120:
+        return None
+    model = (os.getenv("GEMINI_MODEL") or "gemini-2.5-flash").removeprefix("models/").strip("/")
+    prompt = (
+        "Estimate how strongly this application text shows writing-style patterns sometimes "
+        "associated with AI assistance. This is NOT a reliable AI detector and text alone cannot "
+        "prove authorship. Do not treat polished grammar, language proficiency, or formality as "
+        "proof. Return JSON only with score as an integer from 0 to 100. The score is a rough "
+        "stylistic indicator, not a true probability.\n\n" + text[:12000]
+    )
+    try:
+        import aiohttp
+        url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent"
+        payload = {
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0, "responseMimeType": "application/json", "maxOutputTokens": 80},
+        }
+        timeout = aiohttp.ClientTimeout(total=20, connect=6, sock_read=15)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, params={"key": api_key}, json=payload) as response:
+                raw = await response.text()
+                if response.status >= 400:
+                    print("[APPLICATION AI] Gemini HTTP {}: {}".format(response.status, raw[:400]), flush=True)
+                    return None
+        data = json.loads(raw)
+        parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+        result_text = "".join(str(part.get("text", "")) for part in parts).strip()
+        result = json.loads(result_text)
+        return max(0, min(100, int(result.get("score"))))
+    except Exception as exc:
+        print("[APPLICATION AI] Gemini estimate failed: {}: {}".format(type(exc).__name__, exc), flush=True)
+        return None
+
+
+def _add_application_ai_estimate(embed, score):
+    value = "Nicht verfügbar – Gemini konnte keine Einschätzung erstellen." if score is None else "**{}% KI-ähnliche Schreibmerkmale**".format(score)
+    value += (
+        "\n\n⚠️ **Wichtiger Hinweis:** Das ist nur eine unverbindliche, ungenaue Schätzung. "
+        "Sie kann falsch sein und beweist weder die Nutzung noch die Nichtnutzung von KI. "
+        "Bitte niemals allein als Grundlage für eine Entscheidung verwenden."
+    )
+    embed.add_field(name="🤖 KI-Schreibstil-Schätzung", value=value, inline=False)
+
+
 class Applications(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -7350,11 +7404,16 @@ class Applications(commands.Cog):
             return
         app_id = "{}-{}-{}".format(guild_id, user_id, int(datetime.now(timezone.utc).timestamp()))
         row = {"id": app_id, "guild_id": guild_id, "user_id": user_id, "panel_id": panel_id, "answers": session["answers"], "status": "pending", "created_at": datetime.now(timezone.utc).isoformat(), "reviewed_by": None}
+        cfg = guild_config(guild_id)
+        if cfg.get("application_ai_estimate_enabled") and guild_has_feature(cfg, "application_ai_estimate"):
+            row["ai_authorship_estimate"] = await _estimate_application_ai_authorship(row["answers"])
         RECORDS["applications"][app_id] = row
         save_records()
         embed = discord.Embed(title="📨 New Application", description="**Applicant:** <@{}>\n**Status:** ⏳ Pending".format(user_id), color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
         for answer in row["answers"]:
             embed.add_field(name=safe_text(answer["question"], 256), value=safe_text(answer["answer"], 1000) or "—", inline=False)
+        if "ai_authorship_estimate" in row:
+            _add_application_ai_estimate(embed, row.get("ai_authorship_estimate"))
         embed.set_footer(text="Application ID: " + app_id)
         try:
             ping_role_id = settings.get("ping_role_id")
