@@ -1447,6 +1447,21 @@ class TicketPanelView(discord.ui.View):
         self.panel_key = panel_key
         safe_labels = [str(label).strip()[:80] for label in labels if str(label).strip()][:10]
         emojis = emojis if isinstance(emojis, list) else []
+        if display_mode == "one_button":
+            button = discord.ui.Button(label="Open Ticket", style=discord.ButtonStyle.primary, emoji="🎫", custom_id=f"ticket:one_open:{panel_key}", row=0)
+            async def open_menu(interaction: discord.Interaction):
+                current_cfg = guild_config(interaction.guild_id) if interaction.guild_id else {}
+                current_panel = current_cfg.get("ticket_panels", {}).get(self.panel_key, {})
+                current_labels = current_panel.get("labels", [])
+                if not current_labels:
+                    await interaction.response.send_message("No ticket categories are configured for this panel.", ephemeral=True)
+                    return
+                menu = discord.ui.View(timeout=180)
+                menu.add_item(TicketPanelSelect(self.panel_key, current_labels, current_panel.get("option_descriptions", []), current_panel.get("option_emojis", [])))
+                await interaction.response.send_message("Choose the ticket category you need:", view=menu, ephemeral=True)
+            button.callback = open_menu
+            self.add_item(button)
+            return
         if display_mode == "select":
             if safe_labels:
                 self.add_item(TicketPanelSelect(panel_key, safe_labels, descriptions, emojis))
