@@ -179,6 +179,7 @@ PREMIUM_FEATURES = {
     "invite_tracker": "Invite Tracker",
     "server_boost": "Server-Boost-System",
     "applications": "Pro application system (unlimited panels and questions)",
+    "application_ai_estimate": "Gemini AI application writing-style estimate",
     "shift_tracker": "Schicht- und Zeiterfassungssystem",
     "auto_nickname": "AutoNickname (up to 50 rules)",
     "auto_role": "AutoRole (up to 10 member roles and 10 bot roles)",
