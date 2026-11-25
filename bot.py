@@ -5161,7 +5161,8 @@ def _link_protection_findings(message: discord.Message, cfg: dict) -> list[str]:
         if isinstance(value, str) and value.strip()
     }
     scam_markers = ("discord-nitro", "free-nitro", "steamcommunity-gift", "steam-gift", "nitro-gift")
-    has_scam = any(marker in lowered for marker in scam_markers)
+    url_text = " ".join(urls).casefold()
+    has_scam = any(marker in url_text for marker in scam_markers)
     for raw_url in urls:
         candidate = raw_url.rstrip(".,!?;:)]}>'\"")
         try:
@@ -5175,11 +5176,11 @@ def _link_protection_findings(message: discord.Message, cfg: dict) -> list[str]:
             has_scam = True
         if host.startswith("xn--") or ".xn--" in host:
             has_scam = True
-        if "discord" in host and host not in {"discord.com", "discordapp.com", "discord.gg"}:
+        if "discord" in host and not any(host == domain or host.endswith("." + domain) for domain in {"discord.com", "discordapp.com", "discord.gg"}):
             has_scam = True
-        if "steam" in host and host not in {"steamcommunity.com", "store.steampowered.com", "steampowered.com"}:
+        if "steam" in host and not any(host == domain or host.endswith("." + domain) for domain in {"steamcommunity.com", "steampowered.com"}):
             has_scam = True
-        if "nitro" in host and host not in {"discord.com", "discordapp.com"}:
+        if "nitro" in host and not any(host == domain or host.endswith("." + domain) for domain in {"discord.com", "discordapp.com"}):
             has_scam = True
 
     member = message.author if isinstance(message.author, discord.Member) else None
