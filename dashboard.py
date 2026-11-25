@@ -8275,7 +8275,7 @@ def guild_wolfshield(guild_id):
                 domain = raw_domain.strip().strip(".")
                 if not domain:
                     continue
-                if len(domain) > 253 or not re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}", domain):
+                if len(domain) > 253 or not re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}", domain):
                     abort(400, "Ungültige Domain in der Scam-Blockliste.")
                 if domain not in domains:
                     domains.append(domain)
