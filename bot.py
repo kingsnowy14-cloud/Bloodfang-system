@@ -2171,7 +2171,10 @@ class VerifyView(discord.ui.View):
             emoji=emoji or None,
             custom_id="verify:accept",
         )
-        button.callback = self.website_verify_button if mode == "website" else self.verify_button
+        # Route every persistent verification button through the current guild config.
+        # The view restored on startup is shared across servers, so binding a fixed
+        # mode here breaks panels that use click or CAPTCHA verification.
+        button.callback = self.verify_button
         self.add_item(button)
 
     async def website_verify_button(self, interaction: discord.Interaction):
