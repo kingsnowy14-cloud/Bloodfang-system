@@ -164,6 +164,62 @@ async def dashboard_slash_command_check(interaction):
 
 bot.tree.interaction_check = dashboard_slash_command_check
 
+
+@bot.tree.command(name="id", description="Zeigt einen Servermember anhand seiner User-ID an.")
+@app_commands.describe(user_id="Die Discord-User-ID des Members")
+@app_commands.guild_only()
+async def id_command(interaction: discord.Interaction, user_id: str):
+    """Look up a member in the current server by their Discord user ID."""
+    raw_id = user_id.strip()
+    if not raw_id.isdigit():
+        await interaction.response.send_message(
+            "❌ Bitte gib eine gültige numerische Discord-User-ID ein.",
+            ephemeral=True,
+        )
+        return
+
+    member_id = int(raw_id)
+    try:
+        member = interaction.guild.get_member(member_id)
+        if member is None:
+            member = await interaction.guild.fetch_member(member_id)
+    except discord.NotFound:
+        await interaction.response.send_message(
+            f"❌ Kein Servermitglied mit der ID `{member_id}` gefunden.",
+            ephemeral=True,
+        )
+        return
+    except (discord.Forbidden, discord.HTTPException) as exc:
+        print(
+            f"[ID COMMAND] Member lookup failed in guild {interaction.guild_id} "
+            f"for {member_id}: {type(exc).__name__}: {exc}",
+            flush=True,
+        )
+        await interaction.response.send_message(
+            "❌ Der Member konnte gerade nicht abgefragt werden. Bitte versuche es später erneut.",
+            ephemeral=True,
+        )
+        return
+
+    display_name = discord.utils.escape_markdown(member.display_name)
+    username = discord.utils.escape_markdown(str(member))
+    embed = discord.Embed(
+        title="👤 Member gefunden",
+        color=discord.Color.blurple(),
+        timestamp=datetime.now(timezone.utc),
+    )
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.add_field(name="Anzeigename", value=display_name, inline=True)
+    embed.add_field(name="Benutzername", value=username, inline=True)
+    embed.add_field(name="User-ID", value=f"`{member.id}`", inline=False)
+    embed.add_field(name="Erwähnung", value=member.mention, inline=True)
+    embed.add_field(
+        name="Serverbeitritt",
+        value=discord.utils.format_dt(member.joined_at, style="F") if member.joined_at else "Unbekannt",
+        inline=False,
+    )
+    await interaction.response.send_message(embed=embed)
+
 async def log_command_usage(guild, channel, user, command_name, command_type):
     """Send a minimal command-use record to the configured log channel."""
     if guild is None or channel is None or user is None or getattr(user, "bot", False):
