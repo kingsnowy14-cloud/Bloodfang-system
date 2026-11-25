@@ -4497,6 +4497,10 @@ def guild_page(guild_id):
                         abort(400, "Ungültige Zeitzone ausgewählt.")
                     ZoneInfo(selected_timezone)
                     cfg["bot_timezone"] = selected_timezone
+                    selected_language = request.form.get("bot_language", cfg.get("bot_language", "auto")).lower()
+                    if selected_language not in {"auto", "de", "en"}:
+                        abort(400, "Unsupported bot language.")
+                    cfg["bot_language"] = selected_language
                 if settings_section == "channels":
                     for key in CHANNEL_SETTINGS:
                         if key not in request.form:
@@ -4594,11 +4598,12 @@ def guild_page(guild_id):
             settings_html += '<p class="muted">Lege fest, in welcher Zeitzone der Bot Zeiten für diesen Server anzeigen und verwenden soll. Diese Einstellung betrifft nur die Bot-Konfiguration.</p><label for="bot_timezone">Zeitzone</label><select id="bot_timezone" name="bot_timezone">'
             settings_html += ''.join('<option value="' + zone + '"' + (' selected' if selected_timezone == zone else '') + '>' + zone.replace("_", " ") + '</option>' for zone in timezone_choices)
             settings_html += '</select><div class="notice">Aktuelle Bot-Zeit: <strong>' + html.escape(datetime.now(ZoneInfo(selected_timezone if selected_timezone in timezone_choices else "UTC")).strftime("%d.%m.%Y · %H:%M")) + '</strong></div>'
+            selected_language_ui = str(cfg.get("bot_language", "auto"))
+            language_choices = (("auto", "Default (English)"), ("de", "Deutsch"), ("en", "English"))
+            settings_html += '<h3>🤖 Bot Language</h3><p class="muted">Choose the language used by the bot for this Discord server. This does not change Discord’s interface language.</p><label for="bot_language">Bot language</label><select id="bot_language" name="bot_language">' + ''.join('<option value="' + lang + '"' + (' selected' if selected_language_ui == lang else '') + '>' + label + '</option>' for lang, label in language_choices) + '</select>'
         elif section == "general":
             bot_enabled_checked = " checked" if cfg.get("bot_enabled", True) else ""
             settings_html += '<div class="check"><input type="checkbox" id="bot_enabled" name="bot_enabled"' + bot_enabled_checked + '><label for="bot_enabled">🐺 Enable IronWolf on this server</label></div><p class="muted">When disabled, the bot will not respond on this server. New servers start disabled; existing servers keep their current behavior.</p>'
-            selected_language_ui = str(cfg.get("bot_language", "en"))
-            settings_html += '<h3>🤖 Bot language</h3><p class="muted">Diese Auswahl ändert die Sprache der Bot-Antworten für diesen Server, nicht die Sprache von Discord.</p><label for="bot_language">Bot-Sprache</label><select id="bot_language" name="bot_language">' + ''.join('<option value="' + lang + '"' + (' selected' if selected_language_ui == lang else '') + '>' + label + '</option>' for lang, label in (("auto", "Standard (Englisch)"), ("de", "Deutsch"), ("en", "English"))) + '</select>'
             settings_html += '<h3>👋 Welcome module · Channels</h3><p class="muted">Choose where IronWolf welcomes new members and where goodbye messages are posted.</p>'
             settings_html += '<label for="welcome_channel">Public welcome channel</label><select id="welcome_channel" name="welcome_channel">' + options(channels, cfg.get("welcome_channel")) + '</select>'
             settings_html += '<label for="goodbye_channel">Goodbye channel</label><select id="goodbye_channel" name="goodbye_channel">' + options(channels, cfg.get("goodbye_channel")) + '</select>'
