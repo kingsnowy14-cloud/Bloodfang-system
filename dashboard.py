@@ -8339,14 +8339,18 @@ def guild_wolfshield(guild_id):
     selected_invite_roles = {str(value) for value in cfg.get("allowed_invite_role_ids", [])}
     selected_invite_channels = {str(value) for value in cfg.get("allowed_invite_channel_ids", [])}
     role_options = "".join(
-        '<option value="' + str(role.id) + '"' + (' selected' if str(role.id) in selected_invite_roles else '') + '>'
-        + html.escape(role.name) + '</option>'
+        '<label class="link-pick-item" data-search="' + html.escape(role.name.casefold(), quote=True) + '">'
+        '<input type="checkbox" name="allowed_invite_role_ids" value="' + str(role.id) + '"' +
+        (' checked' if str(role.id) in selected_invite_roles else '') + '>'
+        '<span>' + html.escape(role.name) + '</span></label>'
         for role in sorted(guild.roles, key=lambda item: item.position, reverse=True)
         if not role.is_default() and not role.managed
     )
     channel_options = "".join(
-        '<option value="' + str(channel.id) + '"' + (' selected' if str(channel.id) in selected_invite_channels else '') + '>'
-        + '#' + html.escape(channel.name) + '</option>'
+        '<label class="link-pick-item" data-search="' + html.escape(channel.name.casefold(), quote=True) + '">'
+        '<input type="checkbox" name="allowed_invite_channel_ids" value="' + str(channel.id) + '"' +
+        (' checked' if str(channel.id) in selected_invite_channels else '') + '>'
+        '<span>#' + html.escape(channel.name) + '</span></label>'
         for channel in sorted(guild.text_channels, key=lambda item: (item.category.position if item.category else -1, item.position))
     )
     blocked_domains_value = html.escape("\n".join(str(value) for value in cfg.get("link_blocked_domains", [])))
@@ -8365,12 +8369,29 @@ def guild_wolfshield(guild_id):
         '<input type="checkbox" name="webhook_link_protection_enabled" value="on"' + webhook_checked + '></label>'
         '<label class="setting-row"><span><strong>Scam-Link-Schutz</strong><small>Blockiert gesperrte Domains und bekannte Discord-/Steam-Imitationsmuster.</small></span>'
         '<input type="checkbox" name="scam_link_protection_enabled" value="on"' + scam_checked + '></label>'
+        '<style>'
+        '.link-pick{border:1px solid var(--border, #444);border-radius:12px;padding:12px;min-width:0}'
+        '.link-pick-search{width:100%;box-sizing:border-box;margin:8px 0 10px}'
+        '.link-pick-list{max-height:230px;overflow:auto;display:grid;gap:6px;padding:4px}'
+        '.link-pick-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(127,127,127,.08);cursor:pointer}'
+        '.link-pick-item:hover{background:rgba(127,127,127,.16)}'
+        '.link-pick-item input{width:auto;margin:0}'
+        '.link-pick-count{font-size:12px;color:var(--muted,#999)}'
+        '</style>'
         '<div class="grid">'
-        '<label class="card">Rollen, die Discord-Invites senden dürfen <small>Mehrfachauswahl · diese Rollen umgehen nur den Invite-Filter, nicht den Scam- oder Webhook-Schutz.</small>'
-        '<select name="allowed_invite_role_ids" multiple size="8">' + role_options + '</select></label>'
-        '<label class="card">Kanäle, in denen Discord-Invites erlaubt sind <small>Mehrfachauswahl · nur diese Kanäle umgehen den Invite-Filter.</small>'
-        '<select name="allowed_invite_channel_ids" multiple size="8">' + channel_options + '</select></label>'
+        '<div class="card link-pick"><strong>Rollen, die Discord-Invites senden dürfen</strong>'
+        '<small class="muted">Nur diese Rollen umgehen den Invite-Filter, nicht den Scam- oder Webhook-Schutz.</small>'
+        '<input class="link-pick-search" type="search" placeholder="🔎 Rolle suchen …" oninput="filterLinkPicker(this)">'
+        '<div class="link-pick-count" data-picker-count>0 ausgewählt</div><div class="link-pick-list" data-picker-list>' + role_options + '</div></div>'
+        '<div class="card link-pick"><strong>Kanäle, in denen Discord-Invites erlaubt sind</strong>'
+        '<small class="muted">Nur diese Kanäle umgehen den Invite-Filter.</small>'
+        '<input class="link-pick-search" type="search" placeholder="🔎 Kanal suchen …" oninput="filterLinkPicker(this)">'
+        '<div class="link-pick-count" data-picker-count>0 ausgewählt</div><div class="link-pick-list" data-picker-list>' + channel_options + '</div></div>'
         '</div>'
+        '<script>'
+        'function filterLinkPicker(input){const card=input.closest(".link-pick");const q=input.value.trim().toLocaleLowerCase();card.querySelectorAll(".link-pick-item").forEach(item=>{item.style.display=item.dataset.search.includes(q)?"flex":"none"});}'
+        'document.querySelectorAll(".link-pick").forEach(card=>{const update=()=>{const n=card.querySelectorAll("input[type=checkbox]:checked").length;card.querySelector("[data-picker-count]").textContent=n+" ausgewählt";};card.addEventListener("change",update);update();});'
+        '</script>'
         '<label class="card">Eigene Scam-Blockliste <small>Eine Domain pro Zeile, z. B. fake-login.example. Maximal 100 Domains.</small>'
         '<textarea name="link_blocked_domains" rows="5" maxlength="3000">' + blocked_domains_value + '</textarea></label>'
         '<p class="muted">Hinweis: Die Ausnahmelisten gelten ausschließlich für Discord-Invite-Links. Scam-Erkennungen und verdächtige Links aus Webhooks werden weiterhin blockiert. Für die automatische Löschung benötigt IronWolf „Nachrichten verwalten“ im jeweiligen Kanal.</p>'
