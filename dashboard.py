@@ -57,8 +57,6 @@ _guild_cache_lock = threading.Lock()
 _GUILD_CACHE_TTL = 45
 _GUILD_CACHE_STALE_TTL = 300
 
-from dashboard_visual_editor import register_visual_editor
-register_visual_editor(app, data_path)
 
 
 TEXT_SETTINGS = {
@@ -836,7 +834,7 @@ def _page(title, body):
         except Exception:
             custom_theme_css = ""
     nav = (
-        '<a class="skip-link" href="#main-content">Skip to content</a><nav class="top-nav" aria-label="Main navigation"><a href="/" class="brand-mark">🐺 IRONWOLF <span class="muted">/ CONTROL CENTER</span></a>'
+        '<a class="skip-link" href="#main-content">Skip to content</a><nav class="top-nav" aria-label="Main navigation"><a href="/" class="brand-mark">🩸 BLOODFANG <span class="muted">/ CONTROL CENTER</span></a>'
         + ('<a class="nav-server" href="/">🎮 Server wechseln</a>' if logged_in else '')
         + ('<a class="nav-server" href="/guild/' + match.group(1) + '?section=general">⚙️ Einstellungen</a>' if logged_in and match else '')
         + ('<a class="nav-server" href="/guild/' + match.group(1) + '/security-center">🛡️ Security Center</a>' if logged_in and match else '')
@@ -845,24 +843,12 @@ def _page(title, body):
         + ('<form class="nav-logout" method="post" action="/logout">' + _csrf_field() + '<button type="submit" class="nav-logout-button">Logout</button></form>' if logged_in else '<a href="/login">Login</a>')
         + '</nav>'
     )
-    editor_admin = str(session.get("user_id", "")) == "1493110334280564807"
-    editor_csrf = ""
-    if editor_admin:
-        editor_csrf = session.get("visual_editor_csrf") or secrets.token_urlsafe(32)
-        session["visual_editor_csrf"] = editor_csrf
-    editor_head = (
-        '<meta name="visual-editor-csrf" content="' + html.escape(editor_csrf, quote=True) + '">'
-        '<link rel="stylesheet" href="/static/visual-editor.css">' if editor_admin else ''
-    )
-    editor_scripts = (
-        '<script src="/static/visual-edits.js" defer></script>'
-        + ('<script src="/static/visual-editor.js" defer></script>' if editor_admin else '')
-    )
-    if editor_admin:
+    is_site_admin = str(session.get("user_id", "")) == "1493110334280564807"
+    if is_site_admin:
         nav = nav.replace('</nav>', '<a class="nav-server" href="/admin/website-statistics">📊 Website stats</a></nav>')
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{html.escape(title)} · IronWolf</title>{editor_head}
+<title>{html.escape(title)} · Bloodfang</title>
 <style>
 :root{{--bg:#080b12;--panel:#101725;--panel2:#151f30;--text:#f2f5fb;--muted:#98a7bd;--accent:#72c7ff;--accent2:#b7e5ff;--border:rgba(154,177,211,.17);--shadow:0 22px 70px rgba(0,0,0,.34);--glow:rgba(91,141,255,.14);}}
 *{{box-sizing:border-box}}html{{scroll-behavior:smooth;scroll-padding-top:100px}}
@@ -1053,7 +1039,29 @@ table{{border:1px solid var(--border);border-radius:12px;overflow:hidden}}
 tbody tr:nth-child(even){{background:rgba(255,255,255,.018)}}
 td,th{{padding:13px 12px}}
 @media(prefers-reduced-motion:reduce){{.card,button,.button{{transition:none}}.card:hover,button:hover,.button:hover{{transform:none}}}}
-{custom_theme_css}
+/* Bloodfang visual system: consistent navigation, panels, forms and responsive layout */
+:root{{--bg:#090a10;--panel:#12141d;--panel2:#1a1d28;--text:#f4f5f8;--muted:#a0a5b2;--accent:#e04455;--accent2:#ff8793;--border:rgba(224,68,85,.2);--shadow:0 20px 55px rgba(0,0,0,.42);--glow:rgba(224,68,85,.12);}}
+body{{background:radial-gradient(ellipse at 8% 0%,rgba(224,68,85,.16),transparent 34%),radial-gradient(ellipse at 92% 8%,rgba(132,35,53,.12),transparent 30%),linear-gradient(180deg,#0c0b12 0%,var(--bg) 58%,#07070b 100%)}}
+.top-nav{{border-bottom-color:rgba(224,68,85,.22)}}
+.top-nav .brand-mark{{font-weight:1000;letter-spacing:1.8px;color:#fff!important;text-shadow:0 0 24px rgba(224,68,85,.28)}}
+.module-nav{{background:linear-gradient(180deg,rgba(18,16,24,.99),rgba(10,10,16,.99))!important;border-right-color:rgba(224,68,85,.2)!important}}
+.module-nav-group-title{{color:var(--accent2)!important}}
+.module-nav-link{{border-radius:10px!important;transition:background .16s,border-color .16s,transform .16s}}
+.module-nav-link:hover,.module-nav-link.active{{background:rgba(224,68,85,.11)!important;border-color:rgba(224,68,85,.25)!important;color:#fff!important}}
+.card,.dashboard-metric,.command-group{{background:linear-gradient(145deg,rgba(22,22,31,.97),rgba(13,13,20,.98));border-color:rgba(224,68,85,.17);box-shadow:0 16px 42px rgba(0,0,0,.32)}}
+.card::before{{background:linear-gradient(90deg,var(--accent),rgba(224,68,85,.3),transparent)}}
+.pill{{background:rgba(224,68,85,.1);border-color:rgba(224,68,85,.28);color:#ffb3bc}}
+button,.button{{background:linear-gradient(120deg,#ef5969,#a9253a)!important;color:#fff!important;border:1px solid rgba(255,150,160,.24);box-shadow:0 8px 24px rgba(160,34,55,.2)}}
+button.secondary,.button.secondary{{background:rgba(43,42,53,.92)!important;color:#f4f5f8!important;border-color:rgba(255,255,255,.1)}}
+button.danger,.button.danger{{background:linear-gradient(120deg,#a91f35,#72172a)!important;color:#fff!important}}
+input[type=text],input[type=password],input[type=search],select,textarea{{background:rgba(8,9,14,.9);border-color:rgba(224,68,85,.2)}}
+input:focus,select:focus,textarea:focus{{border-color:rgba(255,104,120,.72);box-shadow:0 0 0 4px rgba(224,68,85,.1)}}
+.section-nav{{background:rgba(17,15,23,.86);border-color:rgba(224,68,85,.18)}}
+.section-nav a:hover{{background:rgba(224,68,85,.1);border-color:rgba(224,68,85,.25)}}
+.notice{{background:linear-gradient(110deg,rgba(224,68,85,.1),rgba(105,34,48,.08));border-color:rgba(224,68,85,.22)}}
+.dashboard-card:hover{{border-color:rgba(255,110,126,.5)!important}}
+@media(max-width:899px){{.module-nav{{border-color:rgba(224,68,85,.2)!important}}}}
+\n{custom_theme_css}
 /* Keep every top-level dashboard control in one horizontal row */
 nav:not(.module-nav){{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;gap:7px!important;overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;}}
 nav:not(.module-nav) .brand-mark{{flex:0 0 auto!important;width:auto!important;grid-column:auto!important;margin:0 10px 0 0!important;padding:7px 10px!important;border:0!important;white-space:nowrap!important;}}
@@ -1064,7 +1072,7 @@ nav:not(.module-nav) .nav-logout-button{{width:auto!important;white-space:nowrap
 .cursor-picker-label{{display:flex;align-items:center;gap:7px;white-space:nowrap;font-size:12px;font-weight:850;color:var(--muted);margin:0}}
 .cursor-picker-label select{{width:auto;min-width:145px;padding:7px 30px 7px 10px;font-size:12px;border-radius:9px}}
 @media(max-width:900px){{.cursor-controls{{order:5;flex-wrap:wrap}}.cursor-size-label input{{width:84px}}}}
-</style></head><body>{nav}<main id="main-content" tabindex="-1">{body}<p class="muted"><small>IronWolf · Created by KingSnowy</small></p></main>{_selection_menu_script()}
+</style></head><body>{nav}<main id="main-content" tabindex="-1">{body}<p class="muted"><small>Bloodfang · Created by KingSnowy</small></p></main>{_selection_menu_script()}
 <script>
 (function(){{
  const picker=document.getElementById('iw-cursor-choice');if(!picker)return;
@@ -1129,7 +1137,7 @@ nav:not(.module-nav) .nav-logout-button{{width:auto!important;white-space:nowrap
   }},{{passive:true}});
  }}
 }})();
-</script>{editor_scripts}</body></html>"""
+</script></body></html>"""
 
 
 
