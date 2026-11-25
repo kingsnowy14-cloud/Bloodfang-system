@@ -25,6 +25,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from wolfmirror import simulate_scenario
 from wolfchronicle import create_incident, list_incidents
 from wolfanalytics import record as wolfanalytics_record, get_stats as wolfanalytics_get_stats, build_report as wolfanalytics_build_report, build_chart as wolfanalytics_build_chart, get_timeline as wolfanalytics_get_timeline
@@ -516,6 +517,7 @@ def format_duration(seconds):
 # unknown keys and module-specific configuration are deliberately never overwritten.
 DEFAULT_GUILD_CONFIG = {
     "bot_language": "en",
+    "bot_timezone": "UTC",
     "channel_translations": {},
     "registration_channel": None,
     "ticket_category": None,
@@ -605,7 +607,7 @@ def guild_config(guild_id):
     else:
         changed = False
     changed = _merge_missing_defaults(cfg, DEFAULT_GUILD_CONFIG) or changed
-    if cfg.get("bot_language") != "en":
+    if cfg.get("bot_language") not in SUPPORTED_BOT_LANGUAGES:
         cfg["bot_language"] = "en"
         changed = True
     # The assistant is intentionally restricted to the single dashboard-selected text channel.
@@ -663,7 +665,22 @@ def server_language(guild_id):
     if guild_id is None:
         return "en"
     cfg = guild_config(guild_id)
-    return "en"
+    selected = str(cfg.get("bot_language", "en")).lower()
+    return selected if selected in {"de", "en"} else "en"
+
+def server_timezone(guild_id):
+    """Return the IANA time zone selected for this bot's server in the dashboard."""
+    if guild_id is None:
+        return ZoneInfo("UTC")
+    selected = str(guild_config(guild_id).get("bot_timezone", "UTC"))
+    try:
+        return ZoneInfo(selected)
+    except (KeyError, ValueError):
+        return ZoneInfo("UTC")
+
+def server_now(guild_id):
+    """Current time in the time zone configured for this server."""
+    return datetime.now(server_timezone(guild_id))
 
 def bot_text(guild_id, text):
     """Translate catalogued common bot messages; unknown text remains unchanged."""
