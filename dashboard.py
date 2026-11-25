@@ -4667,7 +4667,7 @@ def guild_page(guild_id):
     else:
         body += '<section class="card"><h2>🧾 Was wurde zuletzt gemacht?</h2><p class="muted">Hier erscheinen Änderungen, sobald Einstellungen über das Dashboard gespeichert werden.</p><a href="/guild/' + gid + '/audit-log">Änderungsprotokoll öffnen →</a></section>'
     if section == "overview":
-    body += '<section class="iw-section"><div class="iw-heading"><div><span class="iw-kicker">SUPPORT CENTER</span><h2>🆘 Quick Support & AI</h2><p>Open either support module directly from the server dashboard.</p></div></div>' + module_cards([("🆘", "Quick Support", "Configure automatic support pings in tickets", "/quick-support"), ("🤖", "AI Assistant", "Manage AI ticket replies and server knowledge", "/ai")], True) + '</section>'
+        body += '<section class="iw-section"><div class="iw-heading"><div><span class="iw-kicker">SUPPORT CENTER</span><h2>🆘 Quick Support & AI</h2><p>Open either support module directly from the server dashboard.</p></div></div>' + module_cards([("🆘", "Quick Support", "Configure automatic support pings in tickets", "/quick-support"), ("🤖", "AI Assistant", "Manage AI ticket replies and server knowledge", "/ai")], True) + '</section>'
     # Render the selected section immediately after the server summary. Previously
     # settings_html was built above but never appended to the response body, so
     # settings links loaded the page without displaying their target panel.
