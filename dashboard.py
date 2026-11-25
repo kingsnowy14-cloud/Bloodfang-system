@@ -4696,14 +4696,76 @@ def guild_page(guild_id):
         ("🧪", "Security Lab", "Safely simulate raid, nuke and malicious-link attacks with no real server changes", "/security-lab"),
     ]
     categories = [
-        ("👥 Community & Engagement", [("👋", "Welcome & Goodbye", "Public welcomes, goodbye messages and DMs", "/welcome"), ("🎭", "Reaction Roles", "Self-service roles through reactions", "/reaction-roles"), ("💬", "Anonymous Feedback", "Collect suggestions and feedback", "/feedback"), ("🎂", "Birthdays", "Birthday announcements and saved dates", "/birthdays"), ("👥", "Team List", "Publish your server team", "/teamlist")]),
-        ("🛡️ Security & Moderation", [("🧪", "Security Lab", "Run /security-test to simulate attacks safely without changing server content", "/security-lab"), ("🔐", "Verification", "Verification panels, channels and roles", "/verification"), ("🎮", "Gaming Verification", "Connect supported gaming accounts", "/verified-accounts"), ("🍯", "Honeypot", "Hidden trap channel and moderation response", "/honeypot"), ("🛡️", "Ping Protection", "Protect selected members from unwanted mentions", "/ping-protection"), ("⚙️", "Protection Settings", "Anti-raid and anti-nuke controls", "?section=security#settings-panel"), ("🎮", "Action Center", "Moderation and server actions", "/actions")]),
-        ("🎟️ Ticket System", [("🎟️", "Ticket Panels", "Create and manage ticket panels", "/tickets")]),
-        ("🧩 Modules", [("🆘", "Quick Support", "Automatic support-team pings in tickets", "/quick-support")]),
-        ("📨 Support & Communication", [("🔊", "Temporary Voice", "Create temporary voice rooms from a trigger channel", "/temporary-voice"), ("✉️", "Message Builder", "Create messages, embeds and buttons", "/messages")]),
-        ("🎮 Community & Fun", [("🎮", "Mini-Games", "Launch Counting, Flag Guessing, Dino Quiz, Quiz, Hangman and Word Scramble from the dashboard", "/mini-games")]),
-        ("⚙️ Server Tools & Customization", [("📡", "Channels & Logs", "Configure logs and destination channels", "?section=channels#settings-panel"), ("🔊", "Temporary Voice", "Voice triggers and room categories", "/temporary-voice"), ("📊", "Server Statistics", "Live counters in voice channels", "/server-statistics"), ("💰", "Economy", "Economy and shop features", "/economy"), ("🪪", "Member ID Cards", "Member identity cards", "/ausweis")]),
-        ("📊 Insights & Administration", [("📈", "Live Statistics", "Activity and command usage", "/stats"), ("⌘", "Commands", "Enable or disable commands", "/commands"), ("📋", "System-Logs", "Configure all server activity logs", "/server-logs"), ("⌘", "Command Log", "Configure command activity logging", "/command-log"), ("📜", "Audit Log", "Review dashboard changes", "/audit-log"), ("🩺", "System Health", "Bot connection and permissions", "/health"), ("🗄️", "Backup & Restore", "Export and restore server settings", "/backup"), ("🧩", "Module Manager", "Enable or disable bot modules", "?section=modules"), ("🛠️", "Module Template", "Create a downloadable module starter", "?section=template")]),
+        ("👥 Community & Team", [
+            ("👋", "Welcome & Goodbye", "Welcome messages, goodbye messages and DMs", "/welcome"),
+            ("🎂", "Birthdays", "Birthday announcements and saved dates", "/birthdays"),
+            ("👥", "Team Management", "Manage team members and staff workflows", "/team-management"),
+            ("📅", "Absence Management", "Track team absences and availability", "/absence-management"),
+            ("📋", "Team List", "Publish your server team", "/teamlist"),
+            ("💬", "Anonymous Feedback", "Collect suggestions and feedback", "/feedback"),
+            ("📝", "Applications", "Manage member and staff applications", "/applications"),
+            ("🎟️", "Support Tickets", "Ticket panels and support teams", "/tickets"),
+            ("🆘", "Quick Support", "Automatic support-team pings in tickets", "/quick-support"),
+        ]),
+        ("🎭 Roles & Member Access", [
+            ("🎭", "AutoRole", "Assign roles automatically to new members", "/auto-role"),
+            ("🏷️", "AutoNickname", "Manage automatic member nicknames", "/auto-nickname"),
+            ("🔁", "Reaction Roles", "Self-service roles through reactions", "/reaction-roles"),
+            ("🎖️", "Roles & Rewards", "Configure support and reward roles", "?section=roles#settings-panel"),
+            ("🔐", "Verification", "Verification panels, channels and roles", "/verification"),
+        ]),
+        ("🛡️ Security & Moderation", [
+            ("🧪", "Security Lab", "Safely simulate security scenarios without changing server content", "/security-lab"),
+            ("🛡️", "Security Center", "Centralized server protection and security controls", "/security-center"),
+            ("🧱", "Protection Settings", "Anti-raid and anti-nuke controls", "/wolfshield"),
+            ("🍯", "Honeypot", "Hidden trap channel and moderation response", "/honeypot"),
+            ("📡", "Ping Protection", "Protect selected members from unwanted mentions", "/ping-protection"),
+            ("⚔️", "Action Center", "Moderation and server actions", "/actions"),
+        ]),
+        ("⚙️ Server Setup & Customization", [
+            ("🌐", "Bot Time Zone", "Set the server bot time zone", "?section=timezone"),
+            ("📡", "Channels & Logs", "Configure logs and destination channels", "?section=channels#settings-panel"),
+            ("📋", "System Logs", "Configure server activity logs", "/server-logs"),
+            ("✉️", "Message Builder", "Create messages, embeds and interactive buttons", "/messages"),
+            ("🎭", "RP Start / Stop", "Control roleplay sessions", "/rp-control"),
+            ("🔊", "Temporary Voice", "Voice triggers and room categories", "/temporary-voice"),
+            ("🎨", "Server Branding", "Customize the server dashboard branding", "/branding"),
+            ("🤖", "Custom Bot Profile", "Configure a custom bot identity", "/custom-bot"),
+        ]),
+        ("📈 Automation & Progress", [
+            ("📣", "Automation", "Automate recurring server workflows", "/automation"),
+            ("💰", "Economy", "Economy and shop features", "/economy"),
+            ("🚀", "Server Boosts", "Configure server boost rewards", "/server-boost"),
+            ("⏱️", "Shift Management", "Track staff shifts", "/shifts"),
+        ]),
+        ("🤖 AI & Creativity", [
+            ("🧠", "AI Assistant", "Manage AI ticket replies and server knowledge", "/ai"),
+            ("🖼️", "Image Generation", "Generate images from dashboard prompts", "/image-generator"),
+        ]),
+        ("🎮 Gaming & Community Fun", [
+            ("🎮", "IronWolf Games", "Launch interactive server games", "/games"),
+            ("🧩", "Mini-Games", "Counting, quizzes, hangman and more", "/mini-games"),
+            ("🎮", "Gaming Verification", "Connect supported gaming accounts", "/verified-accounts"),
+        ]),
+        ("📊 Analytics & System", [
+            ("📊", "Server Statistics", "Live counters in voice channels", "/server-statistics"),
+            ("📈", "Live Statistics", "Activity and command usage", "/stats"),
+            ("⌘", "Commands", "Enable or disable Discord commands", "/commands"),
+            ("⌘", "Command Log", "Configure command activity logging", "/command-log"),
+            ("📜", "Audit Log", "Review dashboard changes", "/audit-log"),
+            ("🩺", "System Health", "Bot connection and permissions", "/health"),
+            ("🗄️", "Backup & Restore", "Export and restore server settings", "/backup"),
+            ("🧩", "Module Manager", "Enable or disable bot modules", "?section=modules"),
+            ("🛠️", "Module Templates", "Create a downloadable module starter", "?section=template"),
+            ("🪪", "Member ID Cards", "Member identity cards", "/ausweis"),
+        ]),
+        ("👑 Premium Modules", [
+            ("✨", "Premium Overview", "View premium features and availability", "/premium"),
+            ("🎟️", "Ticket System Pro", "Advanced ticket-system features", "/tickets"),
+            ("🛡️", "Security Pro", "Premium security command controls", "/commands"),
+            ("📨", "Invite Tracker", "Track member invitations", "?section=general#settings-panel"),
+            ("📊", "WolfAnalytics", "Advanced server analytics", "/wolfanalytics"),
+        ]),
     ]
     def module_cards(items, popular_style=False):
         css_class = "iw-popular-card" if popular_style else "iw-module-card"
@@ -4758,6 +4820,9 @@ def guild_page(guild_id):
         body += '<section class="card"><h2>🧾 Was wurde zuletzt gemacht?</h2><p class="muted">Hier erscheinen Änderungen, sobald Einstellungen über das Dashboard gespeichert werden.</p><a href="/guild/' + gid + '/audit-log">Änderungsprotokoll öffnen →</a></section>'
     if section == "overview":
         body += '<section class="iw-section"><div class="iw-heading"><div><span class="iw-kicker">SUPPORT CENTER</span><h2>🆘 Quick Support & AI</h2><p>Open either support module directly from the server dashboard.</p></div></div>' + module_cards([("🆘", "Quick Support", "Configure automatic support pings in tickets", "/quick-support"), ("🤖", "AI Assistant", "Manage AI ticket replies and server knowledge", "/ai")], True) + '</section>'
+        body += '<section class="iw-section" id="all-modules"><div class="iw-heading"><div><span class="iw-kicker">COMPLETE MODULE DIRECTORY</span><h2>🧩 All Server Modules</h2><p>Every available IronWolf module, grouped by function. Select a card to open its settings.</p></div></div>'
+        for category_title, category_items in categories:
+            body += '<section class="iw-category"><h2>' + category_title + '</h2>' + module_cards(category_items) + '</section>'
     # Render the selected section immediately after the server summary. Previously
     # settings_html was built above but never appended to the response body, so
     # settings links loaded the page without displaying their target panel.
