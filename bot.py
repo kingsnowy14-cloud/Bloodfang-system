@@ -4095,12 +4095,79 @@ async def unlockdown_command(interaction: discord.Interaction):
     await interaction.response.send_message(f"🔓 {channel.mention} wurde wieder freigegeben.")
 
 
-@bot.tree.command(name="automod-set", description="Enable or disable basic anti-spam protection")
+@bot.tree.command(name="automod-set", description="Enable or disable Discord AutoMod anti-spam protection")
 @app_commands.checks.has_permissions(manage_guild=True)
-async def automod_set(interaction: discord.Interaction, aktiviert: bool):
-    guild_config(interaction.guild_id)["automod_enabled"] = aktiviert
-    save_json(CONFIG_FILE, config)
-    await interaction.response.send_message(f"AutoMod is now **{'enabled' if aktiviert else 'disabled'}**. Active: 6 messages within 8 seconds trigger deletion and a 2-minute timeout.", ephemeral=True)
+async def automod_set(interaction: discord.Interaction, enabled: bool):
+    guild = interaction.guild
+    if guild is None:
+        await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+        return
+
+    bot_member = guild.me
+    if bot_member is None or not bot_member.guild_permissions.manage_guild:
+        await interaction.response.send_message(
+            "I need the **Manage Server** permission to create or manage Discord AutoMod rules.",
+            ephemeral=True,
+        )
+        return
+
+    rule_name = "Bloodfang AutoMod Anti-Spam"
+    try:
+        rules = await guild.fetch_automod_rules()
+        rule = next((item for item in rules if item.name == rule_name), None)
+
+        if enabled:
+            if rule is None:
+                rule = await guild.create_automod_rule(
+                    name=rule_name,
+                    event_type=discord.AutoModRuleEventType.message_send,
+                    trigger=discord.AutoModTrigger(
+                        type=discord.AutoModRuleTriggerType.spam
+                    ),
+                    actions=[
+                        discord.AutoModRuleAction(
+                            custom_message="This message was blocked by Bloodfang AutoMod."
+                        )
+                    ],
+                    enabled=True,
+                    reason="Enabled by Bloodfang /automod-set",
+                )
+                status = "created and enabled"
+            else:
+                if not rule.enabled:
+                    await rule.edit(
+                        enabled=True,
+                        reason="Enabled by Bloodfang /automod-set",
+                    )
+                status = "enabled"
+        else:
+            if rule is not None and rule.enabled:
+                await rule.edit(
+                    enabled=False,
+                    reason="Disabled by Bloodfang /automod-set",
+                )
+            status = "disabled" if rule is not None else "not configured"
+
+        guild_config(interaction.guild_id)["automod_enabled"] = enabled
+        save_json(CONFIG_FILE, config)
+        await interaction.response.send_message(
+            f"Discord AutoMod is **{status}**. "
+            + ("Discord will block messages it detects as spam. " if enabled else "")
+            + "Bloodfang's additional local anti-spam protection is "
+            + ("also enabled." if enabled else "disabled."),
+            ephemeral=True,
+        )
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "Discord denied access. Please grant me **Manage Server** and **Moderate Members** "
+            "(only needed for AutoMod actions that apply timeouts), then try again.",
+            ephemeral=True,
+        )
+    except discord.HTTPException as exc:
+        await interaction.response.send_message(
+            f"Discord could not update the AutoMod rule ({exc}). Check the bot permissions and try again.",
+            ephemeral=True,
+        )
 
 
 @bot.tree.command(name="tempvoice-setup", description="Set up the join channel for temporary voice rooms")
