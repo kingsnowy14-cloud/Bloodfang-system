@@ -1388,20 +1388,20 @@ def _ticket_auto_emoji(label: str) -> str:
     """Choose a useful Unicode emoji when a ticket option has no custom choice."""
     text = str(label or "").casefold()
     rules = (
-        (("billing", "payment", "invoice", "rechnung", "zahlung", "shop", "kauf"), "💳"),
-        (("bug", "fehler", "problem", "technical", "technik", "crash"), "🛠️"),
+        (("billing", "payment", "invoice", "rechnung", "zahlung", "shop", "kauf"), "💰"),
+        (("bug", "fehler", "problem", "technical", "technik", "crash"), "⚙️"),
         (("report", "meldung", "melden", "beschwerde", "complaint"), "🚨"),
         (("appeal", "ban", "entbann", "sperre", "bann"), "⚖️"),
-        (("application", "bewerbung", "whitelist", "antrag"), "📝"),
+        (("application", "bewerbung", "whitelist", "antrag"), "📜"),
         (("partner", "partnership", "kooperation"), "🤝"),
         (("account", "konto", "login", "passwort"), "👤"),
         (("staff", "team", "moderation", "moderator"), "🛡️"),
-        (("question", "frage", "help", "hilfe", "support"), "❓"),
+        (("question", "frage", "help", "hilfe", "support"), "💬"),
     )
     for keywords, emoji in rules:
         if any(keyword in text for keyword in keywords):
             return emoji
-    return "🎫"
+    return "🐾"
 
 
 class TicketPanelSelect(discord.ui.Select):
@@ -1448,7 +1448,7 @@ class TicketPanelView(discord.ui.View):
         safe_labels = [str(label).strip()[:80] for label in labels if str(label).strip()][:10]
         emojis = emojis if isinstance(emojis, list) else []
         if display_mode == "one_button":
-            button = discord.ui.Button(label="Open Ticket", style=discord.ButtonStyle.primary, emoji="🎫", custom_id=f"ticket:one_open:{panel_key}", row=0)
+            button = discord.ui.Button(label="Open Ticket", style=discord.ButtonStyle.primary, emoji="🐺", custom_id=f"ticket:one_open:{panel_key}", row=0)
             async def open_menu(interaction: discord.Interaction):
                 current_cfg = guild_config(interaction.guild_id) if interaction.guild_id else {}
                 current_panel = current_cfg.get("ticket_panels", {}).get(self.panel_key, {})
@@ -1513,13 +1513,15 @@ def ticket_status_embed(meta, channel_id=None):
     owner_id = meta.get("owner_id")
     claimed_by = meta.get("claimed_by")
     embed = discord.Embed(
-        title=f"🎫 Ticket — {str(meta.get('label') or 'Support')[:220]}",
-        description="Use the buttons below to manage this ticket. The support team will assist you as soon as possible.",
-        color=discord.Color.blurple(),
+        title=f"🐺 BLOODFANG • {str(meta.get('label') or 'Support')[:190]}",
+        description="Welcome to Bloodfang Support. Use the controls below to manage this ticket.",
+        color=discord.Color(0xD9364F),
     )
+    embed.add_field(name="Ticket ID", value=f"`{ticket_id}`", inline=True)
     embed.add_field(name="Category", value=str(meta.get("label") or "Ticket")[:100], inline=True)
     embed.add_field(name="Opened by", value=f"<@{owner_id}>" if owner_id else "Unknown", inline=True)
     embed.add_field(name="Claimed by", value=f"<@{claimed_by}>" if claimed_by else "Nobody", inline=True)
+    embed.set_footer(text="BLOODFANG SUPPORT • Ticket Center")
     return embed
 
 
@@ -1588,7 +1590,7 @@ class TicketControlView(discord.ui.View):
         claim_button = discord.ui.Button(
             label="Claim",
             style=discord.ButtonStyle.success,
-            emoji="🙋",
+            emoji="🐺",
             custom_id="ticket:claim",
             row=0,
         )
@@ -1598,7 +1600,7 @@ class TicketControlView(discord.ui.View):
         release_button = discord.ui.Button(
             label="Release",
             style=discord.ButtonStyle.secondary,
-            emoji="🔓",
+            emoji="↩️",
             custom_id="ticket:release",
             row=0,
         )
