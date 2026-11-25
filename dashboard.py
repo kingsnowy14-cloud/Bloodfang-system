@@ -835,7 +835,7 @@ def _page(title, body):
         except Exception:
             custom_theme_css = ""
     nav = (
-        '<a class="skip-link" href="#main-content">Skip to content</a><nav class="top-nav" aria-label="Main navigation"><a href="/" class="brand-mark">🩸 BLOODFANG <span class="muted">/ CONTROL CENTER</span></a>'
+        '<a class="skip-link" href="#main-content">Skip to content</a><nav class="top-nav" aria-label="Main navigation"><a href="/" class="brand-mark">🐺 IRONWOLF <span class="muted">/ CONTROL CENTER</span></a>'
         + ('<a class="nav-server" href="/">🎮 Server wechseln</a>' if logged_in else '')
         + ('<a class="nav-server" href="/guild/' + match.group(1) + '?section=general">⚙️ Einstellungen</a>' if logged_in and match else '')
         + ('<a class="nav-server" href="/guild/' + match.group(1) + '/security-center">🛡️ Security Center</a>' if logged_in and match else '')
@@ -849,7 +849,7 @@ def _page(title, body):
         nav = nav.replace('</nav>', '<a class="nav-server" href="/admin/website-statistics">📊 Website stats</a></nav>')
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{html.escape(title)} · Bloodfang</title>
+<title>{html.escape(title)} · IronWolf</title>
 <style>
 :root{{--bg:#080b12;--panel:#101725;--panel2:#151f30;--text:#f2f5fb;--muted:#98a7bd;--accent:#72c7ff;--accent2:#b7e5ff;--border:rgba(154,177,211,.17);--shadow:0 22px 70px rgba(0,0,0,.34);--glow:rgba(91,141,255,.14);}}
 *{{box-sizing:border-box}}html{{scroll-behavior:smooth;scroll-padding-top:100px}}
@@ -1040,7 +1040,7 @@ table{{border:1px solid var(--border);border-radius:12px;overflow:hidden}}
 tbody tr:nth-child(even){{background:rgba(255,255,255,.018)}}
 td,th{{padding:13px 12px}}
 @media(prefers-reduced-motion:reduce){{.card,button,.button{{transition:none}}.card:hover,button:hover,.button:hover{{transform:none}}}}
-/* Bloodfang visual system: consistent navigation, panels, forms and responsive layout */
+/* IronWolf visual system: consistent navigation, panels, forms and responsive layout */
 :root{{--bg:#090a10;--panel:#12141d;--panel2:#1a1d28;--text:#f4f5f8;--muted:#a0a5b2;--accent:#e04455;--accent2:#ff8793;--border:rgba(224,68,85,.2);--shadow:0 20px 55px rgba(0,0,0,.42);--glow:rgba(224,68,85,.12);}}
 body{{background:radial-gradient(ellipse at 8% 0%,rgba(224,68,85,.16),transparent 34%),radial-gradient(ellipse at 92% 8%,rgba(132,35,53,.12),transparent 30%),linear-gradient(180deg,#0c0b12 0%,var(--bg) 58%,#07070b 100%)}}
 .top-nav{{border-bottom-color:rgba(224,68,85,.22)}}
@@ -1063,7 +1063,7 @@ input:focus,select:focus,textarea:focus{{border-color:rgba(255,104,120,.72);box-
 .dashboard-card:hover{{border-color:rgba(255,110,126,.5)!important}}
 @media(max-width:899px){{.module-nav{{border-color:rgba(224,68,85,.2)!important}}}}
 \n{custom_theme_css}
-/* BLOODFANG FUTURE BLUE — fixed blue identity with a clean sci-fi interface */
+/* IRONWOLF FUTURE BLUE — fixed blue identity with a clean sci-fi interface */
 :root{{--bg:#050b18!important;--panel:#0b1730!important;--panel2:#102344!important;--text:#eaf5ff!important;--muted:#8faacb!important;--accent:#39a9ff!important;--accent2:#8bd5ff!important;--border:rgba(65,164,255,.22)!important;--glow:rgba(28,137,255,.2)!important;--shadow:0 20px 60px rgba(0,8,24,.48)!important;}}
 body{{background:radial-gradient(ellipse at 12% -5%,rgba(0,132,255,.24),transparent 36%),radial-gradient(ellipse at 92% 10%,rgba(30,95,255,.17),transparent 30%),linear-gradient(180deg,#07152c 0%,#050b18 55%,#030711 100%)!important;}}
 body::before{{background:radial-gradient(circle at 18% 25%,rgba(0,153,255,.10),transparent 27%),radial-gradient(circle at 82% 68%,rgba(48,102,255,.09),transparent 24%)!important;}}
@@ -1109,7 +1109,7 @@ nav:not(.module-nav) .nav-logout-button{{width:auto!important;white-space:nowrap
 .cursor-picker-label select{{width:auto;min-width:145px;padding:7px 30px 7px 10px;font-size:12px;border-radius:9px}}
 @media(max-width:900px){{.cursor-controls{{order:5;flex-wrap:wrap}}.cursor-size-label input{{width:84px}}}}
 
-/* Bloodfang dashboard: consistent left rail, calmer content hierarchy */
+/* IronWolf dashboard: consistent left rail, calmer content hierarchy */
 :root{{--accent:#39a9ff!important;--accent2:#8bd5ff!important;--border:rgba(65,164,255,.22)!important;}}
 .module-nav{{position:fixed!important;z-index:20!important;top:64px!important;left:0!important;bottom:0!important;width:246px!important;height:auto!important;max-height:none!important;overflow-y:auto!important;overflow-x:hidden!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;flex-wrap:nowrap!important;gap:5px!important;margin:0!important;padding:18px 12px 28px!important;border:0!important;border-right:1px solid rgba(65,164,255,.22)!important;border-radius:0!important;background:rgba(5,15,32,.98)!important;box-shadow:12px 0 35px rgba(0,0,0,.18)!important;}}
 .module-nav-title{{padding:8px 10px 12px!important;color:#8bd5ff!important;font-size:11px!important;font-weight:950!important;letter-spacing:1.5px!important;}}
@@ -1133,7 +1133,7 @@ form input:not([type=checkbox]):not([type=radio]):not([type=hidden]),form select
 form .check{{display:flex!important;align-items:center!important;gap:10px!important;padding:10px 12px!important;margin:8px 0!important;border:1px solid rgba(65,164,255,.15)!important;border-radius:10px!important;background:rgba(0,95,180,.06)!important;}}
 form .check label{{margin:0!important;}}
 .notice{{border-radius:11px!important;}}
-</style></head><body>{nav}<main id="main-content" tabindex="-1">{body}<p class="muted"><small>Bloodfang · Created by KingSnowy</small></p></main>{_selection_menu_script()}
+</style></head><body>{nav}<main id="main-content" tabindex="-1">{body}<p class="muted"><small>IronWolf · Created by KingSnowy</small></p></main>{_selection_menu_script()}
 <script>
 (function(){{
  const picker=document.getElementById('iw-cursor-choice');if(!picker)return;
@@ -2206,12 +2206,12 @@ def index():
         if not bot_guild:
             invite_query = urlencode({"client_id": bot_client_id, "scope": "bot applications.commands", "permissions": "0", "guild_id": gid, "disable_guild_select": "true"})
             invite_url = "https://discord.com/oauth2/authorize?" + invite_query
-            invite_cards.append('<div class="card server-card"><span class="pill">BOT FEHLT</span><h2 style="margin-top:14px">' + html.escape(item.get("name", "Server")) + '</h2><p class="muted">Lade Bloodfang zuerst auf diesen Server ein. Danach kannst du die Module öffnen.</p><a class="button" href="' + html.escape(invite_url, quote=True) + '" target="_blank" rel="noopener noreferrer">🤖 Bot jetzt einladen</a></div>')
+            invite_cards.append('<div class="card server-card"><span class="pill">BOT FEHLT</span><h2 style="margin-top:14px">' + html.escape(item.get("name", "Server")) + '</h2><p class="muted">Lade IronWolf zuerst auf diesen Server ein. Danach kannst du die Module öffnen.</p><a class="button" href="' + html.escape(invite_url, quote=True) + '" target="_blank" rel="noopener noreferrer">🤖 Bot jetzt einladen</a></div>')
             continue
         cards.append(f'<a class="card server-card" style="display:block;text-decoration:none" href="/guild/{gid}"><span class="pill">● BOT VERBUNDEN</span><h2 style="margin-top:14px">{html.escape(item.get("name","Server"))}</h2><p class="muted">Einstellungen, Befehle und Module verwalten</p><strong>Server öffnen ↗</strong></a>')
     if not cards:
         invite_content = ''.join(invite_cards) or '<div class="notice">Du hast keinen Server mit Administrator- oder „Server verwalten“-Rechten gefunden. Bitte wähle beim Einladen einen Server aus, auf dem du diese Rechte besitzt.</div>'
-        body = '<section class="card hero"><span class="pill">ERSTER SCHRITT</span><h1 style="margin-top:14px">Bloodfang zuerst einladen</h1><p>Bevor du das Dashboard nutzen kannst, muss der Bot auf mindestens einem Server sein, den du verwalten darfst.</p><div class="notice">1. Wähle unten deinen Server. 2. Lade Bloodfang ein. 3. Kehre hierher zurück und öffne anschließend das Dashboard.</div></section><h2>Server auswählen</h2><div class="grid">' + invite_content + '</div>'
+        body = '<section class="card hero"><span class="pill">ERSTER SCHRITT</span><h1 style="margin-top:14px">IronWolf zuerst einladen</h1><p>Bevor du das Dashboard nutzen kannst, muss der Bot auf mindestens einem Server sein, den du verwalten darfst.</p><div class="notice">1. Wähle unten deinen Server. 2. Lade IronWolf ein. 3. Kehre hierher zurück und öffne anschließend das Dashboard.</div></section><h2>Server auswählen</h2><div class="grid">' + invite_content + '</div>'
         return _render("Bot einladen", body)
     body = '<section class="card hero"><span class="pill">WELCOME TO IRONWOLF</span><h1 style="margin-top:14px">Your Control Center 🐺</h1><p>Hier steuerst du deine verbundenen Discord Servers bequem über eine Oberfläche.</p><div class="notice">✨ <strong>Premium costs €5 per year.</strong> <a href="https://discord.gg/KDKs5WPgaC" target="_blank" rel="noopener noreferrer">Nachrichten auf Discord ↗</a></div><div class="grid"><div><h2>So funktioniert es</h2><ol><li>Wähle unten den Server aus, den du verwalten möchtest.</li><li>Unter <strong>Einstellungen</strong> legst du Kanäle, Rollen und Serveroptionen fest.</li><li>Unter <strong>Module</strong> aktivierst oder deaktivierst du Funktionen für diesen Server.</li><li>Öffne <strong>Befehle</strong>, um Prefix- und Slash-Befehle gruppiert zu verwalten.</li><li>Nutze die <strong>Aktionszentrale</strong> für unterstützte Moderationsaktionen.</li></ol></div><div><h2>Wichtige Hinweise</h2><ul><li>Du brauchst Administrator- oder Server-verwalten-Rechte.</li><li>Der Bot muss auf dem Server online sein.</li><li>Änderungen an Modulen und Befehlen gelten nur für den ausgewählten Server.</li><li>Gefährliche Aktionen benötigen zusätzliche Bestätigung und passende Rechte.</li></ul></div></div></section><h2>Deine Server</h2><p class="muted">Wähle einen Server, um seine Einstellungen zu öffnen.</p>'
     body += _public_status_panel()
