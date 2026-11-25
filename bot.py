@@ -2177,27 +2177,28 @@ class VerifyView(discord.ui.View):
         button.callback = self.verify_button
         self.add_item(button)
 
-    async def website_verify_button(self, interaction: discord.Interaction):
+    async def website_verify_button(self, interaction: discord.Interaction, cfg=None):
         if not interaction.guild or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("This can only be used in a server.", ephemeral=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message("This can only be used in a server.", ephemeral=True)
             return
-        cfg = guild_config(interaction.guild.id)
-        if cfg.get("verify_mode") != "website":
-            await interaction.response.send_message("Website verification is not enabled on this server.", ephemeral=True)
-            return
+        # Reuse the same config snapshot that routed this click. A second read
+        # can disagree during a dashboard save/reload and reject a valid click.
+        if cfg is None:
+            cfg = guild_config(interaction.guild.id)
         try:
             from dashboard import _create_website_verify_url
             link = _create_website_verify_url(interaction.guild.id, interaction.user.id)
             await interaction.response.send_message(
-                "🌐 **Website Verify**\nOpen this one-time link and sign in with your Discord account. "
-                "The link expires after 10 minutes.\n" + link,
+                "🌐 **Website Verify**\\nOpen this one-time link and sign in with your Discord account. "
+                "The link expires after 10 minutes.\\n" + link,
                 ephemeral=True,
             )
         except Exception as exc:
-            print(f"[WEBSITE VERIFY] Link creation failed: {type(exc).__name__}: {exc}", flush=True)
+            print(f"[WEBSITE VERIFY] Link creation failed for guild_id={interaction.guild.id} user_id={interaction.user.id}: {type(exc).__name__}: {exc}", flush=True)
             if not interaction.response.is_done():
                 await interaction.response.send_message(
-                    "Website verification is not configured yet. Please contact a server administrator.",
+                    "Website verification is temporarily unavailable. Please check the website OAuth configuration or contact a server administrator.",
                     ephemeral=True,
                 )
 
@@ -2214,7 +2215,7 @@ class VerifyView(discord.ui.View):
             )
             return
         if cfg.get("verify_mode", "click") == "website":
-            await self.website_verify_button(interaction)
+            await self.website_verify_button(interaction, cfg)
             return
         if cfg.get("verify_mode", "click") == "code":
             await send_captcha_challenge(interaction)
