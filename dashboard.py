@@ -1330,7 +1330,9 @@ def _module_navigation():
     if len(parts) not in (2, 3) or not parts[1].isdigit():
         return ""
     gid = parts[1]
-    active = parts[2] if len(parts) == 3 else request.args.get("section", "starter")
+    active = parts[2] if len(parts) == 3 else request.args.get("section", "overview")
+    if active == "overview":
+        active = "starter"
     modules = (
         ("__ai_category__", "🏠 OVERVIEW", ""),
         ("starter", "🏠 Dashboard Overview", "?section=overview"),
