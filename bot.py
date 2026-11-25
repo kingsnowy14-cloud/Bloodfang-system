@@ -1530,15 +1530,15 @@ def ticket_status_embed(meta, channel_id=None):
     owner_id = meta.get("owner_id")
     claimed_by = meta.get("claimed_by")
     embed = discord.Embed(
-        title=f"🐺 BLOODFANG • {str(meta.get('label') or 'Support')[:190]}",
-        description="Welcome to Bloodfang Support. Use the controls below to manage this ticket.",
+        title=f"🐺 IRONWOLF • {str(meta.get('label') or 'Support')[:190]}",
+        description="Welcome to IronWolf Support. Use the controls below to manage this ticket.",
         color=discord.Color(0xD9364F),
     )
     embed.add_field(name="Ticket ID", value=f"`{ticket_id}`", inline=True)
     embed.add_field(name="Category", value=str(meta.get("label") or "Ticket")[:100], inline=True)
     embed.add_field(name="Opened by", value=f"<@{owner_id}>" if owner_id else "Unknown", inline=True)
     embed.add_field(name="Claimed by", value=f"<@{claimed_by}>" if claimed_by else "Nobody", inline=True)
-    embed.set_footer(text="BLOODFANG SUPPORT • Ticket Center")
+    embed.set_footer(text="IRONWOLF SUPPORT • Ticket Center")
     return embed
 
 
