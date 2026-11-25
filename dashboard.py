@@ -8392,7 +8392,7 @@ def guild_wolfshield(guild_id):
         '<li>Während der Schutzphase protokolliert der Bot Beitritte und führt – je nach gewählter Aktion – keine Moderation oder einen Timeout aus.</li>'
         '</ol><p><a href="/guild/' + gid + '/wolfpulse">WolfPulse · Berechtigungen prüfen ↗</a> · <a href="/guild/' + gid + '">Zur Server-Konfiguration ↗</a></p></section>'
     )
-    return _page("WolfShield · Anti-Raid", body)
+    return _page("WolfShield · Security & Link Protection", body)
 
 
 
