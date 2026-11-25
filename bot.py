@@ -68,6 +68,7 @@ _birthday_worker_task = None
 _historical_main_server_invite_task = None
 _mainserver_announcement_task = None
 _github_backup_task = None
+_ironwolf_promo_task = None
 
 
 async def dashboard_command_enabled(guild_id, key):
@@ -10909,6 +10910,93 @@ async def englisch_command_error(ctx, error):
             f"❌ !englisch ist fehlgeschlagen: {type(original).__name__}: {str(original)[:300]}",
             mention_author=False,
         )
+
+
+# ----------------------- IRONWOLF PROMOTION -----------------------
+_IRONWOLF_PROMO_CHANNEL_ID = 1566235044631027874
+_IRONWOLF_PROMO_INTERVAL_SECONDS = 2 * 60 * 60
+_IRONWOLF_PROMO_MESSAGE = """# 🐺 WELCOME TO IRONWOLF – YOUR VISION, OUR CREATION! 🚀
+
+💻 **Looking for a professional Discord server, a custom bot, or a reliable recording system? We've got you covered!**
+
+At **IRONWOLF**, we turn your ideas into reality. Whether you're starting a new Discord community or upgrading your existing one, our team delivers solutions tailored to your needs.
+
+## 🛠️ WHAT WE OFFER
+
+🏗️ Custom Discord server creation
+🎨 Professional server design and setup
+🤖 Custom Discord bots built around your ideas
+⚙️ Individual bot features and commands
+🔒 Advanced roles, permissions & security
+🎟️ Ticket systems and support automation
+🛡️ Moderation and server management
+📹 Our own **KINGRECORDING** system
+💡 Your ideas – our development!
+
+## 🤖 MEET OUR BOTS
+
+🐺 **IRONWOLF** – Your Discord server companion
+[➜ Invite IRONWOLF to your server](https://discord.com/oauth2/authorize?client_id=1558547445187743804)
+
+📹 **KINGRECORDING** – Our dedicated recording bot
+[➜ Invite KINGRECORDING to your server](https://discord.com/oauth2/authorize?client_id=1569059418711003267)
+
+## 📹 OUR RECORDING SYSTEM
+
+Want to check out our own recording platform?
+
+[➜ Visit KINGRECORDING](https://kingrecording.up.railway.app)
+
+## 🌐 JOIN OUR COMMUNITY
+
+Have questions, need support, or want to request a custom project?
+
+[➜ Join the IRONWOLF Discord Community](https://discord.gg/KDKs5WPgaC)
+
+🐺 **YOUR SERVER. YOUR IDEAS. OUR TECHNOLOGY.**
+
+🔥 **IRONWOLF × KINGRECORDING – WE BUILD, YOU DECIDE!** 🚀"""
+
+
+async def ironwolf_promo_loop():
+    """Post the configured IRONWOLF promotion every two hours in one channel."""
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        await asyncio.sleep(_IRONWOLF_PROMO_INTERVAL_SECONDS)
+        try:
+            channel = await bot.fetch_channel(_IRONWOLF_PROMO_CHANNEL_ID)
+            if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+                print(
+                    f"[IRONWOLF PROMO] Channel {_IRONWOLF_PROMO_CHANNEL_ID} is not a text channel.",
+                    flush=True,
+                )
+                continue
+            await channel.send(
+                _IRONWOLF_PROMO_MESSAGE,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+            print(
+                f"[IRONWOLF PROMO] Posted scheduled promotion in channel {_IRONWOLF_PROMO_CHANNEL_ID}.",
+                flush=True,
+            )
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException) as exc:
+            print(
+                f"[IRONWOLF PROMO] Could not post in channel {_IRONWOLF_PROMO_CHANNEL_ID}: "
+                f"{type(exc).__name__}: {exc}",
+                flush=True,
+            )
+        except Exception as exc:
+            print(
+                f"[IRONWOLF PROMO] Unexpected error: {type(exc).__name__}: {exc}",
+                flush=True,
+            )
+
+
+@bot.listen("on_ready")
+async def ironwolf_promo_on_ready():
+    global _ironwolf_promo_task
+    if _ironwolf_promo_task is None or _ironwolf_promo_task.done():
+        _ironwolf_promo_task = asyncio.create_task(ironwolf_promo_loop())
 
 
 # ----------------------- IRONWOLF SERVER DIRECTORY -----------------------
