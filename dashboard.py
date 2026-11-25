@@ -8235,6 +8235,7 @@ def guild_wolfpulse(guild_id):
 
 
 @app.route("/guild/<guild_id>/wolfshield", methods=["GET", "POST"])
+@app.route("/guild/<guild_id>/link-protection", methods=["GET", "POST"])
 def guild_wolfshield(guild_id):
     """Configure the server's anti-raid detection and response safely."""
     guild, response = _authorized_guild(guild_id)
@@ -8246,9 +8247,42 @@ def guild_wolfshield(guild_id):
     if request.method == "POST":
         if not _csrf_ok():
             abort(400, "CSRF-Prüfung fehlgeschlagen. Bitte Seite neu laden.")
+        actor = guild.get_member(int(session.get("user_id", "0")))
+        if actor is None or not (actor.guild_permissions.administrator or actor.guild_permissions.manage_guild):
+            abort(403, "Du brauchst Administrator- oder Server-verwalten-Rechte.")
         import copy
         original_cfg = copy.deepcopy(cfg)
         try:
+            cfg["link_protection_enabled"] = request.form.get("link_protection_enabled") == "on"
+            cfg["invite_link_protection_enabled"] = request.form.get("invite_link_protection_enabled") == "on"
+            cfg["webhook_link_protection_enabled"] = request.form.get("webhook_link_protection_enabled") == "on"
+            cfg["scam_link_protection_enabled"] = request.form.get("scam_link_protection_enabled") == "on"
+
+            selected_role_ids = request.form.getlist("allowed_invite_role_ids")
+            selected_channel_ids = request.form.getlist("allowed_invite_channel_ids")
+            valid_roles = {str(role.id) for role in guild.roles if not role.is_default() and not role.managed}
+            valid_channels = {str(channel.id) for channel in guild.text_channels}
+            if any(value not in valid_roles for value in selected_role_ids):
+                abort(400, "Ungültige Rolle in der Invite-Ausnahmeliste.")
+            if any(value not in valid_channels for value in selected_channel_ids):
+                abort(400, "Ungültiger Kanal in der Invite-Ausnahmeliste.")
+            cfg["allowed_invite_role_ids"] = list(dict.fromkeys(selected_role_ids))[:100]
+            cfg["allowed_invite_channel_ids"] = list(dict.fromkeys(selected_channel_ids))[:100]
+
+            raw_domains = request.form.get("link_blocked_domains", "")
+            domains = []
+            for raw_domain in re.split(r"[\\s,;]+", raw_domains.casefold()):
+                domain = raw_domain.strip().strip(".")
+                if not domain:
+                    continue
+                if len(domain) > 253 or not re.fullmatch(r"[a-z0-9.-]+", domain) or ".." in domain:
+                    abort(400, "Ungültige Domain in der Scam-Blockliste.")
+                if domain not in domains:
+                    domains.append(domain)
+            if len(domains) > 100:
+                abort(400, "Es können maximal 100 gesperrte Domains gespeichert werden.")
+            cfg["link_blocked_domains"] = domains
+
             cfg["anti_raid_enabled"] = request.form.get("anti_raid_enabled") == "on"
             numeric = {
                 "raid_threshold": ("raid_threshold", 3, 30, 8),
@@ -8275,7 +8309,10 @@ def guild_wolfshield(guild_id):
                 f"enabled={cfg['anti_raid_enabled']}; threshold={cfg['raid_threshold']}; "
                 f"window={cfg['raid_window_seconds']}s; lockdown={cfg['raid_lockdown_seconds']}s; "
                 f"action={action}; timeout={cfg['raid_timeout_minutes']}m; "
-                f"min_account_age={cfg['raid_min_account_age_days']}d",
+                f"min_account_age={cfg['raid_min_account_age_days']}d; "
+                f"link_protection={cfg['link_protection_enabled']}; invite={cfg['invite_link_protection_enabled']}; "
+                f"webhook={cfg['webhook_link_protection_enabled']}; scam={cfg['scam_link_protection_enabled']}; "
+                f"invite_roles={len(cfg['allowed_invite_role_ids'])}; invite_channels={len(cfg['allowed_invite_channel_ids'])}",
             )
         except Exception:
             cfg.clear()
@@ -8291,12 +8328,53 @@ def guild_wolfshield(guild_id):
     )
     saved_notice = '<div class="card"><strong>✅ Einstellungen gespeichert.</strong> Bot und Website verwenden dieselbe Serverkonfiguration.</div>' if request.args.get("saved") == "1" else ""
     checked = " checked" if enabled else ""
+    link_enabled = bool(cfg.get("link_protection_enabled", False))
+    invite_enabled = bool(cfg.get("invite_link_protection_enabled", False))
+    webhook_enabled = bool(cfg.get("webhook_link_protection_enabled", False))
+    scam_enabled = bool(cfg.get("scam_link_protection_enabled", False))
+    link_checked = " checked" if link_enabled else ""
+    invite_checked = " checked" if invite_enabled else ""
+    webhook_checked = " checked" if webhook_enabled else ""
+    scam_checked = " checked" if scam_enabled else ""
+    selected_invite_roles = {str(value) for value in cfg.get("allowed_invite_role_ids", [])}
+    selected_invite_channels = {str(value) for value in cfg.get("allowed_invite_channel_ids", [])}
+    role_options = "".join(
+        '<option value="' + str(role.id) + '"' + (' selected' if str(role.id) in selected_invite_roles else '') + '>'
+        + html.escape(role.name) + '</option>'
+        for role in sorted(guild.roles, key=lambda item: item.position, reverse=True)
+        if not role.is_default() and not role.managed
+    )
+    channel_options = "".join(
+        '<option value="' + str(channel.id) + '"' + (' selected' if str(channel.id) in selected_invite_channels else '') + '>'
+        + '#' + html.escape(channel.name) + '</option>'
+        for channel in sorted(guild.text_channels, key=lambda item: (item.category.position if item.category else -1, item.position))
+    )
+    blocked_domains_value = html.escape("\\n".join(str(value) for value in cfg.get("link_blocked_domains", [])))
     body = (
-        '<section class="card"><h1>🛡️ WolfShield · Anti-Raid</h1>'
-        '<p class="muted">Konfiguriere die Beitritts-Erkennung und die Reaktion des verbundenen Discord-Bots. '
+        '<section class="card"><h1>🛡️ WolfShield · Security & Link Protection</h1>'
+        '<p class="muted">Konfiguriere Anti-Raid sowie den Schutz vor fremden Discord-Invites, verdächtigen Links und Link-Spam über Webhooks. '
         'Änderungen werden serverbezogen gespeichert und im Dashboard-Audit protokolliert.</p>'
         + saved_notice +
         '<form method="post">' + _csrf_field() +
+        '<h2>🔗 Invite-, Webhook- & Scam-Link-Schutz</h2>'
+        '<label class="setting-row"><span><strong>Link-Schutz aktivieren</strong><small>Schaltet die darunter ausgewählten Link-Prüfungen ein.</small></span>'
+        '<input type="checkbox" name="link_protection_enabled" value="on"' + link_checked + '></label>'
+        '<label class="setting-row"><span><strong>Discord-Invite-Schutz</strong><small>Entfernt discord.gg- und discord.com/invite-Links, außer bei erlaubten Rollen oder in erlaubten Kanälen.</small></span>'
+        '<input type="checkbox" name="invite_link_protection_enabled" value="on"' + invite_checked + '></label>'
+        '<label class="setting-row"><span><strong>Webhook-Link-Schutz</strong><small>Entfernt Link-Nachrichten, die von Webhooks gesendet werden. Normale Webhook-Nachrichten ohne Links bleiben erlaubt.</small></span>'
+        '<input type="checkbox" name="webhook_link_protection_enabled" value="on"' + webhook_checked + '></label>'
+        '<label class="setting-row"><span><strong>Scam-Link-Schutz</strong><small>Blockiert gesperrte Domains und bekannte Discord-/Steam-Imitationsmuster.</small></span>'
+        '<input type="checkbox" name="scam_link_protection_enabled" value="on"' + scam_checked + '></label>'
+        '<div class="grid">'
+        '<label class="card">Rollen, die Discord-Invites senden dürfen <small>Mehrfachauswahl · diese Rollen umgehen nur den Invite-Filter, nicht den Scam- oder Webhook-Schutz.</small>'
+        '<select name="allowed_invite_role_ids" multiple size="8">' + role_options + '</select></label>'
+        '<label class="card">Kanäle, in denen Discord-Invites erlaubt sind <small>Mehrfachauswahl · nur diese Kanäle umgehen den Invite-Filter.</small>'
+        '<select name="allowed_invite_channel_ids" multiple size="8">' + channel_options + '</select></label>'
+        '</div>'
+        '<label class="card">Eigene Scam-Blockliste <small>Eine Domain pro Zeile, z. B. fake-login.example. Maximal 100 Domains.</small>'
+        '<textarea name="link_blocked_domains" rows="5" maxlength="3000">' + blocked_domains_value + '</textarea></label>'
+        '<p class="muted">Hinweis: Die Ausnahmelisten gelten ausschließlich für Discord-Invite-Links. Scam-Erkennungen und verdächtige Links aus Webhooks werden weiterhin blockiert. Für die automatische Löschung benötigt IronWolf „Nachrichten verwalten“ im jeweiligen Kanal.</p>'
+        '<hr><h2>🛡️ Anti-Raid</h2>'
         '<label class="setting-row"><span><strong>Anti-Raid aktivieren</strong><small>Erkennt ungewöhnlich viele neue Mitglieder innerhalb eines Zeitfensters.</small></span>'
         '<input type="checkbox" name="anti_raid_enabled" value="on"' + checked + '></label>'
         '<div class="grid">'
