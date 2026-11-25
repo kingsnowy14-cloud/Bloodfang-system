@@ -5211,13 +5211,36 @@ async def inspect_link_protection(message: discord.Message, cfg: dict) -> bool:
         deleted = False
     author = getattr(message, "author", None)
     author_label = f"{author} (ID {author.id})" if author else "Webhook"
+    invite_pattern = re.compile(
+        r"(?:https?://)?(?:www\\.)?(?:discord\\.gg|discord(?:app)?\\.com/invite)/[a-z0-9-]+",
+        re.IGNORECASE,
+    )
+    invite_links = list(dict.fromkeys(invite_pattern.findall(message.content or "")))
+    if not invite_links:
+        for embed in getattr(message, "embeds", []):
+            embed_text = " ".join(
+                [getattr(embed, "url", "") or "", getattr(embed, "description", "") or ""]
+                + [f"{field.name} {field.value}" for field in getattr(embed, "fields", [])]
+            )
+            invite_links.extend(invite_pattern.findall(embed_text))
+        invite_links = list(dict.fromkeys(invite_links))
+    invite_log_line = (
+        "**Discord-Invite:** " + ", ".join(invite_links[:5]) + "\\n"
+        if invite_links else ""
+    )
+    user_log_line = (
+        f"**User:** {author.mention} · {discord.utils.escape_markdown(author_label)}\\n"
+        if isinstance(author, discord.Member)
+        else f"**Absender:** {discord.utils.escape_markdown(author_label)}\\n"
+    )
     await security_log(
         message.guild,
         "🚨 Link-Schutz ausgelöst",
-        f"**Absender:** {discord.utils.escape_markdown(author_label)}\n"
-        f"**Kanal:** {message.channel.mention}\n"
-        f"**Erkennung:** {', '.join(findings)}\n"
-        f"**Nachricht gelöscht:** {'Ja' if deleted else 'Nein – Bot-Rechte prüfen'}",
+        user_log_line
+        + f"**Kanal:** {message.channel.mention}\\n"
+        + invite_log_line
+        + f"**Erkennung:** {', '.join(findings)}\\n"
+        + f"**Nachricht gelöscht:** {'Ja' if deleted else 'Nein – Bot-Rechte prüfen'}",
         discord.Color.red(),
     )
     if isinstance(author, discord.Member):
