@@ -1062,6 +1062,41 @@ input:focus,select:focus,textarea:focus{{border-color:rgba(255,104,120,.72);box-
 .dashboard-card:hover{{border-color:rgba(255,110,126,.5)!important}}
 @media(max-width:899px){{.module-nav{{border-color:rgba(224,68,85,.2)!important}}}}
 \n{custom_theme_css}
+/* BLOODFANG FUTURE BLUE — fixed blue identity with a clean sci-fi interface */
+:root{{--bg:#050b18!important;--panel:#0b1730!important;--panel2:#102344!important;--text:#eaf5ff!important;--muted:#8faacb!important;--accent:#39a9ff!important;--accent2:#8bd5ff!important;--border:rgba(65,164,255,.22)!important;--glow:rgba(28,137,255,.2)!important;--shadow:0 20px 60px rgba(0,8,24,.48)!important;}}
+body{{background:radial-gradient(ellipse at 12% -5%,rgba(0,132,255,.24),transparent 36%),radial-gradient(ellipse at 92% 10%,rgba(30,95,255,.17),transparent 30%),linear-gradient(180deg,#07152c 0%,#050b18 55%,#030711 100%)!important;}}
+body::before{{background:radial-gradient(circle at 18% 25%,rgba(0,153,255,.10),transparent 27%),radial-gradient(circle at 82% 68%,rgba(48,102,255,.09),transparent 24%)!important;}}
+nav{{background:rgba(4,12,27,.88)!important;border-bottom:1px solid rgba(64,167,255,.28)!important;box-shadow:0 8px 35px rgba(0,0,0,.28),0 1px 22px rgba(0,132,255,.08)!important;}}
+nav a:first-child{{text-shadow:0 0 22px rgba(45,164,255,.5)!important;}}
+nav a:first-child::first-letter{{color:#39a9ff!important;}}
+nav a:not(:first-child):hover{{border-color:rgba(68,178,255,.8)!important;box-shadow:0 0 22px rgba(0,145,255,.2)!important;color:#8bd5ff!important;}}
+nav a.nav-server{{background:linear-gradient(120deg,rgba(0,132,255,.24),rgba(39,102,255,.12))!important;border-color:rgba(65,164,255,.42)!important;color:#eaf5ff!important;}}
+a{{color:#69c4ff!important;}}
+.card,.iw-category,.dashboard-metric{{background:linear-gradient(145deg,rgba(12,29,55,.94),rgba(6,16,34,.97))!important;border-color:rgba(65,164,255,.2)!important;box-shadow:0 18px 48px rgba(0,5,20,.35),inset 0 1px 0 rgba(140,210,255,.045)!important;}}
+.card::before{{background:linear-gradient(90deg,#168cff,#48c7ff 42%,transparent)!important;opacity:1!important;}}
+.card::after{{background:rgba(0,125,255,.14)!important;}}
+.card:hover,.dashboard-card:hover{{border-color:rgba(65,177,255,.55)!important;box-shadow:0 18px 46px rgba(0,8,25,.42),0 0 26px rgba(0,132,255,.12)!important;}}
+button:not(.secondary):not(.nav-logout-button),.button:not(.secondary){{background:linear-gradient(115deg,#0878e8,#16a8ff)!important;color:#fff!important;border:1px solid rgba(111,203,255,.35)!important;box-shadow:0 7px 22px rgba(0,119,255,.2)!important;}}
+button.secondary,.button.secondary{{background:linear-gradient(115deg,#102b50,#153c68)!important;color:#d9efff!important;border:1px solid rgba(65,164,255,.28)!important;}}
+button.danger,.button.danger{{background:linear-gradient(115deg,#8d2945,#63233f)!important;color:#fff!important;}}
+input[type=text],input[type=password],input[type=search],input[type=number],input[type=email],select,textarea{{background:rgba(4,14,31,.92)!important;border-color:rgba(65,164,255,.25)!important;color:#eaf5ff!important;}}
+input:focus,select:focus,textarea:focus{{border-color:#36aaff!important;box-shadow:0 0 0 3px rgba(25,145,255,.16),0 0 18px rgba(25,145,255,.12)!important;}}
+.pill,.module-nav-link.is-active{{background:rgba(0,132,255,.15)!important;border-color:rgba(65,164,255,.38)!important;color:#9cddff!important;}}
+.iw-hero{{background:radial-gradient(ellipse at 85% 20%,rgba(0,145,255,.25),transparent 38%),linear-gradient(125deg,#0b2344,#0b1b36 60%,#101a39)!important;border-color:rgba(65,164,255,.32)!important;}}
+.iw-hero small,.iw-kicker,.iw-heading>a{{color:#8bd5ff!important;}}
+.iw-module-card,.iw-popular-card{{background:linear-gradient(135deg,rgba(7,28,55,.88),rgba(7,17,37,.92))!important;border-color:rgba(65,164,255,.22)!important;}}
+.iw-popular-card{{background:linear-gradient(135deg,rgba(0,132,255,.16),rgba(8,22,45,.9))!important;}}
+.iw-module-card:hover,.iw-popular-card:hover{{border-color:rgba(70,184,255,.65)!important;background:rgba(0,132,255,.13)!important;}}
+.iw-icon{{background:rgba(0,132,255,.17)!important;box-shadow:inset 0 0 18px rgba(0,132,255,.08),0 0 18px rgba(0,132,255,.08)!important;}}
+.module-nav,.section-nav{{background:rgba(5,18,38,.9)!important;border-color:rgba(65,164,255,.22)!important;}}
+.module-nav-link:hover,.section-nav a:hover{{background:rgba(0,132,255,.12)!important;border-color:rgba(65,164,255,.3)!important;}}
+.notice{{background:linear-gradient(110deg,rgba(0,132,255,.13),rgba(30,75,150,.08))!important;border-color:rgba(65,164,255,.28)!important;}}
+#iw-animated-cursor{{filter:drop-shadow(0 0 12px rgba(45,170,255,.85))!important;}}
+#iw-animated-cursor:before{{border-color:rgba(80,195,255,.9)!important;box-shadow:0 0 14px rgba(30,160,255,.7),inset 0 0 10px rgba(30,160,255,.25)!important;}}
+#iw-animated-cursor:after{{border-color:rgba(92,143,255,.75)!important;}}
+.iw-spark{{color:#7bd4ff!important;text-shadow:0 0 14px #168cff!important;}}
+@media(prefers-reduced-motion:no-preference){{.card,.iw-module-card,.iw-popular-card,button,.button{{transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease,background .2s ease!important;}}button:hover,.button:hover{{transform:translateY(-2px)!important;}}}}
+@media(max-width:760px){{main{{margin-top:24px!important;}}.card{{padding:19px!important;border-radius:16px!important;}}}}
 /* Keep every top-level dashboard control in one horizontal row */
 nav:not(.module-nav){{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;gap:7px!important;overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;}}
 nav:not(.module-nav) .brand-mark{{flex:0 0 auto!important;width:auto!important;grid-column:auto!important;margin:0 10px 0 0!important;padding:7px 10px!important;border:0!important;white-space:nowrap!important;}}
