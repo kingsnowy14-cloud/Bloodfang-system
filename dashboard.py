@@ -4689,7 +4689,7 @@ def guild_page(guild_id):
         ("voice", "🔊 Temporary Voice Channels", "Trigger und Zielkategorie für temporäre Räume"),
     ]
     settings_cards = ''.join('<a class="card dashboard-card" href="/guild/' + gid + '?section=' + key + '"><h2>' + title + '</h2><p>' + desc + '</p><span class="card-link">Open settings →</span></a>' for key, title, desc in section_links)
-    if section != "overview" and section not in {"general", "channels", "roles", "voice", "security", "modules", "template"}:
+    if section != "overview" and section not in {"general", "channels", "roles", "voice", "security", "timezone", "modules", "template"}:
         section = "overview"
     popular = [
         ("👋", "Welcome & Goodbye", "Welcome messages and private DMs", "/welcome"),
@@ -4800,29 +4800,33 @@ def guild_page(guild_id):
     module_records = _module_records(guild.id)
     command_records = _command_records(guild.id)
     metrics = (("Modules", len(module_records)), ("Active modules", sum(1 for item in module_records if item["enabled"])), ("Active commands", sum(1 for item in command_records if item["enabled"])), ("Disabled commands", sum(1 for item in command_records if not item["enabled"])))
-    body = '<section class="iw-hero"><span class="iw-kicker">IRONWOLF · CONTROL PANEL</span><h1>🐺 ' + html.escape(guild.name) + '</h1><p>Your server, organized. Manage community, security and automation from one place.</p><small>SERVER ID · ' + gid + '</small></section>'
-    body += '<div class="iw-metrics">' + "".join('<div><small>' + label + '</small><strong>' + str(value) + '</strong></div>' for label, value in metrics) + '</div>'
-    recent_changes = cfg.get("dashboard_audit_log", [])
-    if not isinstance(recent_changes, list):
-        recent_changes = []
-    change_rows = []
-    for entry in reversed(recent_changes[-5:]):
-        if not isinstance(entry, dict):
-            continue
-        try:
-            changed_at = datetime.fromisoformat(str(entry.get("timestamp", "")).replace("Z", "+00:00"))
-            changed_label = changed_at.astimezone().strftime("%d.%m.%Y · %H:%M")
-        except (TypeError, ValueError):
-            changed_label = "Zeitpunkt unbekannt"
-        change_rows.append(
-            '<div class="row"><div><strong>' + html.escape(str(entry.get("action", "Änderung"))[:100]) +
-            '</strong><br><small>' + html.escape(str(entry.get("details", ""))[:300]) +
-            '</small></div><small class="muted">' + html.escape(changed_label) + '</small></div>'
-        )
-    if change_rows:
-        body += '<section class="card"><h2>🧾 Was wurde zuletzt gemacht?</h2><p class="muted">Die letzten Änderungen an den Einstellungen dieses Discord-Servers.</p>' + ''.join(change_rows) + '<p><a href="/guild/' + gid + '/audit-log">Alle Änderungen ansehen →</a></p></section>'
+    if section == "timezone":
+        body = '<section class="card"><h1>🌐 Bot-Einstellungen</h1><p class="muted">Hier kannst du ausschließlich die Zeitzone und die Sprache des Bots für diesen Discord-Server festlegen.</p></section>'
     else:
-        body += '<section class="card"><h2>🧾 Was wurde zuletzt gemacht?</h2><p class="muted">Hier erscheinen Änderungen, sobald Einstellungen über das Dashboard gespeichert werden.</p><a href="/guild/' + gid + '/audit-log">Änderungsprotokoll öffnen →</a></section>'
+        body = '<section class="iw-hero"><span class="iw-kicker">IRONWOLF · CONTROL PANEL</span><h1>🐺 ' + html.escape(guild.name) + '</h1><p>Your server, organized. Manage community, security and automation from one place.</p><small>SERVER ID · ' + gid + '</small></section>'
+        body += '<div class="iw-metrics">' + "".join('<div><small>' + label + '</small><strong>' + str(value) + '</strong></div>' for label, value in metrics) + '</div>'
+    if section != "timezone":
+        recent_changes = cfg.get("dashboard_audit_log", [])
+        if not isinstance(recent_changes, list):
+            recent_changes = []
+        change_rows = []
+        for entry in reversed(recent_changes[-5:]):
+            if not isinstance(entry, dict):
+                continue
+            try:
+                changed_at = datetime.fromisoformat(str(entry.get("timestamp", "")).replace("Z", "+00:00"))
+                changed_label = changed_at.astimezone().strftime("%d.%m.%Y · %H:%M")
+            except (TypeError, ValueError):
+                changed_label = "Zeitpunkt unbekannt"
+            change_rows.append(
+                '<div class="row"><div><strong>' + html.escape(str(entry.get("action", "Änderung"))[:100]) +
+                '</strong><br><small>' + html.escape(str(entry.get("details", ""))[:300]) +
+                '</small></div><small class="muted">' + html.escape(changed_label) + '</small></div>'
+            )
+        if change_rows:
+            body += '<section class="card"><h2>🧾 Was wurde zuletzt gemacht?</h2><p class="muted">Die letzten Änderungen an den Einstellungen dieses Discord-Servers.</p>' + ''.join(change_rows) + '<p><a href="/guild/' + gid + '/audit-log">Alle Änderungen ansehen →</a></p></section>'
+        else:
+            body += '<section class="card"><h2>🧾 Was wurde zuletzt gemacht?</h2><p class="muted">Hier erscheinen Änderungen, sobald Einstellungen über das Dashboard gespeichert werden.</p><a href="/guild/' + gid + '/audit-log">Änderungsprotokoll öffnen →</a></section>'
     if section == "overview":
         body += '<section class="iw-section"><div class="iw-heading"><div><span class="iw-kicker">SUPPORT CENTER</span><h2>🆘 Quick Support & AI</h2><p>Open either support module directly from the server dashboard.</p></div></div>' + module_cards([("🆘", "Quick Support", "Configure automatic support pings in tickets", "/quick-support"), ("🤖", "AI Assistant", "Manage AI ticket replies and server knowledge", "/ai")], True) + '</section>'
         body += '<section class="iw-section" id="all-modules"><div class="iw-heading"><div><span class="iw-kicker">COMPLETE MODULE DIRECTORY</span><h2>🧩 All Server Modules</h2><p>Every available IronWolf module, grouped by function. Select a card to open its settings.</p></div></div>'
