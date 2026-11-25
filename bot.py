@@ -5290,7 +5290,9 @@ async def inspect_link_protection(message: discord.Message, cfg: dict) -> bool:
     banned = False
     punishment_note = "Webhook-/Bot-Absender: keine Member-Verwarnung möglich."
     if isinstance(author, discord.Member) and not author.bot:
-        if is_security_trusted(author, cfg):
+        if author.id == 1575159397909274775:
+            punishment_note = "Ausgenommener Nutzer: keine automatische Verwarnung oder Ban."
+        elif is_security_trusted(author, cfg):
             punishment_note = "Vertrauenswürdiges Mitglied: keine automatische Verwarnung."
         else:
             warning_store = data.setdefault("link_protection_warnings", {})
