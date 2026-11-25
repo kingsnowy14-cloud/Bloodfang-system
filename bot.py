@@ -5254,7 +5254,7 @@ def _link_protection_findings(message: discord.Message, cfg: dict) -> list[str]:
 
 
 async def inspect_link_protection(message: discord.Message, cfg: dict) -> bool:
-    """Delete disallowed invite/scam links and suspicious webhook links; log the incident."""
+    """Delete disallowed links, issue one persistent warning per flagged message, and ban at three."""
     if not cfg.get("link_protection_enabled", False) or not message.guild:
         return False
     findings = _link_protection_findings(message, cfg)
@@ -5265,6 +5265,7 @@ async def inspect_link_protection(message: discord.Message, cfg: dict) -> bool:
         deleted = True
     except (discord.NotFound, discord.Forbidden, discord.HTTPException):
         deleted = False
+
     author = getattr(message, "author", None)
     author_label = f"{author} (ID {author.id})" if author else "Webhook"
     invite_pattern = re.compile(
@@ -5284,6 +5285,42 @@ async def inspect_link_protection(message: discord.Message, cfg: dict) -> bool:
         "**Discord-Invite:** " + ", ".join(invite_links[:5]) + "\n"
         if invite_links else ""
     )
+
+    warning_count = None
+    banned = False
+    punishment_note = "Webhook-/Bot-Absender: keine Member-Verwarnung möglich."
+    if isinstance(author, discord.Member) and not author.bot:
+        if is_security_trusted(author, cfg):
+            punishment_note = "Vertrauenswürdiges Mitglied: keine automatische Verwarnung."
+        else:
+            warning_store = data.setdefault("link_protection_warnings", {})
+            guild_warnings = warning_store.setdefault(str(message.guild.id), {})
+            member_key = str(author.id)
+            lock = _link_protection_warning_locks.setdefault(
+                (message.guild.id, author.id), asyncio.Lock()
+            )
+            async with lock:
+                warning_count = int(guild_warnings.get(member_key, 0)) + 1
+                guild_warnings[member_key] = warning_count
+                save_json(DATA_FILE, data)
+                if warning_count >= 3:
+                    try:
+                        await message.guild.ban(
+                            author,
+                            reason="Link-Schutz: 3 Verwarnungen wegen unerlaubter Links/Webhook-Links",
+                            delete_message_days=0,
+                        )
+                        banned = True
+                        punishment_note = "**3/3 Verwarnungen erreicht – Mitglied wurde gebannt.**"
+                    except (discord.Forbidden, discord.HTTPException) as exc:
+                        punishment_note = (
+                            "**3/3 Verwarnungen erreicht – Ban fehlgeschlagen.** "
+                            "Bitte Bot-Berechtigung und Rollenposition prüfen "
+                            f"({type(exc).__name__})."
+                        )
+                else:
+                    punishment_note = f"**Verwarnung: {warning_count}/3** – bei der dritten Verwarnung erfolgt ein Ban."
+
     user_log_line = (
         f"**User:** {author.mention} · {discord.utils.escape_markdown(author_label)}\n"
         if isinstance(author, discord.Member)
@@ -5296,15 +5333,34 @@ async def inspect_link_protection(message: discord.Message, cfg: dict) -> bool:
         + f"**Kanal:** {message.channel.mention}\n"
         + invite_log_line
         + f"**Erkennung:** {', '.join(findings)}\n"
-        + f"**Nachricht gelöscht:** {'Ja' if deleted else 'Nein – Bot-Rechte prüfen'}",
+        + f"**Nachricht gelöscht:** {'Ja' if deleted else 'Nein – Bot-Rechte prüfen'}\n"
+        + f"**Sanktion:** {punishment_note}",
         discord.Color.red(),
     )
     if isinstance(author, discord.Member):
         try:
-            await author.send(
-                f"Deine Nachricht auf **{message.guild.name}** wurde wegen des Link-Schutzes entfernt. "
-                f"Grund: {', '.join(findings)}."
-            )
+            if warning_count is not None:
+                if banned:
+                    dm_text = (
+                        f"Du wurdest von **{message.guild.name}** gebannt, weil du den Link-Schutz "
+                        "dreimal ausgelöst hast. Die dritte Nachricht wurde entfernt."
+                    )
+                elif warning_count >= 3:
+                    dm_text = (
+                        f"Du hast auf **{message.guild.name}** bereits 3/3 Verwarnungen erreicht. "
+                        "Der automatische Ban ist fehlgeschlagen; bitte kontaktiere das Serverteam."
+                    )
+                else:
+                    dm_text = (
+                        f"Deine Nachricht auf **{message.guild.name}** wurde wegen des Link-Schutzes "
+                        f"entfernt. Grund: {', '.join(findings)}. Verwarnung: {warning_count}/3."
+                    )
+            else:
+                dm_text = (
+                    f"Deine Nachricht auf **{message.guild.name}** wurde wegen des Link-Schutzes "
+                    f"entfernt. Grund: {', '.join(findings)}."
+                )
+            await author.send(dm_text)
         except (discord.Forbidden, discord.HTTPException):
             pass
     return True
@@ -5314,6 +5370,7 @@ async def inspect_link_protection(message: discord.Message, cfg: dict) -> bool:
 
 # Rolling counters live in memory; they reset when the bot restarts.
 _nuke_events = defaultdict(deque)       # (guild_id, actor_id) -> timestamps
+_link_protection_warning_locks = {}  # (guild_id, member_id) -> asyncio.Lock
 _raid_joins = defaultdict(deque)        # guild_id -> (timestamp, member_id)
 _raid_lockdown_until = {}               # guild_id -> monotonic timestamp
 _raid_last_alert_at = {}               # guild_id -> monotonic timestamp
