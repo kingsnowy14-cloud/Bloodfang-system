@@ -5279,6 +5279,41 @@ async def inspect_link_protection(message: discord.Message, cfg: dict) -> bool:
 
     author = getattr(message, "author", None)
     author_label = f"{author} (ID {author.id})" if author else "Webhook"
+    sender_details = ""
+    if message.webhook_id:
+        sender_details += f"**Webhook-ID:** `{message.webhook_id}`\n"
+        try:
+            hooks = await message.channel.webhooks()
+            matching_hook = next((hook for hook in hooks if hook.id == message.webhook_id), None)
+            if matching_hook:
+                sender_details += f"**Webhook-Name:** {discord.utils.escape_markdown(matching_hook.name or 'Unbekannt')}\n"
+                if matching_hook.user:
+                    sender_details += f"**Webhook erstellt von:** {matching_hook.user.mention} ({discord.utils.escape_markdown(str(matching_hook.user))} · ID `{matching_hook.user.id}`)\n"
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            sender_details += "**Webhook-Details:** Nicht lesbar – Berechtigung „Webhooks verwalten“ prüfen.\n"
+            print(f"[LINK PROTECTION] Could not inspect webhook {message.webhook_id}: {type(exc).__name__}: {exc}", flush=True)
+
+    inviter_details = ""
+    if isinstance(author, discord.Member) and author.bot:
+        try:
+            async for entry in message.guild.audit_logs(
+                limit=100,
+                action=discord.AuditLogAction.bot_add,
+                oldest_first=False,
+            ):
+                if getattr(entry.target, "id", None) == author.id:
+                    inviter = entry.user
+                    inviter_details = (
+                        f"**Eingeladen von:** {inviter.mention} "
+                        f"({discord.utils.escape_markdown(str(inviter))} · ID `{inviter.id}`)\n"
+                    )
+                    break
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            inviter_details = "**Einladender:** Audit-Log nicht lesbar – Berechtigung „Server verwalten“ prüfen.\n"
+            print(f"[LINK PROTECTION] Could not inspect bot-add audit log: {type(exc).__name__}: {exc}", flush=True)
+        if not inviter_details:
+            inviter_details = "**Eingeladen von:** Kein passender Bot-Beitritts-Eintrag im Audit-Log gefunden.\n"
+
     invite_pattern = re.compile(
         r"(?:https?://)?(?:www\.)?(?:discord\.gg|discord(?:app)?\.com/invite)/[a-z0-9-]+",
         re.IGNORECASE,
@@ -5343,6 +5378,8 @@ async def inspect_link_protection(message: discord.Message, cfg: dict) -> bool:
         message.guild,
         "🚨 Link-Schutz ausgelöst",
         user_log_line
+        + sender_details
+        + inviter_details
         + f"**Kanal:** {message.channel.mention}\n"
         + invite_log_line
         + f"**Erkennung:** {', '.join(findings)}\n"
