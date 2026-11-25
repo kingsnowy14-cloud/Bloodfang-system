@@ -4666,6 +4666,7 @@ def guild_page(guild_id):
         body += '<section class="card"><h2>🧾 Was wurde zuletzt gemacht?</h2><p class="muted">Die letzten Änderungen an den Einstellungen dieses Discord-Servers.</p>' + ''.join(change_rows) + '<p><a href="/guild/' + gid + '/audit-log">Alle Änderungen ansehen →</a></p></section>'
     else:
         body += '<section class="card"><h2>🧾 Was wurde zuletzt gemacht?</h2><p class="muted">Hier erscheinen Änderungen, sobald Einstellungen über das Dashboard gespeichert werden.</p><a href="/guild/' + gid + '/audit-log">Änderungsprotokoll öffnen →</a></section>'
+    if section == "overview":
     body += '<section class="iw-section"><div class="iw-heading"><div><span class="iw-kicker">SUPPORT CENTER</span><h2>🆘 Quick Support & AI</h2><p>Open either support module directly from the server dashboard.</p></div></div>' + module_cards([("🆘", "Quick Support", "Configure automatic support pings in tickets", "/quick-support"), ("🤖", "AI Assistant", "Manage AI ticket replies and server knowledge", "/ai")], True) + '</section>'
     # Render the selected section immediately after the server summary. Previously
     # settings_html was built above but never appended to the response body, so
@@ -4676,26 +4677,7 @@ def guild_page(guild_id):
         body += '<section class="iw-category"><h2>🧩 Module availability</h2>' + modules_html + '</section>'
     elif section == "template":
         body += '<section class="iw-category"><h2>🛠️ Create a module template</h2>' + module_form + '</section>'
-    body += '<section class="iw-section"><div class="iw-heading"><div><span class="iw-kicker">START HERE</span><h2>⭐ Starter Module</h2><p>Your starting point for setting up IronWolf on this server.</p></div><a href="/guild/' + gid + '?section=modules">Manage modules →</a></div>' + module_cards(popular, True) + '</section>'
-    body += '<div class="iw-heading"><div><span class="iw-kicker">EXPLORE IRONWOLF</span><h2>All Modules</h2><p>Browse every feature, grouped by purpose.</p></div></div>'
-    for title, items in categories:
-        body += '<section class="iw-category"><h2>' + title + '</h2><p class="iw-category-subtitle">' + str(len(items)) + ' tools in this category</p>' + module_cards(items) + '</section>'
-    premium_items = [
-        ("🎟️", "Ticket-System Pro", "Erweiterte Ticket-Panels, Dropdowns und Prioritätsrollen", "/tickets"),
-        ("🎨", "Custom Branding", "Eigene Farben und Logos für Ticket-Embeds", "/branding"),
-        ("🤖", "Custom Bot Profile", "Server-spezifisches Bot-Profil und Branding", "/custom-bot"),
-        ("🛡️", "Security Pro", "Erweiterte Sicherheitsbefehle und Schutzwerkzeuge", "/commands"),
-        ("📣", "Automation Pro", "Geplante Nachrichten und wiederkehrende Abläufe", "/automation"),
-        ("📨", "Invite Tracker", "Einladungen erfassen und auswerten", "?section=general#settings-panel"),
-        ("🚀", "Server-Boost-System", "Boost-Belohnungen und Ankündigungen", "/server-boost"),
-        ("📝", "Pro Applications", "Erweiterte Bewerbungsformulare und Panels", "/applications"),
-        ("⏱️", "Shift Tracker", "Schicht- und Zeiterfassung", "/shifts"),
-        ("🏷️", "AutoNickname", "Automatische Nickname-Regeln", "/auto-nickname"),
-        ("🎭", "AutoRole", "Erweiterte automatische Rollenvergabe", "/auto-role"),
-        ("📊", "WolfAnalytics", "Serveraktivität und detaillierte Analysen", "/wolfanalytics"),
-    ]
-    body += '<section class="iw-category" id="premium-modules"><h2>👑 Premium · Exklusive Module</h2><p class="iw-category-subtitle">Diese Module sind nur mit aktivem Premium-Zugang verfügbar. Gesperrte Module führen direkt zur Premium-Verwaltung.</p>' + module_cards(premium_items) + '</section>'
-    body += '<section class="iw-category"><h2>⚙️ General configuration</h2><p class="iw-category-subtitle">Core server settings, channels, roles and voice options.</p>' + settings_cards + '</section>'
+    # The sidebar is the single module directory; keep the overview focused and uncluttered.
     return _render(guild.name + " · Control Center", body)
 
 
