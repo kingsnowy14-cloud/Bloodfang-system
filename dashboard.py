@@ -8349,7 +8349,7 @@ def guild_wolfshield(guild_id):
         + '#' + html.escape(channel.name) + '</option>'
         for channel in sorted(guild.text_channels, key=lambda item: (item.category.position if item.category else -1, item.position))
     )
-    blocked_domains_value = html.escape("\\n".join(str(value) for value in cfg.get("link_blocked_domains", [])))
+    blocked_domains_value = html.escape("\n".join(str(value) for value in cfg.get("link_blocked_domains", [])))
     body = (
         '<section class="card"><h1>🛡️ WolfShield · Security & Link Protection</h1>'
         '<p class="muted">Konfiguriere Anti-Raid sowie den Schutz vor fremden Discord-Invites, verdächtigen Links und Link-Spam über Webhooks. '
