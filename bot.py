@@ -530,6 +530,13 @@ DEFAULT_GUILD_CONFIG = {
     "ai_custom_instructions": "",
     "ticket_counter": 0,
     "security_log_channel": None,
+    "link_protection_enabled": False,
+    "invite_link_protection_enabled": False,
+    "webhook_link_protection_enabled": False,
+    "scam_link_protection_enabled": False,
+    "allowed_invite_role_ids": [],
+    "allowed_invite_channel_ids": [],
+    "link_blocked_domains": [],
     "honeypot_channel": None,
     "honeypot_enabled": False,
     "honeypot_action": "kick",
@@ -5132,6 +5139,97 @@ async def inspect_message_security(message: discord.Message, cfg: dict) -> bool:
     return True
 
 
+def _link_protection_findings(message: discord.Message, cfg: dict) -> list[str]:
+    """Return high-confidence invite/scam findings without treating ordinary URLs as scams."""
+    content_parts = [message.content or ""]
+    for embed in getattr(message, "embeds", []):
+        content_parts.extend([getattr(embed, "url", "") or "", getattr(embed, "description", "") or ""])
+        for field in getattr(embed, "fields", []):
+            content_parts.extend([getattr(field, "name", "") or "", getattr(field, "value", "") or ""])
+    content = "\n".join(content_parts)
+    lowered = content.casefold()
+    findings = []
+    invite_pattern = re.compile(
+        r"(?:https?://)?(?:www\.)?(?:discord\.gg|discord(?:app)?\.com/invite)/[a-z0-9-]+",
+        re.IGNORECASE,
+    )
+    has_invite = bool(invite_pattern.search(content))
+    urls = re.findall(r"(?:https?://|www\.)[^\s<>]+", content, flags=re.IGNORECASE)
+    blocked_domains = {
+        str(value).strip().casefold().lstrip(".")
+        for value in cfg.get("link_blocked_domains", [])
+        if isinstance(value, str) and value.strip()
+    }
+    scam_markers = ("discord-nitro", "free-nitro", "steamcommunity-gift", "steam-gift", "nitro-gift")
+    has_scam = any(marker in lowered for marker in scam_markers)
+    for raw_url in urls:
+        candidate = raw_url.rstrip(".,!?;:)]}>'\"")
+        try:
+            parsed = urlparse(candidate if "://" in candidate else "https://" + candidate)
+            host = (parsed.hostname or "").casefold().rstrip(".")
+        except ValueError:
+            continue
+        if not host:
+            continue
+        if any(host == domain or host.endswith("." + domain) for domain in blocked_domains):
+            has_scam = True
+        if host.startswith("xn--") or ".xn--" in host:
+            has_scam = True
+        if "discord" in host and host not in {"discord.com", "discordapp.com", "discord.gg"}:
+            has_scam = True
+        if "steam" in host and host not in {"steamcommunity.com", "store.steampowered.com", "steampowered.com"}:
+            has_scam = True
+        if "nitro" in host and host not in {"discord.com", "discordapp.com"}:
+            has_scam = True
+
+    member = message.author if isinstance(message.author, discord.Member) else None
+    role_ids = {role.id for role in getattr(member, "roles", [])}
+    allowed_roles = {int(value) for value in cfg.get("allowed_invite_role_ids", []) if str(value).isdigit()}
+    allowed_channels = {int(value) for value in cfg.get("allowed_invite_channel_ids", []) if str(value).isdigit()}
+    invite_allowed = bool(role_ids & allowed_roles) or message.channel.id in allowed_channels
+    if has_scam and cfg.get("scam_link_protection_enabled", False):
+        findings.append("Verdächtiger bzw. gesperrter Scam-Link")
+    if has_invite and cfg.get("invite_link_protection_enabled", False) and not invite_allowed:
+        findings.append("Nicht erlaubter Discord-Invite-Link")
+    if message.webhook_id and cfg.get("webhook_link_protection_enabled", False) and (has_invite or has_scam or bool(urls)):
+        findings.append("Link in einer Webhook-Nachricht")
+    return findings
+
+
+async def inspect_link_protection(message: discord.Message, cfg: dict) -> bool:
+    """Delete disallowed invite/scam links and suspicious webhook links; log the incident."""
+    if not cfg.get("link_protection_enabled", False) or not message.guild:
+        return False
+    findings = _link_protection_findings(message, cfg)
+    if not findings:
+        return False
+    try:
+        await message.delete()
+        deleted = True
+    except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+        deleted = False
+    author = getattr(message, "author", None)
+    author_label = f"{author} (ID {author.id})" if author else "Webhook"
+    await security_log(
+        message.guild,
+        "🚨 Link-Schutz ausgelöst",
+        f"**Absender:** {discord.utils.escape_markdown(author_label)}\n"
+        f"**Kanal:** {message.channel.mention}\n"
+        f"**Erkennung:** {', '.join(findings)}\n"
+        f"**Nachricht gelöscht:** {'Ja' if deleted else 'Nein – Bot-Rechte prüfen'}",
+        discord.Color.red(),
+    )
+    if isinstance(author, discord.Member):
+        try:
+            await author.send(
+                f"Deine Nachricht auf **{message.guild.name}** wurde wegen des Link-Schutzes entfernt. "
+                f"Grund: {', '.join(findings)}."
+            )
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+    return True
+
+
 # ----------------------------- SECURITY: HONEYPOT / ANTI-NUKE / ANTI-RAID -----------------------------
 
 # Rolling counters live in memory; they reset when the bot restarts.
@@ -5829,12 +5927,20 @@ async def ai_knowledge_command(interaction: discord.Interaction):
 
 @bot.event
 async def on_message(message: discord.Message):
+    # Webhook messages are bot-authored and do not enter the regular member path.
+    if message.guild and message.webhook_id:
+        webhook_cfg = guild_config(message.guild.id)
+        if await inspect_link_protection(message, webhook_cfg):
+            return
+
     # Handle regular member messages only when they belong to a server.
     if message.guild and not message.author.bot:
         if guild_has_feature(guild_config(message.guild.id), "wolfanalytics"):
             wolfanalytics_record(message.guild.id, "message")
         guild = message.guild
         cfg = guild_config(guild.id)
+        if await inspect_link_protection(message, cfg):
+            return
 
         # Counting: one number at a time, no consecutive turns by the same member.
         counting_id = cfg.get("counting_channel_id")
