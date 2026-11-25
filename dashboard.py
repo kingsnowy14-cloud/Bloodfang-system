@@ -20,6 +20,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlencode, urlparse
+from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
@@ -1107,6 +1108,31 @@ nav:not(.module-nav) .nav-logout-button{{width:auto!important;white-space:nowrap
 .cursor-picker-label{{display:flex;align-items:center;gap:7px;white-space:nowrap;font-size:12px;font-weight:850;color:var(--muted);margin:0}}
 .cursor-picker-label select{{width:auto;min-width:145px;padding:7px 30px 7px 10px;font-size:12px;border-radius:9px}}
 @media(max-width:900px){{.cursor-controls{{order:5;flex-wrap:wrap}}.cursor-size-label input{{width:84px}}}}
+
+/* Bloodfang dashboard: consistent left rail, calmer content hierarchy */
+:root{{--accent:#39a9ff!important;--accent2:#8bd5ff!important;--border:rgba(65,164,255,.22)!important;}}
+.module-nav{{position:fixed!important;z-index:20!important;top:64px!important;left:0!important;bottom:0!important;width:246px!important;height:auto!important;max-height:none!important;overflow-y:auto!important;overflow-x:hidden!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;flex-wrap:nowrap!important;gap:5px!important;margin:0!important;padding:18px 12px 28px!important;border:0!important;border-right:1px solid rgba(65,164,255,.22)!important;border-radius:0!important;background:rgba(5,15,32,.98)!important;box-shadow:12px 0 35px rgba(0,0,0,.18)!important;}}
+.module-nav-title{{padding:8px 10px 12px!important;color:#8bd5ff!important;font-size:11px!important;font-weight:950!important;letter-spacing:1.5px!important;}}
+.module-search-label{{margin:0 7px 5px!important;color:#8faacb!important;font-size:11px!important;}}
+.module-nav-search{{width:100%!important;margin:0 0 10px!important;padding:10px 12px!important;border-radius:10px!important;}}
+.module-nav-list{{display:flex!important;flex-direction:column!important;gap:4px!important;width:100%!important;}}
+.module-nav-group-title{{padding:13px 9px 5px!important;margin-top:8px!important;border-top:1px solid rgba(65,164,255,.16)!important;color:#63bfff!important;font-size:10px!important;letter-spacing:1.1px!important;}}
+.module-nav-link{{display:flex!important;align-items:center!important;width:100%!important;min-height:38px!important;padding:8px 10px!important;border:1px solid transparent!important;border-radius:9px!important;color:#a9bdd6!important;font-size:12px!important;white-space:normal!important;}}
+.module-nav-link:hover{{background:rgba(0,132,255,.12)!important;border-color:rgba(65,164,255,.25)!important;color:#eaf5ff!important;}}
+.module-nav-link.is-active{{background:linear-gradient(100deg,rgba(0,132,255,.23),rgba(0,132,255,.07))!important;border-color:rgba(65,164,255,.4)!important;color:#9cddff!important;box-shadow:inset 3px 0 #39a9ff,0 0 16px rgba(0,132,255,.08)!important;}}
+@media(min-width:900px){{body{{padding-left:246px!important;}}main{{max-width:1500px!important;margin:28px auto!important;padding:0 32px 50px!important;}}}}
+@media(max-width:899px){{body{{padding-left:210px!important;}}.module-nav{{top:58px!important;width:210px!important;padding:13px 9px 22px!important;}}main{{margin:22px auto!important;padding:0 15px 40px!important;}}.module-nav-link{{min-height:35px!important;font-size:11px!important;}}.module-nav-group-title{{font-size:9px!important;}}}}
+@media(max-width:560px){{body{{padding-left:184px!important;}}.module-nav{{width:184px!important;top:56px!important;padding:10px 7px 18px!important;}}main{{padding-left:10px!important;padding-right:10px!important;}}.card{{padding:15px!important;}}.iw-metrics{{grid-template-columns:1fr 1fr!important;}}}}
+/* Simplify module cards and forms: consistent spacing, readable labels, no visual clutter */
+.iw-category{{padding:17px!important;margin:0 0 16px!important;border-radius:14px!important;}}
+.iw-card-grid{{grid-template-columns:repeat(auto-fit,minmax(min(100%,245px),1fr))!important;gap:9px!important;}}
+.iw-module-card,.iw-popular-card{{min-height:76px!important;padding:11px 12px!important;border-radius:11px!important;}}
+.card{{margin:14px 0!important;border-radius:15px!important;}}
+form label{{display:block!important;margin:14px 0 6px!important;font-size:12px!important;font-weight:800!important;color:#c6dcf4!important;}}
+form input:not([type=checkbox]):not([type=radio]):not([type=hidden]),form select,form textarea{{width:100%!important;max-width:100%!important;min-height:42px!important;padding:10px 12px!important;border-radius:10px!important;}}
+form .check{{display:flex!important;align-items:center!important;gap:10px!important;padding:10px 12px!important;margin:8px 0!important;border:1px solid rgba(65,164,255,.15)!important;border-radius:10px!important;background:rgba(0,95,180,.06)!important;}}
+form .check label{{margin:0!important;}}
+.notice{{border-radius:11px!important;}}
 </style></head><body>{nav}<main id="main-content" tabindex="-1">{body}<p class="muted"><small>Bloodfang · Created by KingSnowy</small></p></main>{_selection_menu_script()}
 <script>
 (function(){{
@@ -1304,10 +1330,11 @@ def _module_navigation():
     if len(parts) not in (2, 3) or not parts[1].isdigit():
         return ""
     gid = parts[1]
-    active = parts[2] if len(parts) == 3 else "starter"
+    active = parts[2] if len(parts) == 3 else request.args.get("section", "starter")
     modules = (
         ("__ai_category__", "🏠 OVERVIEW", ""),
         ("starter", "🏠 Dashboard Overview", "?section=overview"),
+        ("timezone", "🌐 Bot Time Zone", "?section=timezone"),
         ("__ai_category__", "👥 COMMUNITY & TEAM", ""),
         ("welcome", "👋 Welcome & Goodbye", "/welcome"),
         ("birthdays", "🎂 Birthdays", "/birthdays"),
@@ -2167,14 +2194,23 @@ def index():
         session.clear()
         return _render("Discord-Anmeldung", '<div class="card"><h1>Session Expired</h1><p>Please sign in again.</p><a class="button" href="/login">Erneut anmelden</a></div>', 401)
     cards = []
+    invite_cards = []
+    bot_client_id = _env("DISCORD_CLIENT_ID") or "1558547445187743804"
     for item in guilds:
         if not (int(item.get("permissions", "0")) & (MANAGE_GUILD | ADMINISTRATOR)):
             continue
         gid = str(item.get("id"))
         bot_guild = _bot.get_guild(int(gid)) if _bot else None
         if not bot_guild:
+            invite_query = urlencode({"client_id": bot_client_id, "scope": "bot applications.commands", "permissions": "0", "guild_id": gid, "disable_guild_select": "true"})
+            invite_url = "https://discord.com/oauth2/authorize?" + invite_query
+            invite_cards.append('<div class="card server-card"><span class="pill">BOT FEHLT</span><h2 style="margin-top:14px">' + html.escape(item.get("name", "Server")) + '</h2><p class="muted">Lade Bloodfang zuerst auf diesen Server ein. Danach kannst du die Module öffnen.</p><a class="button" href="' + html.escape(invite_url, quote=True) + '" target="_blank" rel="noopener noreferrer">🤖 Bot jetzt einladen</a></div>')
             continue
         cards.append(f'<a class="card server-card" style="display:block;text-decoration:none" href="/guild/{gid}"><span class="pill">● BOT VERBUNDEN</span><h2 style="margin-top:14px">{html.escape(item.get("name","Server"))}</h2><p class="muted">Einstellungen, Befehle und Module verwalten</p><strong>Server öffnen ↗</strong></a>')
+    if not cards:
+        invite_content = ''.join(invite_cards) or '<div class="notice">Du hast keinen Server mit Administrator- oder „Server verwalten“-Rechten gefunden. Bitte wähle beim Einladen einen Server aus, auf dem du diese Rechte besitzt.</div>'
+        body = '<section class="card hero"><span class="pill">ERSTER SCHRITT</span><h1 style="margin-top:14px">Bloodfang zuerst einladen</h1><p>Bevor du das Dashboard nutzen kannst, muss der Bot auf mindestens einem Server sein, den du verwalten darfst.</p><div class="notice">1. Wähle unten deinen Server. 2. Lade Bloodfang ein. 3. Kehre hierher zurück und öffne anschließend das Dashboard.</div></section><h2>Server auswählen</h2><div class="grid">' + invite_content + '</div>'
+        return _render("Bot einladen", body)
     body = '<section class="card hero"><span class="pill">WELCOME TO IRONWOLF</span><h1 style="margin-top:14px">Your Control Center 🐺</h1><p>Hier steuerst du deine verbundenen Discord Servers bequem über eine Oberfläche.</p><div class="notice">✨ <strong>Premium costs €5 per year.</strong> <a href="https://discord.gg/KDKs5WPgaC" target="_blank" rel="noopener noreferrer">Nachrichten auf Discord ↗</a></div><div class="grid"><div><h2>So funktioniert es</h2><ol><li>Wähle unten den Server aus, den du verwalten möchtest.</li><li>Unter <strong>Einstellungen</strong> legst du Kanäle, Rollen und Serveroptionen fest.</li><li>Unter <strong>Module</strong> aktivierst oder deaktivierst du Funktionen für diesen Server.</li><li>Öffne <strong>Befehle</strong>, um Prefix- und Slash-Befehle gruppiert zu verwalten.</li><li>Nutze die <strong>Aktionszentrale</strong> für unterstützte Moderationsaktionen.</li></ol></div><div><h2>Wichtige Hinweise</h2><ul><li>Du brauchst Administrator- oder Server-verwalten-Rechte.</li><li>Der Bot muss auf dem Server online sein.</li><li>Änderungen an Modulen und Befehlen gelten nur für den ausgewählten Server.</li><li>Gefährliche Aktionen benötigen zusätzliche Bestätigung und passende Rechte.</li></ul></div></div></section><h2>Deine Server</h2><p class="muted">Wähle einen Server, um seine Einstellungen zu öffnen.</p>'
     body += _public_status_panel()
     body += '<p><a class="button" href="/premium">✨ Manage Premium →</a></p>'
@@ -4362,6 +4398,13 @@ def guild_page(guild_id):
                 channel_ids = {str(item.id) for item in guild.text_channels}
                 category_ids = {str(item.id) for item in guild.categories}
                 role_ids = {str(item.id) for item in guild.roles}
+                if settings_section == "timezone":
+                    selected_timezone = request.form.get("bot_timezone", "UTC").strip()
+                    allowed_timezones = {"UTC", "Europe/Vienna", "Europe/Berlin", "Europe/London", "Europe/Paris", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Asia/Dubai", "Asia/Kolkata", "Asia/Singapore", "Asia/Tokyo", "Australia/Sydney"}
+                    if selected_timezone not in allowed_timezones:
+                        abort(400, "Ungültige Zeitzone ausgewählt.")
+                    ZoneInfo(selected_timezone)
+                    cfg["bot_timezone"] = selected_timezone
                 if settings_section == "channels":
                     for key in CHANNEL_SETTINGS:
                         if key not in request.form:
@@ -4451,9 +4494,15 @@ def guild_page(guild_id):
         return "".join(out)
     section = request.args.get("section", "overview")
     settings_html = ""
-    if section in ("general", "channels", "roles", "voice", "security"):
-        settings_html = '<section class="card" id="settings-panel"><h2>⚙️ ' + {"general":"General settings","channels":"Channels & logs","roles":"Roles","voice":"Temporary voice channels","security":"Protection & moderation"}[section] + '</h2><form method="post">' + _csrf_field() + '<input type="hidden" name="action" value="settings"><input type="hidden" name="settings_section" value="' + section + '">'
-        if section == "general":
+    if section in ("general", "channels", "roles", "voice", "security", "timezone"):
+        settings_html = '<section class="card" id="settings-panel"><h2>⚙️ ' + {"general":"General settings","channels":"Channels & logs","roles":"Roles","voice":"Temporary voice channels","security":"Protection & moderation","timezone":"Bot time zone"}[section] + '</h2><form method="post">' + _csrf_field() + '<input type="hidden" name="action" value="settings"><input type="hidden" name="settings_section" value="' + section + '">'
+        if section == "timezone":
+            timezone_choices = ("UTC", "Europe/Vienna", "Europe/Berlin", "Europe/London", "Europe/Paris", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Asia/Dubai", "Asia/Kolkata", "Asia/Singapore", "Asia/Tokyo", "Australia/Sydney")
+            selected_timezone = str(cfg.get("bot_timezone", "UTC"))
+            settings_html += '<p class="muted">Lege fest, in welcher Zeitzone der Bot Zeiten für diesen Server anzeigen und verwenden soll. Diese Einstellung betrifft nur die Bot-Konfiguration.</p><label for="bot_timezone">Zeitzone</label><select id="bot_timezone" name="bot_timezone">'
+            settings_html += ''.join('<option value="' + zone + '"' + (' selected' if selected_timezone == zone else '') + '>' + zone.replace("_", " ") + '</option>' for zone in timezone_choices)
+            settings_html += '</select><div class="notice">Aktuelle Bot-Zeit: <strong>' + html.escape(datetime.now(ZoneInfo(selected_timezone if selected_timezone in timezone_choices else "UTC")).strftime("%d.%m.%Y · %H:%M")) + '</strong></div>'
+        elif section == "general":
             bot_enabled_checked = " checked" if cfg.get("bot_enabled", True) else ""
             settings_html += '<div class="check"><input type="checkbox" id="bot_enabled" name="bot_enabled"' + bot_enabled_checked + '><label for="bot_enabled">🐺 Enable IronWolf on this server</label></div><p class="muted">When disabled, the bot will not respond on this server. New servers start disabled; existing servers keep their current behavior.</p>'
             settings_html += '<h3>👋 Welcome module · Channels</h3><p class="muted">Choose where IronWolf welcomes new members and where goodbye messages are posted.</p>'
