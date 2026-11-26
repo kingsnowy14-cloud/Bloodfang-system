@@ -8983,8 +8983,8 @@ class ServerLogs(commands.Cog):
 
     def _is_log_channel(self, guild, channel_id):
         cfg = read(SERVER_LOGS, {}).get(str(guild.id), {})
-        configured = cfg.get("channel_id") if cfg.get("all_in_one", True) else None
-        return configured is not None and int(configured) == int(channel_id)
+        configured = [cfg.get("channel_id")] if cfg.get("all_in_one", True) else list((cfg.get("channels") or {}).values())
+        return any(value is not None and str(value) == str(channel_id) for value in configured)
 
     async def _log_deleted_message(self, guild, channel, message_id, message=None):
         if guild is None or channel is None or self._is_log_channel(guild, channel.id):
@@ -9039,6 +9039,80 @@ class ServerLogs(commands.Cog):
         for message in cached[:10]:
             await self._log_deleted_message(guild, channel, message.id, message)
 
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload):
+        guild = self.bot.get_guild(payload.guild_id) if payload.guild_id else None
+        if guild is None or self._is_log_channel(guild, payload.channel_id):
+            return
+        member = payload.member or guild.get_member(payload.user_id)
+        channel = guild.get_channel(payload.channel_id)
+        if channel is None:
+            return
+        await self.log(guild, "Reaction added",
+                       f"**Mitglied:** {member or payload.user_id} · `{payload.user_id}`\\n"
+                       f"**Kanal:** {channel.mention}\\n**Nachricht:** `{payload.message_id}`\\n"
+                       f"**Reaktion:** {payload.emoji}", target=f"Reaktion auf Nachricht {payload.message_id}")
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, payload):
+        guild = self.bot.get_guild(payload.guild_id) if payload.guild_id else None
+        if guild is None or self._is_log_channel(guild, payload.channel_id):
+            return
+        channel = guild.get_channel(payload.channel_id)
+        if channel is None:
+            return
+        member = guild.get_member(payload.user_id)
+        await self.log(guild, "Reaction removed",
+                       f"**Mitglied:** {member or payload.user_id} · `{payload.user_id}`\\n"
+                       f"**Kanal:** {channel.mention}\\n**Nachricht:** `{payload.message_id}`\\n"
+                       f"**Reaktion:** {payload.emoji}", target=f"Reaktion entfernt auf Nachricht {payload.message_id}")
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_clear(self, payload):
+        guild = self.bot.get_guild(payload.guild_id) if payload.guild_id else None
+        if guild is None or self._is_log_channel(guild, payload.channel_id):
+            return
+        channel = guild.get_channel(payload.channel_id)
+        if channel:
+            await self.log(guild, "Reactions cleared",
+                           f"Alle Reaktionen von Nachricht `{payload.message_id}` in {channel.mention} wurden entfernt.",
+                           discord.Color.orange(), target=f"Nachricht {payload.message_id}")
+
+    @commands.Cog.listener()
+    async def on_guild_channel_pins_update(self, channel, last_pin):
+        actor = await self.audit_actor(channel.guild, discord.AuditLogAction.message_pin, channel_id=channel.id)
+        await self.log(channel.guild, "Message pin changed",
+                       f"**Kanal:** {channel.mention} · `{channel.id}`\\n**Letzte Pin-Aktualisierung:** {last_pin or "Keine"}",
+                       actor=actor, target=channel)
+
+    @commands.Cog.listener()
+    async def on_stage_instance_create(self, stage):
+        await self.log(stage.guild, "Stage created", f"**Titel:** {stage.topic}\\n**Kanal:** {stage.channel.mention} · `{stage.channel.id}`",
+                       discord.Color.green(), target=stage)
+
+    @commands.Cog.listener()
+    async def on_stage_instance_update(self, before, after):
+        if before.topic != after.topic or before.privacy_level != after.privacy_level:
+            await self.log(after.guild, "Stage updated",
+                           f"**Titel:** {before.topic} → {after.topic}\\n**Sichtbarkeit:** {before.privacy_level} → {after.privacy_level}",
+                           target=after)
+
+    @commands.Cog.listener()
+    async def on_stage_instance_delete(self, stage):
+        await self.log(stage.guild, "Stage deleted", f"**Titel:** {stage.topic}\\n**Kanal:** {stage.channel.mention}",
+                       discord.Color.red(), target=stage)
+
+    @commands.Cog.listener()
+    async def on_presence_update(self, before, after):
+        if before.status == after.status and before.activities == after.activities:
+            return
+        old_activities = ", ".join(str(item.name) for item in before.activities) or "Keine"
+        new_activities = ", ".join(str(item.name) for item in after.activities) or "Keine"
+        await self.log(after.guild, "Member presence changed",
+                       f"**Mitglied:** {after.mention} · `{after.id}`\\n"
+                       f"**Status:** {before.status} → {after.status}\\n"
+                       f"**Aktivitäten vorher:** {old_activities}\\n**Aktivitäten nachher:** {new_activities}",
+                       target=after)
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
         if after.guild is None or (after.author and after.author.bot):
