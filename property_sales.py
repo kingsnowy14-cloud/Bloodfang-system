@@ -76,11 +76,41 @@ class PropertyTicketView(discord.ui.View):
         super().__init__(timeout=None)
         self.cog, self.guild_id, self.property_id = cog, int(guild_id), str(property_id)
 
+    @discord.ui.button(label="Geld setzen", style=discord.ButtonStyle.primary, emoji="💶", custom_id="bloodfang:property:payment")
+    async def payment(self, interaction, button):
+        settings = _settings(self.guild_id)
+        if not self.cog.is_staff(interaction, settings):
+            await interaction.response.send_message("Nur Staff darf den Zahlungsstand ändern.", ephemeral=True)
+            return
+        await interaction.response.send_modal(PaymentModal(self.cog, self.guild_id, self.property_id))
+
+    @discord.ui.button(label="Als verkauft markieren", style=discord.ButtonStyle.success, emoji="🏷️", custom_id="bloodfang:property:sold")
+    async def sold(self, interaction, button):
+        settings = _settings(self.guild_id)
+        item = next((x for x in settings.get("items", []) if x.get("id") == self.property_id), None)
+        if not self.cog.is_staff(interaction, settings):
+            await interaction.response.send_message("Nur Staff darf Anwesen verkaufen.", ephemeral=True)
+            return
+        if not item or int(item.get("paid", 0)) < int(item.get("price", 0)):
+            await interaction.response.send_message("Erst nach vollständiger Zahlung kann als verkauft markiert werden.", ephemeral=True)
+            return
+        match = re.search(r"Property buyer: (\\d+)", getattr(interaction.channel, "topic", "") or "")
+        if not match:
+            await interaction.response.send_message("Käufer konnte nicht ermittelt werden.", ephemeral=True)
+            return
+        item.update({"sold": True, "buyer_id": match.group(1), "sold_by": str(interaction.user.id)})
+        _save()
+        await self.cog.refresh_listing(interaction.guild, item)
+        await interaction.response.send_message(f"🏡 {item['name']} wurde an <@{match.group(1)}> verkauft.")
+
     @discord.ui.button(label="Ticket schließen", style=discord.ButtonStyle.danger, custom_id="bloodfang:property:close")
     async def close(self, interaction, button):
         settings = _settings(self.guild_id)
-        if not self.cog.is_staff(interaction, settings) and interaction.user.id != getattr(interaction.channel, "topic_owner_id", None):
-            await interaction.response.send_message("Nur Staff kann dieses Ticket schließen.", ephemeral=True)
+        topic = getattr(interaction.channel, "topic", "") or ""
+        match = re.search(r"Property buyer: (\\d+)", topic)
+        buyer_id = int(match.group(1)) if match else 0
+        if not self.cog.is_staff(interaction, settings) and interaction.user.id != buyer_id:
+            await interaction.response.send_message("Nur Käufer oder Staff können dieses Ticket schließen.", ephemeral=True)
             return
         await interaction.response.send_message("Ticket wird geschlossen …")
         await interaction.channel.delete(reason=f"Property ticket closed by {interaction.user}")
@@ -126,6 +156,7 @@ class PropertyListingView(discord.ui.View):
             allowed_mentions=discord.AllowedMentions(users=True, roles=True),
         )
         item["active_ticket_id"] = channel.id
+        item["buyer_id"] = str(interaction.user.id)
         _save()
         await interaction.response.send_message(f"Dein Kauf-Ticket wurde erstellt: {channel.mention}", ephemeral=True)
 
@@ -250,8 +281,6 @@ class PropertySales(commands.Cog):
                     self.bot.add_view(PropertyListingView(self, int(guild_id), item["id"]), message_id=int(item["message_id"]))
                 if item.get("active_ticket_id"):
                     self.bot.add_view(PropertyTicketView(self, int(guild_id), item["id"]))
-                if item.get("message_id"):
-                    self.bot.add_view(PropertyStaffView(self, int(guild_id), item["id"]))
 
 
 async def setup(bot):
