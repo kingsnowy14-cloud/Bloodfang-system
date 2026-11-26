@@ -834,14 +834,15 @@ def _page(title, body):
             )
         except Exception:
             custom_theme_css = ""
+    team_only_page = request.path.startswith("/team-management/") or request.path.endswith("/team-management")
     nav = (
-        '<a class="skip-link" href="#main-content">Skip to content</a><nav class="top-nav" aria-label="Main navigation"><a href="/" class="brand-mark">🐺 IRONWOLF <span class="muted">/ CONTROL CENTER</span></a>'
-        + ('<a class="nav-server" href="/">🎮 Server wechseln</a>' if logged_in else '')
-        + ('<a class="nav-server" href="/guild/' + match.group(1) + '?section=general">⚙️ Einstellungen</a>' if logged_in and match else '')
-        + ('<a class="nav-server" href="/guild/' + match.group(1) + '/security-center">🛡️ Security Center</a>' if logged_in and match else '')
-        + ('<a class="nav-admin-premium" href="/premium">👑 Premium Admin</a>' if logged_in and is_premium_admin else '')
-        + ('<div class="cursor-controls"><label class="cursor-picker-label" for="iw-cursor-choice">✦ Cursor <select id="iw-cursor-choice" aria-label="Cursor-Stil"><option value="wolf">Alpha Wolf</option><option value="direwolf">Direwolf</option><option value="cyberwolf">Cyber Wolf</option><option value="skeleton">Phantom</option><option value="tree">Neon Forest</option><option value="flame">Inferno</option></select></label><label class="cursor-size-label" for="iw-cursor-size">Größe <input id="iw-cursor-size" type="range" min="24" max="88" step="2" value="48" aria-label="Cursor-Größe"><output id="iw-cursor-size-value" for="iw-cursor-size">48 px</output></label></div>' if logged_in else '')
-        + ('<form class="nav-logout" method="post" action="/logout">' + _csrf_field() + '<button type="submit" class="nav-logout-button">Logout</button></form>' if logged_in else '<a href="/login">Login</a>')
+        '<a class="skip-link" href="#main-content">Skip to content</a><nav class="top-nav" aria-label="Main navigation"><a href="/" class="brand-mark">🐺 IRONWOLF <span class="muted">/ TEAM MANAGEMENT</span></a>'
+        + ('' if team_only_page else ('<a class="nav-server" href="/">🎮 Server wechseln</a>' if logged_in else ''))
+        + ('<a class="nav-server" href="/guild/' + match.group(1) + '?section=general">⚙️ Einstellungen</a>' if logged_in and match and not team_only_page else '')
+        + ('<a class="nav-server" href="/guild/' + match.group(1) + '/security-center">🛡️ Security Center</a>' if logged_in and match and not team_only_page else '')
+        + ('<a class="nav-admin-premium" href="/premium">👑 Premium Admin</a>' if logged_in and is_premium_admin and not team_only_page else '')
+        + ('<div class="cursor-controls"><label class="cursor-picker-label" for="iw-cursor-choice">✦ Cursor <select id="iw-cursor-choice" aria-label="Cursor-Stil"><option value="wolf">Alpha Wolf</option><option value="direwolf">Direwolf</option><option value="cyberwolf">Cyber Wolf</option><option value="skeleton">Phantom</option><option value="tree">Neon Forest</option><option value="flame">Inferno</option></select></label><label class="cursor-size-label" for="iw-cursor-size">Größe <input id="iw-cursor-size" type="range" min="24" max="88" step="2" value="48" aria-label="Cursor-Größe"><output id="iw-cursor-size-value" for="iw-cursor-size">48 px</output></label></div>' if logged_in and not team_only_page else '')
+        + ('<form class="nav-logout" method="post" action="/logout">' + _csrf_field() + '<button type="submit" class="nav-logout-button">Logout</button></form>' if logged_in and not team_only_page else ('<a href="/login">Login</a>' if not logged_in else ''))
         + '</nav>'
     )
     is_site_admin = str(session.get("user_id", "")) == "1493110334280564807"
@@ -1834,7 +1835,8 @@ def _dashboard_language():
 
 def _render(title, body, status=200):
     language = _dashboard_language()
-    body = _translate_dashboard(_module_navigation() + body, language)
+    team_only_page = request.path.startswith("/team-management/") or request.path.endswith("/team-management")
+    body = _translate_dashboard(("" if team_only_page else _module_navigation()) + body, language)
     title = _translate_dashboard(title, language)
     current_path = html.escape(request.path + (("?" + request.query_string.decode("utf-8", "ignore")) if request.query_string else ""), quote=True)
     rendered_page = _page(title, body)
@@ -3527,6 +3529,7 @@ def auto_role_dashboard(guild_id):
     return _render("AutoRole · IronWolf", body)
 
 
+@app.route("/team-management/<guild_id>", methods=["GET", "POST"])
 @app.route("/guild/<guild_id>/team-management", methods=["GET", "POST"])
 def team_management_dashboard(guild_id):
     """Dashboard-only team role and rank management."""
