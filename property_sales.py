@@ -269,7 +269,7 @@ class PropertySales(commands.Cog):
             embed.add_field(
                 name=f"🏡 {item.get('name', 'Anwesen')}　·　💶 {price:,} €".replace(",", "."),
                 value=f"👤 **Käufer:** {buyer}\n{status}",
-                inline=True,
+                inline=False,
             )
         embed.set_footer(text=f"{guild.name} · Seite {page + 1}/{total_pages} · {len(items)} Anwesen")
         return embed
