@@ -10227,7 +10227,13 @@ class RPStatusButton(discord.ui.Button):
             timestamp=datetime.now(timezone.utc),
         )
         try:
-            await channel.send(embed=status_embed)
+            ping_role_id = settings.get("ping_role_id")
+            ping_role = interaction.guild.get_role(int(ping_role_id)) if ping_role_id else None
+            await channel.send(
+                content=ping_role.mention if ping_role else None,
+                embed=status_embed,
+                allowed_mentions=discord.AllowedMentions(roles=True, users=False, everyone=False),
+            )
             cfg["rp_panel"]["status"] = status.lower()
             cfg["rp_panel"]["updated_by"] = str(member.id)
             cfg["rp_panel"]["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -10242,7 +10248,7 @@ class RPStatusButton(discord.ui.Button):
                 await interaction.response.send_message("I could not publish the RP status. Please check my channel permissions.", ephemeral=True)
 
 
-async def _send_rp_panel(guild_id, channel_id, role_id, title, description, start_message="Roleplay is now starting!", stop_message="Roleplay has ended.", link_label="", link_url=""):
+async def _send_rp_panel(guild_id, channel_id, role_id, title, description, start_message="Roleplay is now starting!", stop_message="Roleplay has ended.", link_label="", link_url="", ping_role_id=""):
     guild = bot.get_guild(int(guild_id))
     channel = guild.get_channel(int(channel_id)) if guild else None
     if not isinstance(channel, discord.TextChannel):
@@ -10251,6 +10257,7 @@ async def _send_rp_panel(guild_id, channel_id, role_id, title, description, star
     previous_status = cfg.get("rp_panel", {}).get("status", "not set")
     cfg["rp_panel"] = {
         "channel_id": int(channel_id), "role_id": int(role_id),
+        "ping_role_id": int(ping_role_id) if ping_role_id else None,
         "title": title, "description": description,
         "start_message": start_message, "stop_message": stop_message,
         "link_label": link_label, "link_url": link_url,
