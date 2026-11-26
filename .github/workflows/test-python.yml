@@ -2,17 +2,7 @@ name: Bloodfang quality and website checks
 
 on:
   push:
-    paths:
-      - "**/*.py"
-      - "requirements.txt"
-      - ".github/workflows/test-python.yml"
-      - "Procfile"
   pull_request:
-    paths:
-      - "**/*.py"
-      - "requirements.txt"
-      - ".github/workflows/test-python.yml"
-      - "Procfile"
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
