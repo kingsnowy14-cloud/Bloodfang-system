@@ -6978,7 +6978,7 @@ async def ensure_ironwolf_private_role(guild: discord.Guild):
         if ironwolf_role is None:
             ironwolf_role = await guild.create_role(
                 name="IronWolf",
-                colour=discord.Colour.blurple(),
+                colour=discord.Colour.default(),
                 permissions=discord.Permissions.none(),
                 hoist=False,
                 mentionable=False,
@@ -6986,6 +6986,12 @@ async def ensure_ironwolf_private_role(guild: discord.Guild):
             )
             cfg["ironwolf_private_role_id"] = ironwolf_role.id
             save_json(CONFIG_FILE, config)
+        elif ironwolf_role.colour.value != 0:
+            # Also remove the colour from an already-existing private bot role.
+            await ironwolf_role.edit(
+                colour=discord.Colour.default(),
+                reason="Keep IronWolf's dedicated private bot role colourless",
+            )
 
         # The role must belong to IronWolf alone, never to a human member.
         for member in list(ironwolf_role.members):
