@@ -846,7 +846,7 @@ def _page(title, body):
         + '</nav>'
     )
     is_site_admin = str(session.get("user_id", "")) == "1493110334280564807"
-    if is_site_admin:
+    if is_site_admin and not team_only_page:
         nav = nav.replace('</nav>', '<a class="nav-server" href="/admin/website-statistics">📊 Website stats</a></nav>')
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
