@@ -240,7 +240,9 @@ def guild_has_feature(guild_config, feature):
         return feature in PLAN_FEATURES["premium"]
     if guild_trial_active(guild_config):
         return True
-    return account_plan(guild_config.get("premium_owner_id")) == "premium"
+    # Premium entitlements are server-scoped. A user's account grant must
+    # never unlock features on a guild merely because that user owns it.
+    return False
 
 
 def guild_plan(guild_config):
@@ -251,4 +253,4 @@ def guild_plan(guild_config):
         return "premium"
     if guild_trial_active(guild_config):
         return "premium"
-    return account_plan(guild_config.get("premium_owner_id"))
+    return "free"
