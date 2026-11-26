@@ -4685,6 +4685,32 @@ def guild_page(guild_id):
         if not _csrf_ok():
             abort(400, "CSRF-Prüfung fehlgeschlagen. Bitte Seite neu laden.")
         action = request.form.get("action", "")
+        if action == "server_logs_simple":
+            actor = guild.get_member(int(session.get("user_id", "0")))
+            if actor is None or not (actor.guild_permissions.administrator or actor.guild_permissions.manage_guild):
+                abort(403, "Du brauchst Administrator- oder Server-verwalten-Rechte.")
+            enabled = request.form.get("enabled") == "on"
+            channel_raw = request.form.get("channel_id", "").strip()
+            valid_text_ids = {str(channel.id) for channel in guild.text_channels}
+            if channel_raw and channel_raw not in valid_text_ids:
+                abort(400, "Bitte wähle einen gültigen Textkanal.")
+            if enabled and not channel_raw:
+                abort(400, "Wähle zuerst den Log-Kanal aus.")
+            log_path = data_path("server_logs.json")
+            try:
+                log_db = json.loads(log_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                log_db = {}
+            log_db[gid] = {
+                "enabled": enabled,
+                "all_in_one": True,
+                "channel_id": int(channel_raw) if channel_raw.isdigit() else None,
+            }
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text(json.dumps(log_db, ensure_ascii=False, indent=2), encoding="utf-8")
+            _audit_dashboard_change(guild.id, "Server Logs", session.get("user_id"),
+                                    "Server-Logs " + ("aktiviert" if enabled else "deaktiviert"))
+            return redirect(url_for("guild_page", guild_id=gid, section="channels", saved="1") + "#logging-settings")
         if action == "modules":
             disabled = set(cfg.get("disabled_modules", []))
             valid_modules = {item["name"] for item in _module_records(guild.id)}
@@ -4932,15 +4958,29 @@ def guild_page(guild_id):
         settings_html += '<div style="display:flex;justify-content:flex-end;margin-top:18px"><button type="submit">💾 Save changes</button></div>'
         settings_html += '</form></section>'
         if section == "channels":
+            log_path = data_path("server_logs.json")
+            try:
+                log_db = json.loads(log_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                log_db = {}
+            log_cfg = log_db.get(gid, {})
+            log_enabled = " checked" if log_cfg.get("enabled", False) else ""
+            log_channel = options(channels, log_cfg.get("channel_id"))
             settings_html += (
                 '<section class="card" id="logging-settings" style="margin-top:22px">'
-                '<span class="pill">SAPPHIRE-STYLE LOGGING</span>'
-                '<h2>📋 Server-Log-System</h2>'
-                '<p class="muted">Konfiguriere hier direkt dein Server-Logging: Nachrichten, Mitglieder, Rollen, Kanäle, Voice, Einladungen, Emojis, Threads, Webhooks und Server-Einstellungen. Ein gemeinsamer Log-Kanal oder getrennte Kanäle pro Kategorie.</p>'
-                '<iframe title="Server-Log-Einstellungen" src="/guild/' + gid + '/server-logs?embedded=1" '
-                'style="width:100%;min-height:1250px;border:0;border-radius:12px;background:transparent" loading="lazy"></iframe>'
-                '</section>'
+                '<span class="pill">SERVER ACTIVITY</span>'
+                '<h2>📋 Discord-Logs</h2>'
+                '<p class="muted">Ein Log-System für den ganzen Server. Wenn aktiviert, werden Ereignisse wie Voice beitreten/verlassen, Nachrichten löschen/bearbeiten, Mitgliederbeitritte sowie Änderungen an Rollen und Kanälen in denselben Kanal geschrieben.</p>'
+                '<form method="post">' + _csrf_field() +
+                '<input type="hidden" name="action" value="server_logs_simple">'
+                '<div class="check"><input type="checkbox" id="server-logs-enabled-simple" name="enabled"' + log_enabled + '>'
+                '<label for="server-logs-enabled-simple">Logs aktivieren</label></div>'
+                '<label for="server-logs-channel-simple">Log-Kanal</label>'
+                '<select id="server-logs-channel-simple" name="channel_id">' + log_channel + '</select>'
+                '<button type="submit">💾 Speichern</button></form></section>'
             )
+            if request.args.get("saved") == "1":
+                settings_html += '<div class="notice">✅ Log-Einstellungen gespeichert.</div>'
         if section == "roles":
             settings_html += '<section class="card"><h3>＋ Create Discord role</h3><p class="muted">Creates a Discord role on your server. You can then select it as a role button in the Message Builder.</p><form method="post" action="/guild/' + gid + '/roles/create">' + _csrf_field() + '<label for="role_name">Role name</label><input id="role_name" name="role_name" maxlength="100" required placeholder="z. B. Gaming, Ankündigungen oder Verifiziert"><label for="role_color">Role color</label><input id="role_color" name="role_color" type="color" value="#5865F2" style="height:48px;padding:5px"><button type="submit">🎭 Create Discord role</button></form></section>'
     module_records = _module_records(guild.id)
