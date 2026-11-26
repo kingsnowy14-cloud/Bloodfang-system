@@ -49,6 +49,8 @@ intents.guilds = True
 intents.members = True
 intents.presences = True
 intents.message_content = True
+intents.auto_moderation_configuration = True
+intents.auto_moderation_execution = True
 
 class GuildGateBot(commands.Bot):
     """Dispatch guild events consistently on every server where IronWolf is installed."""
@@ -8863,8 +8865,8 @@ class ServerLogs(commands.Cog):
         title_text = str(title)
         title_lower = title_text.lower()
         category_rules = [
-            (("message", "messages"), "messages", "💬", "Nachrichten"),
-            (("member", "ban", "unban", "nickname"), "members", "👥", "Mitglieder"),
+            (("message", "messages", "reaction", "pin"), "messages", "💬", "Nachrichten"),
+            (("member", "ban", "unban", "nickname", "presence"), "members", "👥", "Mitglieder"),
             (("role",), "roles", "🎭", "Rollen"),
             (("voice", "stage"), "voice", "🔊", "Voice"),
             (("channel", "forum", "category"), "channels", "📁", "Kanäle"),
@@ -9258,6 +9260,38 @@ class ServerLogs(commands.Cog):
         await self.log(member.guild, title, details, actor=member, target=member)
 
 
+    @commands.Cog.listener()
+    async def on_automod_rule_create(self, rule):
+        await self.log(rule.guild, 'AutoMod rule created',
+                       f'**Regel:** {rule.name} · `{rule.id}`\n**Typ:** {rule.trigger.type}\n**Aktionen:** {rule.actions}',
+                       discord.Color.green(), target=rule)
+
+    @commands.Cog.listener()
+    async def on_automod_rule_update(self, before, after):
+        changes = []
+        for attr, label in (('name', 'Name'), ('enabled', 'Aktiviert'), ('trigger', 'Auslöser'), ('actions', 'Aktionen'), ('exempt_roles', 'Ausgenommene Rollen'), ('exempt_channels', 'Ausgenommene Kanäle')):
+            if getattr(before, attr, None) != getattr(after, attr, None):
+                changes.append(f'**{label}:** {getattr(before, attr, None)} → {getattr(after, attr, None)}')
+        if changes:
+            await self.log(after.guild, 'AutoMod rule updated', '\n'.join(changes), target=after)
+
+    @commands.Cog.listener()
+    async def on_automod_rule_delete(self, rule):
+        await self.log(rule.guild, 'AutoMod rule deleted',
+                       f'**Regel:** {rule.name} · `{rule.id}`\n**Typ:** {rule.trigger.type}',
+                       discord.Color.red(), target=rule)
+
+    @commands.Cog.listener()
+    async def on_automod_action(self, execution):
+        member = getattr(execution, 'member', None)
+        channel = getattr(execution, 'channel', None)
+        action_type = getattr(getattr(execution, 'action', None), 'type', 'Unbekannt')
+        content_text = discord.utils.escape_mentions(getattr(execution, 'content', '') or 'Nicht verfügbar')
+        await self.log(execution.guild, 'AutoMod action triggered',
+                       f'**Regel-ID:** `{execution.rule_id}`\n**Mitglied:** {member or execution.user_id}\n'
+                       f'**Kanal:** {channel.mention if channel else "Unbekannt"}\n'
+                       f'**Aktion:** {action_type}\n**Inhalt:** {content_text[:1200]}',
+                       discord.Color.orange(), target=member or f'User {execution.user_id}')
     @commands.Cog.listener()
     async def on_invite_create(self, invite):
         await self.log(invite.guild, "Invite created",
