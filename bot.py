@@ -6832,6 +6832,67 @@ async def send_historical_main_server_invites():
         await asyncio.sleep(1)
 
 
+async def ensure_ironwolf_private_role(guild: discord.Guild):
+    """Ensure existing and newly joined guilds have one IronWolf role assigned only to the bot."""
+    try:
+        bot_member = guild.me
+        if bot_member is None:
+            bot_member = await guild.fetch_member(bot.user.id)
+
+        cfg = guild_config(guild.id)
+        saved_role_id = cfg.get("ironwolf_private_role_id")
+        ironwolf_role = guild.get_role(int(saved_role_id)) if str(saved_role_id or "").isdigit() else None
+
+        # Never adopt an unrelated same-named role; create and remember our own role.
+        if ironwolf_role is None:
+            ironwolf_role = await guild.create_role(
+                name="IronWolf",
+                colour=discord.Colour.blurple(),
+                permissions=discord.Permissions.none(),
+                hoist=False,
+                mentionable=False,
+                reason="Create IronWolf's dedicated private bot role",
+            )
+            cfg["ironwolf_private_role_id"] = ironwolf_role.id
+            save_json(CONFIG_FILE, config)
+
+        # The role must belong to IronWolf alone, never to a human member.
+        for member in list(ironwolf_role.members):
+            if member.id != bot_member.id:
+                await member.remove_roles(
+                    ironwolf_role,
+                    reason="Keep the dedicated IronWolf role exclusive to the bot",
+                )
+
+        if ironwolf_role not in bot_member.roles:
+            await bot_member.add_roles(
+                ironwolf_role,
+                reason="Assign IronWolf's dedicated private bot role",
+            )
+        print(
+            f"[ROLE] Dedicated IronWolf role {ironwolf_role.id} assigned exclusively "
+            f"to the bot in guild {guild.id}.",
+            flush=True,
+        )
+        return True
+    except (discord.Forbidden, discord.HTTPException, AttributeError, ValueError) as exc:
+        print(
+            f"[ROLE] Could not create/assign exclusive IronWolf role in guild {guild.id}: "
+            f"{type(exc).__name__}: {exc}",
+            flush=True,
+        )
+        return False
+
+
+@bot.listen("on_ready")
+async def ensure_private_roles_for_existing_guilds():
+    """Backfill the private IronWolf role on every server the bot is already in."""
+    print(f"[ROLE] Checking dedicated IronWolf roles across {len(bot.guilds)} existing guilds.", flush=True)
+    for guild in list(bot.guilds):
+        await ensure_ironwolf_private_role(guild)
+        await asyncio.sleep(0.5)
+
+
 @bot.event
 async def on_guild_join(guild: discord.Guild):
     # New servers start with every available command disabled. Existing server
@@ -6854,45 +6915,8 @@ async def on_guild_join(guild: discord.Guild):
         save_json(CONFIG_FILE, config)
         print(f"[COMMAND-GATE] New guild {guild.id}: disabled {len(disabled)} commands by default; enable them in the dashboard.", flush=True)
 
-    # Create a dedicated, permissionless role for this bot only.
-    try:
-        bot_member = guild.me
-        if bot_member is None:
-            bot_member = await guild.fetch_member(bot.user.id)
-
-        cfg = guild_config(guild.id)
-        saved_role_id = cfg.get("ironwolf_private_role_id")
-        ironwolf_role = guild.get_role(int(saved_role_id)) if str(saved_role_id or "").isdigit() else None
-
-        # Never adopt a same-named role: it may already belong to server members.
-        if ironwolf_role is None:
-            ironwolf_role = await guild.create_role(
-                name="IronWolf",
-                colour=discord.Colour.blurple(),
-                permissions=discord.Permissions.none(),
-                hoist=False,
-                mentionable=False,
-                reason="Create IronWolf's dedicated private bot role",
-            )
-            cfg["ironwolf_private_role_id"] = ironwolf_role.id
-            save_json(CONFIG_FILE, config)
-
-        # Remove this dedicated role from any other cached member before assigning it to the bot.
-        for member in list(ironwolf_role.members):
-            if member.id != bot_member.id:
-                await member.remove_roles(
-                    ironwolf_role,
-                    reason="Keep the dedicated IronWolf role exclusive to the bot",
-                )
-
-        if ironwolf_role not in bot_member.roles:
-            await bot_member.add_roles(
-                ironwolf_role,
-                reason="Assign IronWolf's dedicated private bot role",
-            )
-        print(f"[ROLE] Dedicated IronWolf role {ironwolf_role.id} assigned exclusively to the bot in guild {guild.id}.", flush=True)
-    except (discord.Forbidden, discord.HTTPException, AttributeError, ValueError) as exc:
-        print(f"[ROLE] Could not create/assign exclusive IronWolf role in guild {guild.id}: {type(exc).__name__}: {exc}", flush=True)
+    # Ensure the dedicated role is also created immediately on future joins.
+    await ensure_ironwolf_private_role(guild)
 
     # Always log the guild join, even when this guild is not enabled in the dashboard.
     await notify_bot_server_change(guild, joined=True)
