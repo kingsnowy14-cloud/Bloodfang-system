@@ -8702,16 +8702,26 @@ class ServerLogs(commands.Cog):
         title_lower = str(title).lower()
         if any(word in title_lower for word in ("message", "messages")):
             category = "messages"
-        elif any(word in title_lower for word in ("member", "ban", "unban")):
+        elif any(word in title_lower for word in ("member", "ban", "unban", "nickname")):
             category = "members"
         elif "role" in title_lower:
             category = "roles"
-        elif "channel" in title_lower and "voice" not in title_lower:
-            category = "channels"
-        elif "voice" in title_lower:
+        elif any(word in title_lower for word in ("voice", "stage")):
             category = "voice"
+        elif any(word in title_lower for word in ("channel", "forum", "category")):
+            category = "channels"
+        elif "invite" in title_lower:
+            category = "invites"
+        elif any(word in title_lower for word in ("emoji", "sticker")):
+            category = "emojis"
+        elif any(word in title_lower for word in ("thread", "post")):
+            category = "threads"
+        elif "webhook" in title_lower:
+            category = "webhooks"
+        elif any(word in title_lower for word in ("integration", "application")):
+            category = "integrations"
         else:
-            category = "members"
+            category = "server"
         if cfg.get("all_in_one", True):
             channel_id = cfg.get("channel_id")
         else:
@@ -8964,6 +8974,112 @@ class ServerLogs(commands.Cog):
             title = "Switched voice channels"
             details = f"Member: {member.mention} · ID {member.id}\nVon: {before.channel.name} · ID {before.channel.id}\nNach: {after.channel.name} · ID {after.channel.id}"
         await self.log(member.guild, title, details, actor=member, target=member)
+
+
+    @commands.Cog.listener()
+    async def on_invite_create(self, invite):
+        await self.log(invite.guild, "Invite created",
+                       f"Code: {invite.code}\\nChannel: {getattr(invite.channel, 'mention', 'Unknown')}\\nUses: {invite.max_uses or 'Unlimited'}\\nExpires: {invite.max_age or 'Never'}",
+                       discord.Color.green(), actor=invite.inviter, target=invite)
+
+    @commands.Cog.listener()
+    async def on_invite_delete(self, invite):
+        await self.log(invite.guild, "Invite deleted",
+                       f"Code: {invite.code}\\nChannel: {getattr(invite.channel, 'mention', 'Unknown')}",
+                       discord.Color.red(), target=invite)
+
+    @commands.Cog.listener()
+    async def on_guild_update(self, before, after):
+        changes = []
+        for attr, label in (("name", "Name"), ("description", "Description"),
+                            ("verification_level", "Verification level"),
+                            ("explicit_content_filter", "Content filter"),
+                            ("default_notifications", "Default notifications"),
+                            ("preferred_locale", "Preferred locale")):
+            old, new = getattr(before, attr, None), getattr(after, attr, None)
+            if old != new:
+                changes.append(f"{label}: {old} → {new}")
+        if changes:
+            actor = await self.audit_actor(after, discord.AuditLogAction.guild_update, after.id)
+            await self.log(after, "Server settings updated", "\\n".join(changes),
+                           actor=actor, target=after)
+
+    @commands.Cog.listener()
+    async def on_guild_emojis_update(self, guild, before, after):
+        old = {item.id: item for item in before}
+        new = {item.id: item for item in after}
+        for item_id in new.keys() - old.keys():
+            item = new[item_id]
+            await self.log(guild, "Emoji created", f"Name: :{item.name}:\\nID: {item.id}",
+                           discord.Color.green(), target=item)
+        for item_id in old.keys() - new.keys():
+            item = old[item_id]
+            await self.log(guild, "Emoji deleted", f"Name: :{item.name}:\\nID: {item.id}",
+                           discord.Color.red(), target=item)
+        for item_id in old.keys() & new.keys():
+            if old[item_id].name != new[item_id].name:
+                await self.log(guild, "Emoji updated",
+                               f"Before: {old[item_id].name}\\nAfter: {new[item_id].name}\\nID: {item_id}",
+                               target=new[item_id])
+
+    @commands.Cog.listener()
+    async def on_guild_stickers_update(self, guild, before, after):
+        old = {item.id: item for item in before}
+        new = {item.id: item for item in after}
+        for item_id in new.keys() - old.keys():
+            await self.log(guild, "Sticker created", f"Name: {new[item_id].name}\\nID: {item_id}",
+                           discord.Color.green(), target=new[item_id])
+        for item_id in old.keys() - new.keys():
+            await self.log(guild, "Sticker deleted", f"Name: {old[item_id].name}\\nID: {item_id}",
+                           discord.Color.red(), target=old[item_id])
+
+    @commands.Cog.listener()
+    async def on_thread_create(self, thread):
+        await self.log(thread.guild, "Thread created",
+                       f"Name: {thread.name}\\nParent: {getattr(thread.parent, 'mention', 'Unknown')}\\nID: {thread.id}",
+                       discord.Color.green(), target=thread)
+
+    @commands.Cog.listener()
+    async def on_thread_delete(self, thread):
+        await self.log(thread.guild, "Thread deleted",
+                       f"Name: {thread.name}\\nParent: {getattr(thread.parent, 'mention', 'Unknown')}\\nID: {thread.id}",
+                       discord.Color.red(), target=thread)
+
+    @commands.Cog.listener()
+    async def on_thread_update(self, before, after):
+        if before.name != after.name or before.archived != after.archived or before.locked != after.locked:
+            await self.log(after.guild, "Thread updated",
+                           f"Name: {before.name} → {after.name}\\nArchived: {before.archived} → {after.archived}\\nLocked: {before.locked} → {after.locked}",
+                           target=after)
+
+    @commands.Cog.listener()
+    async def on_webhooks_update(self, channel):
+        await self.log(channel.guild, "Webhooks updated",
+                       f"Webhook configuration changed in {channel.mention} (ID: {channel.id}).",
+                       target=channel)
+
+    @commands.Cog.listener()
+    async def on_guild_integrations_update(self, guild):
+        await self.log(guild, "Integrations updated",
+                       "The server integration configuration changed. Check Server Settings → Integrations.",
+                       target=guild)
+
+    @commands.Cog.listener()
+    async def on_guild_scheduled_event_create(self, event):
+        await self.log(event.guild, "Scheduled event created",
+                       f"Name: {event.name}\\nID: {event.id}", discord.Color.green(), target=event)
+
+    @commands.Cog.listener()
+    async def on_guild_scheduled_event_update(self, before, after):
+        if before.name != after.name or before.start_time != after.start_time or before.status != after.status:
+            await self.log(after.guild, "Scheduled event updated",
+                           f"Name: {before.name} → {after.name}\\nStart: {before.start_time} → {after.start_time}\\nStatus: {before.status} → {after.status}",
+                           target=after)
+
+    @commands.Cog.listener()
+    async def on_guild_scheduled_event_delete(self, event):
+        await self.log(event.guild, "Scheduled event deleted",
+                       f"Name: {event.name}\\nID: {event.id}", discord.Color.red(), target=event)
 
 
 
