@@ -110,10 +110,10 @@ async def dashboard_prefix_command_check(ctx):
         if guild_cfg.get("bot_enabled", True) is False:
             await ctx.send("IronWolf has not been enabled for this server yet. A server administrator can enable it in the dashboard.")
             return False
-    prefix_enabled = await dashboard_command_enabled(guild_id, f"prefix:!{command_name}")
-    dot_prefix_enabled = await dashboard_command_enabled(guild_id, f"prefix:.{command_name}")
-    if not prefix_enabled or not dot_prefix_enabled:
-        await ctx.send("This command has been disabled for this server in the web dashboard.")
+    invoked_prefix = "!" if getattr(ctx, "prefix", "!") == "!" else "."
+    prefix_enabled = await dashboard_command_enabled(guild_id, f"prefix:{invoked_prefix}{command_name}")
+    if not prefix_enabled:
+        await ctx.send("This prefix command has been disabled for this server in the web dashboard.")
         return False
     cog = getattr(ctx, "cog", None)
     module_name = cog.__class__.__name__ if cog is not None else None
