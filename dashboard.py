@@ -4906,12 +4906,11 @@ def guild_page(guild_id):
             if guild_has_feature(cfg, "invite_tracker"):
                 checked = " checked" if cfg.get("invite_tracker_enabled", False) else ""
                 settings_html += f'<div class="check"><input type="checkbox" id="invite_tracker_enabled" name="invite_tracker_enabled"{checked}><label for="invite_tracker_enabled">{html.escape(BOOL_SETTINGS["invite_tracker_enabled"])}</label></div>'
-                settings_html += '<label for="invite_log_channel">Invite Tracker: Select log channel</label><small>Detected invites and invite uses will be logged here.</small><select id="invite_log_channel" name="invite_log_channel">' + options(channels, cfg.get("invite_log_channel")) + '</select>'
             else:
                 settings_html += '<div class="check"><input type="checkbox" id="invite_tracker_locked" disabled><label for="invite_tracker_locked">🔒 Invite-Tracker aktivieren (Premium erforderlich)</label></div><p class="muted">The Invite Tracker remains locked until this server has an active premium subscription. <a href="/guild/' + gid + '/premium">Manage Premium →</a></p>'
         if section == "channels":
             for key, label in CHANNEL_SETTINGS.items():
-                if key in {"ticket_category", "welcome_channel", "goodbye_channel"}:
+                if key in {"ticket_category", "welcome_channel", "goodbye_channel", "invite_log_channel", "security_log_channel", "analytics_log_channel", "ticket_log_channel", "activity_log_channel", "log_channel_id"}:
                     continue
                 settings_html += f'<label for="{key}">{html.escape(label)}</label><select id="{key}" name="{key}">{options(channels, cfg.get(key))}</select>'
         if section == "roles":
