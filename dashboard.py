@@ -3449,10 +3449,10 @@ def property_sales_dashboard(guild_id):
     body += '<input type="hidden" id="property-count-input" name="property_count" value="' + str(len(items)) + '"><div id="property-list" class="property-list">'
     for idx, item in enumerate(items):
         body += f'<div class="property-item" data-property><h3>🏡 Anwesen <span class="property-number">{idx+1}</span></h3>'
-        body += f'<input type="hidden" name="property_id_{idx}" value="{html.escape(str(item.get("id", "")), quote=True)}">'
-        body += f'<label>Name</label><input name="property_name_{idx}" maxlength="100" required value="{html.escape(str(item.get("name", "")), quote=True)}" placeholder="Villa am See">'
-        body += f'<label>Kaufpreis in €</label><input name="property_price_{idx}" inputmode="numeric" required value="{html.escape(str(item.get("price", "")), quote=True)}" placeholder="500">'
-        body += f'<label>Bild (PNG/JPG/WEBP, max. 8 MB)</label><input type="file" name="property_image_{idx}" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">'
+        body += f'<input type="hidden" data-field="property_id" name="property_id_{idx}" value="{html.escape(str(item.get("id", "")), quote=True)}">'
+        body += f'<label>Name</label><input data-field="property_name" name="property_name_{idx}" maxlength="100" required value="{html.escape(str(item.get("name", "")), quote=True)}" placeholder="Villa am See">'
+        body += f'<label>Kaufpreis in €</label><input data-field="property_price" name="property_price_{idx}" inputmode="numeric" required value="{html.escape(str(item.get("price", "")), quote=True)}" placeholder="500">'
+        body += f'<label>Bild (PNG/JPG/WEBP, max. 8 MB)</label><input type="file" data-field="property_image" name="property_image_{idx}" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">'
         if item.get("image_path") and Path(item["image_path"]).is_file():
             body += '<p class="muted">✓ Bild gespeichert – bleibt erhalten, wenn du kein neues auswählst.</p>'
         body += '<div class="property-actions"><button type="button" class="property-remove" onclick="removeProperty(this)">✕ Anwesen entfernen</button></div></div>'
