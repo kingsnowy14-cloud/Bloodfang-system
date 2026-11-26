@@ -9105,17 +9105,6 @@ class ServerLogs(commands.Cog):
                        discord.Color.red(), target=stage)
 
     @commands.Cog.listener()
-    async def on_presence_update(self, before, after):
-        if before.status == after.status and before.activities == after.activities:
-            return
-        old_activities = ", ".join(str(item.name) for item in before.activities) or "Keine"
-        new_activities = ", ".join(str(item.name) for item in after.activities) or "Keine"
-        await self.log(after.guild, "Member presence changed",
-                       f"**Mitglied:** {after.mention} · `{after.id}`\n"
-                       f"**Status:** {before.status} → {after.status}\n"
-                       f"**Aktivitäten vorher:** {old_activities}\n**Aktivitäten nachher:** {new_activities}",
-                       target=after)
-    @commands.Cog.listener()
     async def on_raw_message_edit(self, payload):
         guild = self.bot.get_guild(payload.guild_id) if payload.guild_id else None
         if guild is None or self._is_log_channel(guild, payload.channel_id):
