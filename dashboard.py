@@ -4318,6 +4318,7 @@ def guild_rp_control(guild_id):
             abort(400, "Security check failed. Please reload the page.")
         channel_id = request.form.get("channel_id", "").strip()
         role_id = request.form.get("role_id", "").strip()
+        ping_role_id = request.form.get("ping_role_id", "").strip()
         title = request.form.get("embed_title", "Roleplay Status").strip()[:256]
         description = request.form.get("embed_description", "Use the buttons below to announce when roleplay starts or stops.").strip()[:4000]
         start_message = request.form.get("start_message", "Roleplay is now starting!").strip()[:1800]
@@ -4328,6 +4329,8 @@ def guild_rp_control(guild_id):
             abort(400, "Please select a valid text channel.")
         if not role_id.isdigit() or int(role_id) not in {r.id for r in guild.roles if not r.is_default() and not r.managed}:
             abort(400, "Please select a valid permission role.")
+        if ping_role_id and (not ping_role_id.isdigit() or int(ping_role_id) not in {r.id for r in guild.roles if not r.is_default() and not r.managed}):
+            abort(400, "Please select a valid role to ping.")
         if not title:
             abort(400, "The embed title cannot be empty.")
         if link_url and not re.match(r"^https://", link_url, re.IGNORECASE):
@@ -4338,7 +4341,7 @@ def guild_rp_control(guild_id):
             abort(503, "IronWolf is not ready. Please try again shortly.")
         import concurrent.futures
         future = asyncio.run_coroutine_threadsafe(
-            _bot.send_rp_panel(guild.id, int(channel_id), int(role_id), title, description, start_message, stop_message, link_label, link_url),
+            _bot.send_rp_panel(guild.id, int(channel_id), int(role_id), title, description, start_message, stop_message, link_label, link_url, ping_role_id),
             _bot.loop,
         )
         try:
@@ -4365,6 +4368,7 @@ def guild_rp_control(guild_id):
         '<form method="post">' + _csrf_field() +
         '<label>Announcement channel</label><select name="channel_id" required>' + channel_options + '</select>' +
         '<label>Role allowed to use RP buttons</label><select name="role_id" required>' + role_options + '</select>' +
+        '<label>Role to ping when RP starts or stops (optional)</label><select name="ping_role_id"><option value="">Do not ping a role</option>' + ''.join('<option value="' + str(rid) + '"' + (' selected' if str(rp_cfg.get("ping_role_id") or "") == str(rid) else '') + '>' + html.escape(rname) + '</option>' for rid, rname in _guild_roles(guild)) + '</select>' +
         '<label>Panel embed title</label><input name="embed_title" maxlength="256" value="' + html.escape(str(rp_cfg.get("title", "Roleplay Status")), quote=True) + '" required>' +
         '<label>Panel embed description</label><textarea name="embed_description" maxlength="4000" rows="3">' + html.escape(str(rp_cfg.get("description", "Use the buttons below to announce when roleplay starts or stops."))) + '</textarea>' +
         '<label>Message posted when RP starts</label><textarea name="start_message" maxlength="1800" rows="2">' + html.escape(str(rp_cfg.get("start_message", "Roleplay is now starting!"))) + '</textarea>' +
