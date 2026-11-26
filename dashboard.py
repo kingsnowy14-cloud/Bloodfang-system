@@ -3619,6 +3619,67 @@ def team_management_dashboard(guild_id):
             _audit_dashboard_change(guild.id, "Team Management Settings", actor_id, "Team roles and notification channel updated")
             return redirect(url_for("team_management_dashboard", guild_id=gid, saved="1"))
 
+        if action == "publish_panel":
+            panel_channel_id = request.form.get("panel_channel_id", "").strip()
+            if panel_channel_id not in channels:
+                abort(400, "Select a valid channel for the Team Management panel.")
+            title = request.form.get("panel_title", "").strip()[:256] or (guild.name + " · Team Management")
+            description = request.form.get("panel_description", "").strip()[:4000]
+            color_raw = request.form.get("panel_color", "#5865F2").strip()
+            if not re.fullmatch(r"#[0-9A-Fa-f]{6}", color_raw):
+                abort(400, "Enter a valid hex color.")
+            enabled = [key for key in ("uprank", "downrank", "team_kick", "team_ban") if request.form.get("panel_" + key) == "on"]
+            if not enabled:
+                abort(400, "Enable at least one Team Management button.")
+            panel = {"channel_id": int(panel_channel_id), "title": title, "description": description, "color": color_raw, "enabled": enabled}
+            cfg["team_management_panel"] = panel
+            _save_json(data_path("config.json"), _config)
+            if not _bot or not _bot.loop.is_running():
+                abort(503, "IronWolf is offline.")
+            async def publish_team_panel():
+                target = guild.get_channel(int(panel_channel_id))
+                if not isinstance(target, discord.TextChannel):
+                    raise ValueError("The selected channel is no longer available.")
+                perms = target.permissions_for(guild.me)
+                if not perms.send_messages or not perms.embed_links:
+                    raise ValueError("IronWolf needs Send Messages and Embed Links in the selected channel.")
+                embed = discord.Embed(title=title, description=description or "Choose a team action below.", color=int(color_raw[1:], 16))
+                embed.set_footer(text="IronWolf · Team Management")
+                view = discord.ui.View(timeout=None)
+                labels = {
+                    "uprank": ("⬆️ Team Uprank", "uprank"),
+                    "downrank": ("⬇️ Team Downrank", "downrank"),
+                    "team_kick": ("👢 Team Kick", "team_kick"),
+                    "team_ban": ("🔨 Team Ban", "team_ban"),
+                }
+                base_url = "https://ironwolf-bot.up.railway.app/guild/" + gid + "/team-management?action="
+                for key in enabled:
+                    label, route = labels[key]
+                    view.add_item(discord.ui.Button(label=label, style=discord.ButtonStyle.link, url=base_url + route))
+                old_id = cfg.get("team_management_panel_message_id")
+                old_channel_id = cfg.get("team_management_panel_channel_id")
+                message = None
+                if str(old_channel_id) == str(panel_channel_id) and str(old_id or "").isdigit():
+                    try:
+                        message = await target.fetch_message(int(old_id))
+                    except discord.NotFound:
+                        message = None
+                if message:
+                    await message.edit(embed=embed, view=view)
+                else:
+                    message = await target.send(embed=embed, view=view, allowed_mentions=discord.AllowedMentions.none())
+                cfg["team_management_panel_message_id"] = message.id
+                cfg["team_management_panel_channel_id"] = target.id
+                _save_json(data_path("config.json"), _config)
+                return message.id, target.name
+            try:
+                message_id, channel_name = asyncio.run_coroutine_threadsafe(publish_team_panel(), _bot.loop).result(timeout=30)
+                _audit_dashboard_change(guild.id, "Team Management Panel", actor_id, "Panel published/updated in #" + channel_name)
+                return redirect(url_for("team_management_dashboard", guild_id=gid, panel_sent="1"))
+            except Exception as exc:
+                print("[DASHBOARD] Team panel publish failed: " + type(exc).__name__ + ": " + str(exc)[:250], flush=True)
+                return _render("Team panel could not be published", '<section class="card"><h1>Team panel could not be published</h1><p>' + html.escape(str(exc)[:300]) + '</p></section>', 500)
+
         member_raw = request.form.get("member_id", "").strip()
         member_raw = re.sub(r"^<@!?(\d+)>$", r"\1", member_raw)
         reason = request.form.get("reason", "").strip()
@@ -3762,10 +3823,29 @@ def team_management_dashboard(guild_id):
     if request.args.get("result"):
         body += '<div class="notice">Team action completed and announcement sent.</div>'
     if selected_action not in action_labels and selected_action != "settings" and not selected_action.startswith("setting_"):
-        body += '<div class="grid">'
+        panel = cfg.get("team_management_panel", {}) if isinstance(cfg.get("team_management_panel"), dict) else {}
+        if request.args.get("panel_sent"):
+            body += '<div class="notice">Team Management panel published or updated in Discord.</div>'
+        body += '<h2>Team Actions</h2><div class="grid">'
         for key, (label, description) in action_labels.items():
             body += '<a class="card" style="display:block;text-decoration:none" href="/guild/' + gid + '/team-management?action=' + key + '"><h2>' + label + ' →</h2><p class="muted">' + description + '</p></a>'
-        body += '</div><p><a class="button secondary" href="/guild/' + gid + '/team-management?action=settings">⚙️ Team Settings</a></p></section>'
+        body += '</div><p><a class="button secondary" href="/guild/' + gid + '/team-management?action=settings">⚙️ Team Settings</a></p>'
+        body += '<hr><h2>Discord Embed Panel</h2><p class="muted">Gestalte die Nachricht, wähle den Zielkanal und entscheide, welche Team-Aktionsbuttons erscheinen.</p>'
+        body += '<form method="post">' + _csrf_field() + '<input type="hidden" name="team_action" value="publish_panel">'
+        body += '<label>Discord channel</label><select name="panel_channel_id" required><option value="">— Select channel —</option>'
+        selected_panel_channel = str(panel.get("channel_id") or cfg.get("team_management_channel_id") or "")
+        for channel in sorted(guild.text_channels, key=lambda item: item.position):
+            chosen = " selected" if str(channel.id) == selected_panel_channel else ""
+            body += '<option value="' + str(channel.id) + '"' + chosen + '>#' + html.escape(channel.name) + '</option>'
+        body += '</select><label>Embed title</label><input name="panel_title" maxlength="256" value="' + html.escape(str(panel.get("title") or (guild.name + " · Team Management")), quote=True) + '" required>'
+        body += '<label>Embed description</label><textarea name="panel_description" maxlength="4000" placeholder="Describe how your team should use these buttons.">' + html.escape(str(panel.get("description") or "")) + '</textarea>'
+        body += '<label>Embed color</label><input type="color" name="panel_color" value="' + html.escape(str(panel.get("color") or "#5865F2"), quote=True) + '">'
+        enabled = set(panel.get("enabled", ["uprank", "downrank", "team_kick", "team_ban"]))
+        for key, label in (("uprank", "⬆️ Team Uprank"), ("downrank", "⬇️ Team Downrank"), ("team_kick", "👢 Team Kick"), ("team_ban", "🔨 Team Ban")):
+            checked = " checked" if key in enabled else ""
+            body += '<label class="role-option"><input type="checkbox" name="panel_' + key + '"' + checked + '><span>' + label + '</span></label>'
+        body += '<button type="submit">💬 Save & publish/update Discord panel</button></form>'
+        body += '<p class="muted">Die Buttons öffnen die passende Team-Aktionsseite. Rollen, Rangfolge und Team-Ban-Rolle konfigurierst du unter Team Settings. IronWolf benötigt Send Messages und Embed Links im Zielkanal.</p></section>'
         return _render("Team Management · IronWolf", body)
     if selected_action == "settings":
         setting_labels = [
