@@ -2287,38 +2287,14 @@ class TeamManagementActionView(discord.ui.View):
     def __init__(self, guild_id: int):
         super().__init__(timeout=None)
         self.guild_id = int(guild_id)
-        button = discord.ui.Button(label="Open Team Management", style=discord.ButtonStyle.primary, custom_id=f"iwteam:open:{self.guild_id}", emoji="🛡️")
-        async def open_menu(interaction: discord.Interaction):
-            if not interaction.guild or interaction.guild.id != self.guild_id:
-                await interaction.response.send_message("This panel belongs to another server.", ephemeral=True)
-                return
-            if not isinstance(interaction.user, discord.Member) or not (interaction.user.guild_permissions.administrator or interaction.user.guild_permissions.manage_roles):
-                await interaction.response.send_message("You need Administrator or Manage Roles permission to use Team Management.", ephemeral=True)
-                return
-            cfg = guild_config(self.guild_id)
-            enabled = set((cfg.get("team_management_panel") or {}).get("enabled", ["uprank","downrank","team_kick","team_ban"]))
-            options = [
-                discord.SelectOption(label="Team Uprank", value="uprank", emoji="⬆️"),
-                discord.SelectOption(label="Team Downrank", value="downrank", emoji="⬇️"),
-                discord.SelectOption(label="Team Kick", value="team_kick", emoji="👢"),
-                discord.SelectOption(label="Team Ban", value="team_ban", emoji="🔨"),
-            ]
-            options = [o for o in options if o.value in enabled]
-            if not options:
-                await interaction.response.send_message("No Team Management actions are enabled. Configure the panel on the website.", ephemeral=True)
-                return
-            view = discord.ui.View(timeout=180)
-            menu = discord.ui.Select(placeholder="Choose a Team Management action", min_values=1, max_values=1, options=options)
-            async def choose_action(select_interaction: discord.Interaction):
-                if select_interaction.user.id != interaction.user.id:
-                    await select_interaction.response.send_message("This private menu is not yours.", ephemeral=True)
-                    return
-                await select_interaction.response.send_message("Select the member for this action:", view=TeamMemberSelectView(self.guild_id, menu.values[0]), ephemeral=True)
-            menu.callback = choose_action
-            view.add_item(menu)
-            await interaction.response.send_message("**Team Management**\nChoose the action you want to perform. The next selection is private to you.", view=view, ephemeral=True)
-        button.callback = open_menu
-        self.add_item(button)
+        base_url = os.getenv("DASHBOARD_PUBLIC_URL", "https://ironwolf-bot.up.railway.app").rstrip("/")
+        team_url = f"{base_url}/team-management/{self.guild_id}"
+        self.add_item(discord.ui.Button(
+            label="Open Team Management",
+            style=discord.ButtonStyle.link,
+            url=team_url,
+            emoji="🛡️",
+        ))
 
 
 bot.TeamManagementActionView = TeamManagementActionView
