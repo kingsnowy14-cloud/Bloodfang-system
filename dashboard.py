@@ -6338,84 +6338,8 @@ document.addEventListener("DOMContentLoaded",()=>{
 
 @app.route("/guild/<guild_id>/server-logs", methods=["GET", "POST"])
 def guild_server_logs(guild_id):
-    """Configure all IronWolf server activity logs."""
-    guild, response = _authorized_guild(guild_id)
-    if response:
-        return response
-    gid = str(guild.id)
-    store_path = data_path("server_logs.json")
-    try:
-        log_db = json.loads(store_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        log_db = {}
-    cfg = log_db.get(gid, {})
-    categories = [
-        ("members", "Members", "Joins, leaves, kicks, bans, unbans, nicknames and member roles"),
-        ("messages", "Messages", "Edited, deleted and bulk-deleted messages"),
-        ("roles", "Roles", "Role creation, deletion, permission and setting changes"),
-        ("channels", "Channels", "Text, voice, forum and category creation, deletion and changes"),
-        ("voice", "Voice & Stage", "Voice joins, leaves, switches and stage activity"),
-        ("invites", "Invites", "Invite links created and deleted"),
-        ("server", "Server Settings", "Server name, description, verification and settings changes"),
-        ("emojis", "Emojis & Stickers", "Custom emoji and sticker creation, deletion and updates"),
-        ("threads", "Threads & Posts", "Thread creation, deletion, archive and lock changes"),
-        ("webhooks", "Webhooks", "Webhook configuration changes"),
-        ("integrations", "Integrations & Events", "Integration and scheduled event changes"),
-    ]
-    channels = _guild_channels(guild)
-    valid_ids = {str(cid) for cid, _ in channels}
-    if request.method == "POST":
-        if not _csrf_ok():
-            abort(400, "CSRF-Prüfung fehlgeschlagen. Bitte Seite neu laden.")
-        actor = guild.get_member(int(session.get("user_id", "0")))
-        if actor is None or not (actor.guild_permissions.administrator or actor.guild_permissions.manage_guild):
-            abort(403, "Du brauchst Administrator- oder Server-verwalten-Rechte.")
-        all_in_one = request.form.get("all_in_one") == "on"
-        enabled = request.form.get("enabled") == "on"
-        main_channel = request.form.get("channel_id", "").strip()
-        if main_channel and main_channel not in valid_ids:
-            abort(400, "Bitte wähle einen gültigen Log-Kanal.")
-        category_channels = {}
-        category_enabled = {}
-        for key, _, _ in categories:
-            value = request.form.get("channel_" + key, "").strip()
-            if value and value not in valid_ids:
-                abort(400, "Bitte wähle einen gültigen Log-Kanal.")
-            category_channels[key] = int(value) if value.isdigit() else None
-            category_enabled[key] = request.form.get("category_" + key) == "on"
-        if all_in_one and not main_channel:
-            abort(400, "Bitte wähle einen gemeinsamen Log-Kanal.")
-        if not all_in_one and any(category_enabled[k] and not category_channels[k] for k, _, _ in categories):
-            abort(400, "Bitte wähle für jede aktivierte Kategorie einen Log-Kanal.")
-        cfg = {"enabled": enabled, "all_in_one": all_in_one,
-               "channel_id": int(main_channel) if main_channel.isdigit() else None,
-               "channels": category_channels, "categories": category_enabled}
-        log_db[gid] = cfg
-        store_path.parent.mkdir(parents=True, exist_ok=True)
-        store_path.write_text(json.dumps(log_db, ensure_ascii=False, indent=2), encoding="utf-8")
-        _audit_dashboard_change(guild.id, "Server Logs", session.get("user_id"),
-                                "Server logging saved; mode: " + ("single channel" if all_in_one else "separate channels"))
-        return redirect(url_for("guild_server_logs", guild_id=gid, saved="1"))
-    def channel_select(name, selected):
-        options = ['<option value="">— Select log channel —</option>']
-        for cid, label in channels:
-            options.append('<option value="' + str(cid) + '"' + (' selected' if str(cid) == str(selected or "") else '') + '>' + html.escape(label) + '</option>')
-        return '<select id="' + name + '" name="' + name + '">' + ''.join(options) + '</select>'
-    notice = '<div class="notice">Settings saved.</div>' if request.args.get("saved") == "1" else ''
-    enabled = ' checked' if cfg.get("enabled", False) else ''
-    all_checked = ' checked' if cfg.get("all_in_one", True) else ''
-    body = '<section class="card"><span class="pill">LOGGING · SERVER ACTIVITY</span><h1>📋 System-Logs</h1><p>Lege fest, in welchen Discord-Kanälen IronWolf Server-Ereignisse protokolliert. Du kannst einen gemeinsamen Kanal oder getrennte Kanäle pro Kategorie verwenden.</p>' + notice
-    body += '<form method="post">' + _csrf_field()
-    body += '<div class="check"><input type="checkbox" id="server-logs-enabled" name="enabled"' + enabled + '><label for="server-logs-enabled">System-Logs aktivieren</label></div>'
-    body += '<div class="check"><input type="checkbox" id="server-logs-all" name="all_in_one"' + all_checked + '><label for="server-logs-all">Alle Ereignisse in einem Kanal protokollieren</label></div>'
-    body += '<div id="server-logs-single"><label for="channel_id">Gemeinsamer System-Log-Kanal</label>' + channel_select("channel_id", cfg.get("channel_id")) + '</div>'
-    body += '<div id="server-logs-split"><h2>Getrennte Log-Kanäle</h2>'
-    for key, title, description in categories:
-        checked = ' checked' if cfg.get("categories", {}).get(key, bool(cfg.get("channels", {}).get(key))) else ''
-        body += '<div class="card"><div class="check"><input type="checkbox" id="category_' + key + '" name="category_' + key + '"' + checked + '><label for="category_' + key + '">' + title + '</label></div><small class="muted">' + description + '</small><label for="channel_' + key + '">Log-Kanal</label>' + channel_select("channel_" + key, cfg.get("channels", {}).get(key)) + '</div>'
-    body += '</div><button type="submit">💾 System-Log-Einstellungen speichern</button> <a class="button secondary" href="/guild/' + gid + '">Zur Serverübersicht</a></form></section>'
-    body += '<script>(function(){const all=document.getElementById("server-logs-all"),one=document.getElementById("server-logs-single"),split=document.getElementById("server-logs-split");function update(){one.hidden=!all.checked;split.hidden=all.checked;}all.addEventListener("change",update);update();})();</script>'
-    return _render(guild.name + " · Server Logs", body)
+    # Keep old bookmarks working, but maintain only one logging settings UI.
+    return redirect(url_for("guild_page", guild_id=guild_id, section="channels") + "#logging-settings")
 
 
 @app.route("/guild/<guild_id>/command-log", methods=["GET", "POST"])
