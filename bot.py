@@ -2196,6 +2196,8 @@ class TeamManagementActionModal(discord.ui.Modal):
             team_roles = [r for r in member.roles if r.id in team_ids or r.id in ladder]
             if any(r >= me.top_role for r in team_roles):
                 raise ValueError("Move IronWolf's highest role above all configured team roles.")
+            if member.top_role >= actor.top_role and member.id != actor.id:
+                raise ValueError("You cannot manage a member whose highest role is equal to or above yours.")
             removed_names = [r.name for r in team_roles]
             title = ""
             description = ""
@@ -2208,8 +2210,8 @@ class TeamManagementActionModal(discord.ui.Modal):
                 if target_index < 0 or target_index >= len(ladder):
                     raise ValueError("There is no higher/lower rank configured for this member.")
                 target = guild.get_role(ladder[target_index])
-                if target is None or target >= me.top_role or target.managed or target.is_default():
-                    raise ValueError("The target rank role is unavailable or above IronWolf.")
+                if target is None or target >= me.top_role or target >= actor.top_role or target.managed or target.is_default():
+                    raise ValueError("The target rank role is unavailable or above your or IronWolf's highest role.")
                 await member.remove_roles(current, reason=reason)
                 await member.add_roles(target, reason=reason)
                 title = "Uprank" if self.action == "uprank" else "Downrank"
