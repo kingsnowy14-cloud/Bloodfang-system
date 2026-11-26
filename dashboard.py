@@ -7867,12 +7867,66 @@ def guild_applications(guild_id):
 
 @app.route("/guild/<guild_id>/commands", methods=["GET", "POST"])
 def guild_commands(guild_id):
-    # Command management is intentionally removed from the dashboard UI.
-    # Keep the endpoint safe for old bookmarks without exposing the command list.
+    """Manage only the ! and . prefix variants; slash commands stay enabled."""
     guild, response = _authorized_guild(guild_id)
     if response:
         return response
-    return redirect(url_for("guild_page", guild_id=str(guild.id)))
+    gid = str(guild.id)
+    cfg = _guild_config(guild.id)
+    disabled = set(cfg.get("disabled_commands", []))
+    records = []
+    seen = set()
+    for command in _bot.walk_commands():
+        if command.hidden or command.name == "help":
+            continue
+        name = command.qualified_name
+        for prefix in ("!", "."):
+            key = "prefix:" + prefix + name
+            if key in seen:
+                continue
+            seen.add(key)
+            records.append((key, prefix + name, key not in disabled))
+    records.sort(key=lambda row: row[1].casefold())
+    if request.method == "POST":
+        if not _csrf_ok():
+            abort(400, "CSRF validation failed. Reload the page.")
+        actor_id = str(session.get("user_id", ""))
+        actor = guild.get_member(int(actor_id)) if actor_id.isdigit() else None
+        if actor is None or not (actor.guild_permissions.administrator or actor.guild_permissions.manage_guild):
+            abort(403, "Administrator or Manage Server permission is required.")
+        mode = request.form.get("mode", "")
+        selected = request.form.getlist("command_keys")
+        valid = {row[0] for row in records}
+        if mode == "all_on":
+            disabled = {key for key in disabled if not key.startswith(("prefix:!", "prefix:."))}
+        elif mode == "all_off":
+            disabled.update(valid)
+        elif mode in {"enable", "disable"}:
+            if any(key not in valid for key in selected):
+                abort(400, "Invalid prefix command selection.")
+            if mode == "enable":
+                disabled.difference_update(selected)
+            else:
+                disabled.update(selected)
+        else:
+            abort(400, "Unknown command setting.")
+        cfg["disabled_commands"] = sorted(disabled)
+        _save_json(data_path("config.json"), _config)
+        _audit_dashboard_change(guild.id, "Prefix Commands", actor_id, mode + " " + str(len(selected)) + " commands")
+        return redirect(url_for("guild_commands", guild_id=gid, saved="1"))
+    body = '<section class="card"><h1>Prefix Commands</h1><p class="muted">Hier kannst du ausschließlich !- und .-Befehle verwalten. Slash-Befehle (/) bleiben immer aktiv.</p>'
+    if request.args.get("saved"):
+        body += '<div class="notice">Einstellungen gespeichert.</div>'
+    body += '<form method="post">' + _csrf_field()
+    body += '<button name="mode" value="all_on" type="submit">Alle !- und .-Befehle einschalten</button> '
+    body += '<button class="danger" name="mode" value="all_off" type="submit">Alle !- und .-Befehle ausschalten</button></form>'
+    body += '<form method="post">' + _csrf_field()
+    for key, name, enabled in records:
+        checked = " checked" if enabled else ""
+        body += '<label class="role-option"><input type="checkbox" name="command_keys" value="' + html.escape(key) + '"' + checked + '> ' + html.escape(name) + (' <span class="muted">ON</span>' if enabled else ' <span class="muted">OFF</span>') + '</label>'
+    body += '<button name="mode" value="enable" type="submit">Ausgewählte einschalten</button> <button class="danger" name="mode" value="disable" type="submit">Ausgewählte ausschalten</button></form>'
+    body += '<p><a href="/guild/' + gid + '">← Zur Serverübersicht</a></p></section>'
+    return _render(guild.name + " · Prefix Commands", body)
 
 
 @app.route("/guild/<guild_id>/actions", methods=["GET", "POST"])
