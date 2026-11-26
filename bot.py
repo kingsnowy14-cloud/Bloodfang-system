@@ -9000,15 +9000,15 @@ class ServerLogs(commands.Cog):
             f"**Kanal:** {channel.mention} · `{channel.id}`",
             f"**Nachrichten-ID:** `{message_id}`",
             f"**Autor:** {author_text}",
-            f"**Inhalt (soweit im Cache vorhanden):**\\n{body[:1800]}",
-            "**Anhänge:**\\n" + ("\\n".join(attachment_lines)[:900] if attachment_lines else "Keine / nicht im Cache verfügbar"),
+            f"**Inhalt (soweit im Cache vorhanden):**\n{body[:1800]}",
+            "**Anhänge:**\n" + ("\n".join(attachment_lines)[:900] if attachment_lines else "Keine / nicht im Cache verfügbar"),
             f"**Eingebettete Inhalte:** {len(embeds)}",
             f"**Nachrichtenlink:** https://discord.com/channels/{guild.id}/{channel.id}/{message_id}",
         ]
         actor = None
         if author:
             actor = await self.audit_actor(guild, discord.AuditLogAction.message_delete, author.id, channel_id=channel.id)
-        await self.log(guild, "Message deleted", "\\n".join(details), discord.Color.red(), actor=actor,
+        await self.log(guild, "Message deleted", "\n".join(details), discord.Color.red(), actor=actor,
                        target=f"Gelöschte Nachricht von {author_text} in #{channel.name}")
 
     @commands.Cog.listener()
@@ -9031,9 +9031,9 @@ class ServerLogs(commands.Cog):
         cached_ids = {message.id for message in cached}
         uncached_count = len(payload.message_ids) - len(cached_ids)
         await self.log(guild, "Multiple messages deleted",
-                       f"**Kanal:** {channel.mention} · `{channel.id}`\\n"
-                       f"**Anzahl:** {len(payload.message_ids)}\\n"
-                       f"**Im Cache mit Inhalt verfügbar:** {len(cached)}\\n"
+                       f"**Kanal:** {channel.mention} · `{channel.id}`\n"
+                       f"**Anzahl:** {len(payload.message_ids)}\n"
+                       f"**Im Cache mit Inhalt verfügbar:** {len(cached)}\n"
                        f"**Nicht im Cache:** {max(0, uncached_count)}",
                        discord.Color.red(), target=f"{len(payload.message_ids)} gelöschte Nachrichten in #{channel.name}")
         for message in cached[:10]:
@@ -9049,8 +9049,8 @@ class ServerLogs(commands.Cog):
         if channel is None:
             return
         await self.log(guild, "Reaction added",
-                       f"**Mitglied:** {member or payload.user_id} · `{payload.user_id}`\\n"
-                       f"**Kanal:** {channel.mention}\\n**Nachricht:** `{payload.message_id}`\\n"
+                       f"**Mitglied:** {member or payload.user_id} · `{payload.user_id}`\n"
+                       f"**Kanal:** {channel.mention}\n**Nachricht:** `{payload.message_id}`\n"
                        f"**Reaktion:** {payload.emoji}", target=f"Reaktion auf Nachricht {payload.message_id}")
 
     @commands.Cog.listener()
@@ -9063,8 +9063,8 @@ class ServerLogs(commands.Cog):
             return
         member = guild.get_member(payload.user_id)
         await self.log(guild, "Reaction removed",
-                       f"**Mitglied:** {member or payload.user_id} · `{payload.user_id}`\\n"
-                       f"**Kanal:** {channel.mention}\\n**Nachricht:** `{payload.message_id}`\\n"
+                       f"**Mitglied:** {member or payload.user_id} · `{payload.user_id}`\n"
+                       f"**Kanal:** {channel.mention}\n**Nachricht:** `{payload.message_id}`\n"
                        f"**Reaktion:** {payload.emoji}", target=f"Reaktion entfernt auf Nachricht {payload.message_id}")
 
     @commands.Cog.listener()
@@ -9082,24 +9082,24 @@ class ServerLogs(commands.Cog):
     async def on_guild_channel_pins_update(self, channel, last_pin):
         actor = await self.audit_actor(channel.guild, discord.AuditLogAction.message_pin, channel_id=channel.id)
         await self.log(channel.guild, "Message pin changed",
-                       f"**Kanal:** {channel.mention} · `{channel.id}`\\n**Letzte Pin-Aktualisierung:** {last_pin or "Keine"}",
+                       f"**Kanal:** {channel.mention} · `{channel.id}`\n**Letzte Pin-Aktualisierung:** {last_pin or 'Keine'}",
                        actor=actor, target=channel)
 
     @commands.Cog.listener()
     async def on_stage_instance_create(self, stage):
-        await self.log(stage.guild, "Stage created", f"**Titel:** {stage.topic}\\n**Kanal:** {stage.channel.mention} · `{stage.channel.id}`",
+        await self.log(stage.guild, "Stage created", f"**Titel:** {stage.topic}\n**Kanal:** {stage.channel.mention} · `{stage.channel.id}`",
                        discord.Color.green(), target=stage)
 
     @commands.Cog.listener()
     async def on_stage_instance_update(self, before, after):
         if before.topic != after.topic or before.privacy_level != after.privacy_level:
             await self.log(after.guild, "Stage updated",
-                           f"**Titel:** {before.topic} → {after.topic}\\n**Sichtbarkeit:** {before.privacy_level} → {after.privacy_level}",
+                           f"**Titel:** {before.topic} → {after.topic}\n**Sichtbarkeit:** {before.privacy_level} → {after.privacy_level}",
                            target=after)
 
     @commands.Cog.listener()
     async def on_stage_instance_delete(self, stage):
-        await self.log(stage.guild, "Stage deleted", f"**Titel:** {stage.topic}\\n**Kanal:** {stage.channel.mention}",
+        await self.log(stage.guild, "Stage deleted", f"**Titel:** {stage.topic}\n**Kanal:** {stage.channel.mention}",
                        discord.Color.red(), target=stage)
 
     @commands.Cog.listener()
@@ -9109,9 +9109,9 @@ class ServerLogs(commands.Cog):
         old_activities = ", ".join(str(item.name) for item in before.activities) or "Keine"
         new_activities = ", ".join(str(item.name) for item in after.activities) or "Keine"
         await self.log(after.guild, "Member presence changed",
-                       f"**Mitglied:** {after.mention} · `{after.id}`\\n"
-                       f"**Status:** {before.status} → {after.status}\\n"
-                       f"**Aktivitäten vorher:** {old_activities}\\n**Aktivitäten nachher:** {new_activities}",
+                       f"**Mitglied:** {after.mention} · `{after.id}`\n"
+                       f"**Status:** {before.status} → {after.status}\n"
+                       f"**Aktivitäten vorher:** {old_activities}\n**Aktivitäten nachher:** {new_activities}",
                        target=after)
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
