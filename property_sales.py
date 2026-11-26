@@ -89,8 +89,8 @@ class PropertyTicketView(discord.ui.View):
         if not self.cog.is_staff(interaction, settings):
             await interaction.response.send_message("Nur Staff darf Anwesen verkaufen.", ephemeral=True)
             return
-        if not item or int(item.get("paid", 0)) < int(item.get("price", 0)):
-            await interaction.response.send_message("Erst nach vollständiger Zahlung kann als verkauft markiert werden.", ephemeral=True)
+        if not item:
+            await interaction.response.send_message("Anwesen nicht gefunden.", ephemeral=True)
             return
         match = re.search(r"Property buyer: (\d+)", getattr(interaction.channel, "topic", "") or "")
         if not match:
@@ -175,8 +175,8 @@ class PropertyStaffView(discord.ui.View):
         if not self.cog.is_staff(interaction, settings):
             await interaction.response.send_message("Nur Staff darf Anwesen verkaufen.", ephemeral=True)
             return
-        if not item or int(item.get("paid", 0)) < int(item.get("price", 0)):
-            await interaction.response.send_message("Das Anwesen kann erst nach vollständiger Zahlung als verkauft markiert werden.", ephemeral=True)
+        if not item:
+            await interaction.response.send_message("Anwesen nicht gefunden.", ephemeral=True)
             return
         buyer_id = item.get("buyer_id")
         if not buyer_id:
@@ -264,9 +264,12 @@ class PropertySales(commands.Cog):
                 status = "🟢 Vollständig bezahlt"
             else:
                 status = "🟡 Verfügbar"
-            embed.add_field(name=f"{page * 10 + offset}. {item.get('name', 'Anwesen')}",
-                value=f"**Preis:** {price:,} €\n**Bezahlt:** {paid:,}/{price:,} €\n**Status:** {status}".replace(",", "."),
-                inline=True)
+            buyer = f"<@{item.get('buyer_id')}>" if item.get("buyer_id") else "Verfügbar"
+            embed.add_field(
+                name=f"🏡 {item.get('name', 'Anwesen')}　·　💶 {price:,} €".replace(",", "."),
+                value=f"👤 **Käufer:** {buyer}\n{status}",
+                inline=True,
+            )
         embed.set_footer(text=f"{guild.name} · Seite {page + 1}/{total_pages} · {len(items)} Anwesen")
         return embed
 
