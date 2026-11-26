@@ -7383,6 +7383,11 @@ async def on_guild_channel_update(before: discord.abc.GuildChannel, after: disco
 
 @bot.event
 async def on_webhooks_update(channel: discord.abc.GuildChannel):
+    # WolfGuard owns full webhook create/update/delete monitoring. Do not run
+    # the narrower Anti-Nuke webhook-create audit lookup in parallel.
+    cfg = guild_config(channel.guild.id)
+    if cfg.get("wolfguard", {}).get("webhook_monitor", False):
+        return
     await record_nuke_action(channel.guild, "Webhooks geändert",
                              discord.AuditLogAction.webhook_create, None, channel.name)
 
@@ -7415,6 +7420,16 @@ async def security_setup(
     cfg["anti_nuke_enabled"] = True
     cfg["anti_nuke_threshold"] = max(2, min(10, int(cfg.get("anti_nuke_threshold", 4))))
     cfg["automod_enabled"] = anti_spam
+    # One shared security setup: Anti-Nuke remains the single detector for
+    # destructive channel/role permission changes; WolfGuard handles the
+    # complementary account-cluster and webhook monitoring plus snapshots.
+    cfg["wolfguard"] = {
+        "log_channel_id": log_kanal.id,
+        "alt_network": True,
+        "insider_detection": True,
+        "webhook_monitor": True,
+        "backup_versions": True,
+    }
     save_json(CONFIG_FILE, config)
 
     # Report missing permissions during setup so admins can fix protection gaps.
