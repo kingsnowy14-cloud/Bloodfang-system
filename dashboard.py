@@ -1448,7 +1448,6 @@ def _module_navigation():
         ("verification", "🔐 Verification", "/verification"),
         ("__ai_category__", "⚙️ SERVER SETUP & MESSAGES", ""),
         ("channels", "📡 Channels & Logs", "?section=channels#settings-panel"),
-        ("server-logs", "📋 System Logs", "/server-logs"),
         ("messages", "✉️ Message Builder", "/messages"),
         ("rp-control", "🎭 RP Start / Stop", "/rp-control"),
         ("temporary-voice", "🔊 Temporary Voice", "/temporary-voice"),
@@ -4970,7 +4969,7 @@ def guild_page(guild_id):
                 '<section class="card" id="logging-settings" style="margin-top:22px">'
                 '<span class="pill">SERVER ACTIVITY</span>'
                 '<h2>📋 Discord-Logs</h2>'
-                '<p class="muted">Ein Log-System für den ganzen Server. Wenn aktiviert, werden Ereignisse wie Voice beitreten/verlassen, Nachrichten löschen/bearbeiten, Mitgliederbeitritte sowie Änderungen an Rollen und Kanälen in denselben Kanal geschrieben.</p>'
+                '<p class="muted">Ein einziges zentrales Log-System für diesen Discord-Server. Ist es eingeschaltet, schreibt IronWolf die erkannten Serverereignisse automatisch in genau diesen Kanal: Nachrichten gelöscht/bearbeitet, Mitglieder beigetreten/verlassen/gekickt/gebannt, Voice beigetreten/verlassen/gewechselt, Rollen und Kanäle erstellt/gelöscht/geändert, Einladungen sowie Server- und Mitgliederänderungen. Ticket-Nachrichten werden aus Datenschutzgründen nicht mitgeloggt. Für möglichst vollständige Audit-Details benötigt der Bot „Audit-Log einsehen“.</p>'
                 '<form method="post">' + _csrf_field() +
                 '<input type="hidden" name="action" value="server_logs_simple">'
                 '<div class="check"><input type="checkbox" id="server-logs-enabled-simple" name="enabled"' + log_enabled + '>'
@@ -5036,7 +5035,6 @@ def guild_page(guild_id):
         ("⚙️ Server Setup & Customization", [
             ("🌐", "Bot Time Zone", "Set the server bot time zone", "?section=timezone"),
             ("📡", "Channels & Logs", "Configure logs and destination channels", "?section=channels#settings-panel"),
-            ("📋", "System Logs", "Configure server activity logs", "/server-logs"),
             ("✉️", "Message Builder", "Create messages, embeds and interactive buttons", "/messages"),
             ("🎭", "RP Start / Stop", "Control roleplay sessions", "/rp-control"),
             ("🔊", "Temporary Voice", "Voice triggers and room categories", "/temporary-voice"),
