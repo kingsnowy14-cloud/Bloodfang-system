@@ -3927,6 +3927,77 @@ def team_management_dashboard(guild_id):
     return _render("Team Management · IronWolf", body)
 
 
+_teamlist_refresh_task = None
+
+def _build_teamlist_embeds(guild, matching, cfg):
+    page_size = 25
+    pages = [matching[index:index + page_size] for index in range(0, len(matching), page_size)] or [[]]
+    embeds = []
+    premium_server = guild_has_feature(cfg, "custom_bot")
+    for page_index, page_members in enumerate(pages, start=1):
+        embed = discord.Embed(title="👥 Teamliste · " + guild.name[:230], description="**Mitglieder:** " + str(len(matching)), color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
+        for member, member_roles in page_members:
+            display_name = (member.display_name or member.name)[:256]
+            role_names = ", ".join(role.name for role in member_roles)[:1024]
+            embed.add_field(name="👤 " + display_name, value=role_names or "Keine passende Rolle", inline=False)
+        if not page_members:
+            embed.description += "\n\nAktuell wurden keine Mitglieder mit den ausgewählten Rollen gefunden."
+        footer = (guild.name + " · Teamliste · Seite " if premium_server else "IronWolf Teamliste · Seite ") + str(page_index) + "/" + str(len(pages))
+        embed.set_footer(text=footer[:2048])
+        embeds.append(embed)
+    return embeds
+
+async def _teamlist_refresh_loop():
+    """Keep published team-list embeds synchronized with Discord roles every 10 seconds."""
+    await _bot.wait_until_ready()
+    while not _bot.is_closed():
+        await asyncio.sleep(10)
+        for guild in list(_bot.guilds):
+            try:
+                cfg = _guild_config(guild.id)
+                message_ids = cfg.get("teamlist_message_ids", [])
+                channel_id = cfg.get("teamlist_message_channel_id") or cfg.get("teamlist_channel_id")
+                role_ids = {str(value) for value in cfg.get("teamlist_role_ids", [])}
+                if not message_ids or not channel_id or not role_ids:
+                    continue
+                channel = guild.get_channel(int(channel_id))
+                if not isinstance(channel, discord.TextChannel):
+                    continue
+                members = [member async for member in guild.fetch_members(limit=None)]
+                matching = []
+                for member in members:
+                    member_roles = [role for role in member.roles if str(role.id) in role_ids]
+                    if member_roles:
+                        matching.append((member, member_roles))
+                matching.sort(key=lambda item: (item[0].display_name or item[0].name).casefold())
+                embeds = _build_teamlist_embeds(guild, matching, cfg)
+                updated_ids = []
+                for index, embed in enumerate(embeds):
+                    if index >= len(message_ids):
+                        message = await channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+                    else:
+                        try:
+                            message = await channel.fetch_message(int(message_ids[index]))
+                            await message.edit(embed=embed, content=None, allowed_mentions=discord.AllowedMentions.none())
+                        except discord.NotFound:
+                            message = await channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+                    updated_ids.append(message.id)
+                for stale_id in message_ids[len(embeds):]:
+                    try:
+                        stale = await channel.fetch_message(int(stale_id))
+                        await stale.edit(content="Diese Teamlisten-Seite wird nicht mehr benötigt.", embed=None)
+                    except (discord.NotFound, ValueError, TypeError):
+                        pass
+                if updated_ids != message_ids:
+                    cfg["teamlist_message_ids"] = updated_ids
+                    _save_json(data_path("config.json"), _config)
+            except Exception as exc:
+                print("[TEAMLIST] Auto-refresh failed for guild {}: {}: {}".format(guild.id, type(exc).__name__, exc), flush=True)
+
+async def _ensure_teamlist_refresh_task():
+    global _teamlist_refresh_task
+    if _teamlist_refresh_task is None or _teamlist_refresh_task.done():
+        _teamlist_refresh_task = asyncio.create_task(_teamlist_refresh_loop())
 @app.route("/guild/<guild_id>/teamlist", methods=["GET", "POST"])
 def teamlist_dashboard(guild_id):
     """Configure team roles and publish matching members to a selected Discord channel."""
@@ -3971,31 +4042,32 @@ def teamlist_dashboard(guild_id):
                         if matching_roles:
                             matching.append((member, matching_roles))
                     matching.sort(key=lambda item: (item[0].display_name or item[0].name).casefold())
-                    # Discord embeds are limited to 25 fields each; split large team lists
-                    # into several embeds so the list remains readable on desktop and mobile.
-                    page_size = 25
-                    pages = [matching[index:index + page_size] for index in range(0, len(matching), page_size)]
-                    if not pages:
-                        pages = [[]]
-                    for page_index, page_members in enumerate(pages, start=1):
-                        embed = discord.Embed(
-                            title=f"👥 Teamliste · {guild.name}"[:256],
-                            description=f"**Mitglieder:** {len(matching)}",
-                            color=discord.Color.blurple(),
-                        )
-                        if page_members:
-                            for member, member_roles in page_members:
-                                display_name = (member.display_name or member.name)[:256]
-                                role_names = ", ".join(role.name for role in member_roles)[:1024]
-                                embed.add_field(
-                                    name=f"👤 {display_name}",
-                                    value=role_names or "Keine passende Rolle",
-                                    inline=False,
-                                )
+                    embeds = _build_teamlist_embeds(guild, matching, cfg)
+                    old_ids = cfg.get("teamlist_message_ids", [])
+                    old_channel_id = str(cfg.get("teamlist_message_channel_id") or "")
+                    message_ids = []
+                    for index, embed in enumerate(embeds):
+                        message = None
+                        if old_channel_id == str(target_channel.id) and index < len(old_ids):
+                            try:
+                                message = await target_channel.fetch_message(int(old_ids[index]))
+                            except (discord.NotFound, ValueError, TypeError):
+                                message = None
+                        if message is None:
+                            message = await target_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
                         else:
-                            embed.description += "\n\nAktuell wurden keine Mitglieder mit den ausgewählten Rollen gefunden."
-                        embed.set_footer(text=f"IronWolf Teamliste · Seite {page_index}/{len(pages)}")
-                        await target_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+                            await message.edit(embed=embed, content=None, allowed_mentions=discord.AllowedMentions.none())
+                        message_ids.append(message.id)
+                    for stale_id in old_ids[len(embeds):] if old_channel_id == str(target_channel.id) else []:
+                        try:
+                            stale = await target_channel.fetch_message(int(stale_id))
+                            await stale.edit(content="Diese Teamlisten-Seite wird nicht mehr benötigt.", embed=None)
+                        except (discord.NotFound, ValueError, TypeError):
+                            pass
+                    cfg["teamlist_message_ids"] = message_ids
+                    cfg["teamlist_message_channel_id"] = target_channel.id
+                    _save_json(data_path("config.json"), _config)
+                    await _ensure_teamlist_refresh_task()
                     return len(matching)
                 count = asyncio.run_coroutine_threadsafe(_publish_teamlist(), _bot.loop).result(timeout=90)
                 _audit_dashboard_change(guild.id, "Teamliste gesendet", session.get("user_id"),
