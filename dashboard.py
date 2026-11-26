@@ -2753,9 +2753,10 @@ def guild_premium(guild_id):
     gid = str(guild.id)
     cfg = _guild_config(guild.id)
     user_id = str(session.get("user_id", ""))
-    account_level = account_plan(user_id)
+    # Server Premium is controlled centrally by the website administrator.
+    account_level = "free"
     server_override = cfg.get("premium_server_override")
-    plan = server_override if server_override in PLAN_FEATURES and server_override != "free" else account_level
+    plan = server_override if server_override in PLAN_FEATURES and server_override != "free" else "free"
     actor = guild.get_member(int(user_id)) if user_id.isdigit() else None
     if request.method == "POST":
         if not _csrf_ok():
@@ -2772,23 +2773,10 @@ def guild_premium(guild_id):
             cfg["premium_trial_expires_at"] = (now + timedelta(days=15)).isoformat()
             _save_json(data_path("config.json"), _config)
             return redirect(url_for("guild_premium", guild_id=gid))
-        if account_level != "free":
-            current_owner = str(cfg.get("premium_owner_id") or "")
-            if current_owner and current_owner != user_id:
-                abort(409, "Dieser Server ist bereits mit einem anderen Premium-Konto verknüpft.")
-            cfg["premium_owner_id"] = user_id
-            _save_json(data_path("config.json"), _config)
-            return redirect(url_for("guild_premium", guild_id=gid))
-        abort(403, "Premium ist für dieses Discord-Konto nicht freigeschaltet. Bitte wende dich an den Support.")
+        abort(403, "Premium kann nur zentral im Website-Admin-Menü einem Discord-Server zugewiesen werden.")
 
-    # Automatically attach a manually granted account plan when its owner opens Premium
-    # management, unless the server is already linked to another account.
-    owner_id = str(cfg.get("premium_owner_id") or "")
-    if account_level != "free" and not owner_id:
-        cfg["premium_owner_id"] = user_id
-        _save_json(data_path("config.json"), _config)
-        owner_id = user_id
-    owner_matches = owner_id == user_id and bool(owner_id)
+    owner_id = ""
+    owner_matches = False
     trial_active = guild_trial_active(cfg)
     trial_used = bool(cfg.get("premium_trial_used"))
     labels = {"free": "Free", "premium": "Premium", "premium_plus": "Premium"}
@@ -2822,7 +2810,7 @@ def guild_premium(guild_id):
 
     body = (
         '<section class="card hero"><span class="pill">SERVER PREMIUM</span><h1 style="margin-top:14px">Premium für ' + html.escape(guild.name) + '</h1>'
-        '<p>Premium wird aktiviert, wenn dein Konto Premium hat, dein Server manuell freigeschaltet wurde oder du die kostenlose 15-Tage-Testphase hier startest.</p>'
+        '<p>Premium wird direkt diesem Discord-Server zugewiesen. Benutzerkonten schalten keine Serverfunktionen mehr frei. Die kostenlose 15-Tage-Testphase kann weiterhin einmalig gestartet werden.</p>'
         '<div class="notice">Aktueller Plan: <strong>' + html.escape(plan_display) + '</strong></div>'
     )
     if trial_active:
