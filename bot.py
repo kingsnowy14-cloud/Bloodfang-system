@@ -2154,6 +2154,171 @@ async def finish_verification(interaction: discord.Interaction, cfg):
         await respond("✅ Your verification is complete, but the limited role has already reached its limit of 30 members.")
 
 
+class TeamManagementActionModal(discord.ui.Modal):
+    def __init__(self, guild_id: int, action: str, member_id: int, actor_id: int):
+        super().__init__(title="Team Management · " + action.replace("_", " ").title())
+        self.guild_id, self.action = int(guild_id), action
+        self.member_id, self.actor_id = int(member_id), int(actor_id)
+        self.reason = discord.ui.TextInput(label="Reason", placeholder="Enter the reason for this action", max_length=500)
+        self.add_item(self.reason)
+        self.duration = None
+        if action == "team_ban":
+            self.duration = discord.ui.TextInput(label="Ban duration (permanent, 1h, 24h, 7d, 30d)", default="permanent", max_length=10, required=True)
+            self.add_item(self.duration)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        if guild is None or guild.id != self.guild_id or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("This panel belongs to another server.", ephemeral=True)
+            return
+        actor = interaction.user
+        if not (actor.guild_permissions.administrator or actor.guild_permissions.manage_roles):
+            await interaction.response.send_message("You need Administrator or Manage Roles permission.", ephemeral=True)
+            return
+        cfg = guild_config(guild.id)
+        reason = str(self.reason.value).strip()
+        duration = str(self.duration.value).strip().lower() if self.duration else "permanent"
+        duration_seconds = {"1h":3600,"24h":86400,"7d":604800,"30d":2592000}.get(duration)
+        if not reason or (self.action == "team_ban" and duration not in {"permanent","1h","24h","7d","30d"}):
+            await interaction.response.send_message("Please enter a reason and a valid ban duration.", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            member = guild.get_member(self.member_id) or await guild.fetch_member(self.member_id)
+            me = guild.me
+            if me is None or not me.guild_permissions.manage_roles:
+                raise ValueError("IronWolf needs Manage Roles permission.")
+            team_ids = {int(x) for x in cfg.get("team_role_ids", []) if str(x).isdigit()}
+            ladder = [int(x) for x in cfg.get("team_rank_role_ids", []) if str(x).isdigit()]
+            high = cfg.get("high_team_role_id")
+            if str(high or "").isdigit():
+                team_ids.add(int(high))
+            team_roles = [r for r in member.roles if r.id in team_ids or r.id in ladder]
+            if any(r >= me.top_role for r in team_roles):
+                raise ValueError("Move IronWolf's highest role above all configured team roles.")
+            removed_names = [r.name for r in team_roles]
+            title = ""
+            description = ""
+            if self.action in {"uprank", "downrank"}:
+                current = next((r for r in team_roles if r.id in ladder), None)
+                if current is None or current.id not in ladder:
+                    raise ValueError("The selected member has no configured rank role.")
+                index = ladder.index(current.id)
+                target_index = index - 1 if self.action == "uprank" else index + 1
+                if target_index < 0 or target_index >= len(ladder):
+                    raise ValueError("There is no higher/lower rank configured for this member.")
+                target = guild.get_role(ladder[target_index])
+                if target is None or target >= me.top_role or target.managed or target.is_default():
+                    raise ValueError("The target rank role is unavailable or above IronWolf.")
+                await member.remove_roles(current, reason=reason)
+                await member.add_roles(target, reason=reason)
+                title = "Uprank" if self.action == "uprank" else "Downrank"
+                description = f"{member.mention} moved from **{current.name}** to **{target.name}**."
+            elif self.action == "team_ban":
+                ban_id = cfg.get("team_ban_role_id")
+                ban_role = guild.get_role(int(ban_id)) if str(ban_id or "").isdigit() else None
+                if ban_role is None or ban_role >= me.top_role:
+                    raise ValueError("Configure a Team Ban role below IronWolf's highest role first.")
+                if not team_roles:
+                    raise ValueError("This member has no configured team roles to suspend.")
+                await member.remove_roles(*team_roles, reason=reason)
+                await member.add_roles(ban_role, reason=reason)
+                if duration_seconds:
+                    schedules = cfg.setdefault("team_ban_schedules", [])
+                    schedules[:] = [row for row in schedules if not (isinstance(row, dict) and str(row.get("user_id")) == str(member.id))]
+                    schedules.append({"user_id":str(member.id),"role_ids":[r.id for r in team_roles],"ban_role_id":ban_role.id,"expires_at":(datetime.now(timezone.utc)+timedelta(seconds=duration_seconds)).isoformat(),"reason":reason})
+                    save_json(CONFIG_FILE, config)
+                title = "Team Ban"
+                description = f"{member.mention} received a **{'permanent' if not duration_seconds else 'temporary'} Team Ban**. Previous team roles will be restored automatically when applicable."
+            else:
+                if not team_roles:
+                    raise ValueError("This member has no configured team roles.")
+                await member.remove_roles(*team_roles, reason=reason)
+                title = "Team Kick"
+                description = f"{member.mention} was removed from the team. They remain in the Discord server."
+            key = {"uprank":"team_uprank_channel_id","downrank":"team_downrank_channel_id","team_ban":"team_ban_announcement_channel_id","team_kick":"team_kick_announcement_channel_id"}[self.action]
+            channel_id = cfg.get(key) or cfg.get("team_management_channel_id")
+            channel = guild.get_channel(int(channel_id)) if str(channel_id or "").isdigit() else None
+            if channel is None or not hasattr(channel, "send"):
+                raise ValueError("Configure a valid announcement channel in Team Settings.")
+            embed = discord.Embed(title=f"{guild.name} Team Management · {title}", description=description, color=discord.Color.orange(), timestamp=datetime.now(timezone.utc))
+            embed.add_field(name="Moderator", value=actor.mention, inline=True)
+            embed.add_field(name="Member", value=member.mention, inline=True)
+            embed.add_field(name="Reason", value=reason[:1024], inline=False)
+            if removed_names and self.action in {"team_ban","team_kick"}:
+                embed.add_field(name="Removed team roles", value=", ".join(removed_names)[:1024], inline=False)
+            if self.action == "team_ban":
+                embed.add_field(name="Duration", value=duration, inline=True)
+            await channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+            await interaction.followup.send("✅ Team action completed. The announcement was sent in the configured channel.", ephemeral=True)
+        except (ValueError, discord.NotFound, discord.Forbidden, discord.HTTPException) as exc:
+            await interaction.followup.send(f"❌ {str(exc)[:800]}", ephemeral=True)
+
+
+class TeamMemberSelectView(discord.ui.View):
+    def __init__(self, guild_id: int, action: str):
+        super().__init__(timeout=180)
+        self.guild_id, self.action = int(guild_id), action
+        select = discord.ui.UserSelect(placeholder="Select a team member", min_values=1, max_values=1)
+        async def selected(interaction: discord.Interaction):
+            if not interaction.guild or interaction.guild.id != self.guild_id or interaction.user.id != self._actor_id:
+                await interaction.response.send_message("This private selection is not yours.", ephemeral=True)
+                return
+            target = select.values[0]
+            if not isinstance(target, discord.Member):
+                target = interaction.guild.get_member(target.id)
+            if target is None or target.bot:
+                await interaction.response.send_message("Select a valid server member.", ephemeral=True)
+                return
+            await interaction.response.send_modal(TeamManagementActionModal(self.guild_id, self.action, target.id, interaction.user.id))
+        select.callback = selected
+        self.add_item(select)
+        self._actor_id = 0
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self._actor_id == 0:
+            self._actor_id = interaction.user.id
+        return interaction.user.id == self._actor_id
+
+
+class TeamManagementActionView(discord.ui.View):
+    def __init__(self, guild_id: int):
+        super().__init__(timeout=None)
+        self.guild_id = int(guild_id)
+        button = discord.ui.Button(label="Open Team Management", style=discord.ButtonStyle.primary, custom_id=f"iwteam:open:{self.guild_id}", emoji="🛡️")
+        async def open_menu(interaction: discord.Interaction):
+            if not interaction.guild or interaction.guild.id != self.guild_id:
+                await interaction.response.send_message("This panel belongs to another server.", ephemeral=True)
+                return
+            if not isinstance(interaction.user, discord.Member) or not (interaction.user.guild_permissions.administrator or interaction.user.guild_permissions.manage_roles):
+                await interaction.response.send_message("You need Administrator or Manage Roles permission to use Team Management.", ephemeral=True)
+                return
+            cfg = guild_config(self.guild_id)
+            enabled = set((cfg.get("team_management_panel") or {}).get("enabled", ["uprank","downrank","team_kick","team_ban"]))
+            options = [
+                discord.SelectOption(label="Team Uprank", value="uprank", emoji="⬆️"),
+                discord.SelectOption(label="Team Downrank", value="downrank", emoji="⬇️"),
+                discord.SelectOption(label="Team Kick", value="team_kick", emoji="👢"),
+                discord.SelectOption(label="Team Ban", value="team_ban", emoji="🔨"),
+            ]
+            options = [o for o in options if o.value in enabled]
+            if not options:
+                await interaction.response.send_message("No Team Management actions are enabled. Configure the panel on the website.", ephemeral=True)
+                return
+            view = discord.ui.View(timeout=180)
+            menu = discord.ui.Select(placeholder="Choose a Team Management action", min_values=1, max_values=1, options=options)
+            async def choose_action(select_interaction: discord.Interaction):
+                if select_interaction.user.id != interaction.user.id:
+                    await select_interaction.response.send_message("This private menu is not yours.", ephemeral=True)
+                    return
+                await select_interaction.response.send_message("Select the member for this action:", view=TeamMemberSelectView(self.guild_id, menu.values[0]), ephemeral=True)
+            menu.callback = choose_action
+            view.add_item(menu)
+            await interaction.response.send_message("**Team Management**\nChoose the action you want to perform. The next selection is private to you.", view=view, ephemeral=True)
+        button.callback = open_menu
+        self.add_item(button)
+
+
 class DashboardMessageView(discord.ui.View):
     """Persistent buttons created by the dashboard message builder."""
     def __init__(self, guild_id: int, buttons: list[dict]):
@@ -10155,6 +10320,16 @@ async def ironwolf_presence_rotation():
 async def on_ready():
 
     migrate_all_guild_configs()
+    # Restore persistent Team Management panel buttons.
+    for configured_guild_id, guild_settings in list(config.items()):
+        if str(configured_guild_id).isdigit() and isinstance(guild_settings, dict):
+            panel_message_id = guild_settings.get("team_management_panel_message_id")
+            if panel_message_id:
+                try:
+                    bot.add_view(TeamManagementActionView(int(configured_guild_id)), message_id=int(panel_message_id))
+                except (TypeError, ValueError):
+                    pass
+
     # Re-register persistent RP buttons after every bot restart.
     for configured_guild_id, guild_settings in list(config.items()):
         if str(configured_guild_id).isdigit() and isinstance(guild_settings, dict) and isinstance(guild_settings.get("rp_panel"), dict):
