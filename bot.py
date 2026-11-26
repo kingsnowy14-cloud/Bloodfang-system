@@ -8925,14 +8925,14 @@ class ServerLogs(commands.Cog):
             timestamp=datetime.now(timezone.utc),
         )
         embed.add_field(name="📂 Ereignis", value=category_label, inline=True)
-        embed.add_field(name="🏠 Server", value=f"{guild.name}\\n`{guild.id}`", inline=True)
+        embed.add_field(name="🏠 Server", value=f"{guild.name}\n`{guild.id}`", inline=True)
 
         if actor is not None:
             actor_name = getattr(actor, "display_name", str(actor))
             actor_id = getattr(actor, "id", None)
-            actor_text = f"{actor.mention}\\n**{actor_name}**" if isinstance(actor, discord.Member) else f"**{actor_name}**"
+            actor_text = f"{actor.mention}\n**{actor_name}**" if isinstance(actor, discord.Member) else f"**{actor_name}**"
             if actor_id is not None:
-                actor_text += f"\\nID: `{actor_id}`"
+                actor_text += f"\nID: `{actor_id}`"
         else:
             actor_text = "Nicht ermittelbar (Audit-Log-Rechte oder Discord-Informationen fehlen)"
         embed.add_field(name="👤 Ausgeführt von", value=actor_text[:1024], inline=True)
@@ -8942,9 +8942,9 @@ class ServerLogs(commands.Cog):
             target_id = getattr(target, "id", None)
             target_text = f"**{target_name}**"
             if target_id is not None:
-                target_text += f"\\nID: `{target_id}`"
+                target_text += f"\nID: `{target_id}`"
                 if isinstance(target, (discord.Member, discord.User)):
-                    target_text += f"\\n{target.mention}"
+                    target_text += f"\n{target.mention}"
             embed.add_field(name="🎯 Betroffenes Ziel", value=target_text[:1024], inline=True)
 
         embed.set_footer(text=f"IronWolf • Server-Protokoll • {guild.name}")
