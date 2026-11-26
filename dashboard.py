@@ -4931,6 +4931,16 @@ def guild_page(guild_id):
             settings_html += '<div class="notice">✅ Changes saved successfully.</div>'
         settings_html += '<div style="display:flex;justify-content:flex-end;margin-top:18px"><button type="submit">💾 Save changes</button></div>'
         settings_html += '</form></section>'
+        if section == "channels":
+            settings_html += (
+                '<section class="card" id="logging-settings" style="margin-top:22px">'
+                '<span class="pill">SAPPHIRE-STYLE LOGGING</span>'
+                '<h2>📋 Server-Log-System</h2>'
+                '<p class="muted">Konfiguriere hier direkt dein Server-Logging: Nachrichten, Mitglieder, Rollen, Kanäle, Voice, Einladungen, Emojis, Threads, Webhooks und Server-Einstellungen. Ein gemeinsamer Log-Kanal oder getrennte Kanäle pro Kategorie.</p>'
+                '<iframe title="Server-Log-Einstellungen" src="/guild/' + gid + '/server-logs?embedded=1" '
+                'style="width:100%;min-height:1250px;border:0;border-radius:12px;background:transparent" loading="lazy"></iframe>'
+                '</section>'
+            )
         if section == "roles":
             settings_html += '<section class="card"><h3>＋ Create Discord role</h3><p class="muted">Creates a Discord role on your server. You can then select it as a role button in the Message Builder.</p><form method="post" action="/guild/' + gid + '/roles/create">' + _csrf_field() + '<label for="role_name">Role name</label><input id="role_name" name="role_name" maxlength="100" required placeholder="z. B. Gaming, Ankündigungen oder Verifiziert"><label for="role_color">Role color</label><input id="role_color" name="role_color" type="color" value="#5865F2" style="height:48px;padding:5px"><button type="submit">🎭 Create Discord role</button></form></section>'
     module_records = _module_records(guild.id)
