@@ -3724,7 +3724,7 @@ def team_management_dashboard(guild_id):
                 action_title = "TT-Team Kick"
 
             channel = channels[channel_id]
-            embed = discord.Embed(title="IronWolf Team Management · " + action_title, description=description, color=discord.Color.orange(), timestamp=datetime.now(timezone.utc))
+            embed = discord.Embed(title=guild.name + " Team Management · " + action_title, description=description, color=discord.Color.orange(), timestamp=datetime.now(timezone.utc))
             embed.add_field(name="Moderator", value="<@" + actor_id + ">", inline=True)
             embed.add_field(name="Member", value=member.mention, inline=True)
             embed.add_field(name="Reason", value=reason[:1024], inline=False)
