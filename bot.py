@@ -9114,21 +9114,33 @@ class ServerLogs(commands.Cog):
                        f"**Aktivitäten vorher:** {old_activities}\n**Aktivitäten nachher:** {new_activities}",
                        target=after)
     @commands.Cog.listener()
-    async def on_message_edit(self, before, after):
-        if after.guild is None or (after.author and after.author.bot):
+    async def on_raw_message_edit(self, payload):
+        guild = self.bot.get_guild(payload.guild_id) if payload.guild_id else None
+        if guild is None or self._is_log_channel(guild, payload.channel_id):
             return
-        if before.content == after.content and before.attachments == after.attachments:
+        channel = guild.get_channel(payload.channel_id)
+        if channel is None:
             return
-        # Ticket conversation content is private support context, not a dashboard/server log.
-        if str(after.channel.id) in data.setdefault("tickets", {}):
+        before = payload.cached_message
+        data_payload = payload.data or {}
+        author_data = data_payload.get("author") or {}
+        author_id = author_data.get("id") or (before.author.id if before and before.author else None)
+        author = guild.get_member(int(author_id)) if author_id else None
+        old_content = discord.utils.escape_mentions(before.content if before else "[Alter Text nicht im Cache verfügbar]")
+        new_content = discord.utils.escape_mentions(data_payload.get("content") or "[Neuer Text nicht verfügbar oder entfernt]")
+        old_files = ", ".join(item.filename for item in before.attachments) if before else "Nicht im Cache"
+        new_files = ", ".join(item.get("filename", "Datei") for item in data_payload.get("attachments", [])) or "Keine"
+        if before and before.content == data_payload.get("content") and old_files == new_files:
             return
-        old = discord.utils.escape_mentions(before.content or "[empty/unavailable]")
-        new = discord.utils.escape_mentions(after.content or "[empty/unavailable]")
+        author_label = f"{author} · `{author.id}`" if author else (f"User-ID `{author_id}`" if author_id else "Unbekannt")
         await self.log(
-            after.guild, "Message edited",
-            f"Channel: {after.channel.mention} · ID {after.channel.id}\nAuthor: {after.author} · ID {after.author.id}\n"
-            f"Message ID: {after.id}\nBefore: {old}\nAfter: {new}",
-            actor=after.author, target=f"Message {after.id} in #{after.channel.name}",
+            guild, "Message edited",
+            f"**Kanal:** {channel.mention} · `{channel.id}`\n"
+            f"**Autor:** {author_label}\n**Nachricht:** `{payload.message_id}`\n"
+            f"**Vorher:**\n{old_content[:1400]}\n\n**Nachher:**\n{new_content[:1400]}\n\n"
+            f"**Anhänge vorher:** {old_files}\n**Anhänge nachher:** {new_files}\n"
+            f"**Link:** https://discord.com/channels/{guild.id}/{channel.id}/{payload.message_id}",
+            actor=author, target=f"Bearbeitete Nachricht {payload.message_id} in #{channel.name}",
         )
 
     @commands.Cog.listener()
