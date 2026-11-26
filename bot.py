@@ -8859,62 +8859,99 @@ class ServerLogs(commands.Cog):
         cfg = db.get(str(guild.id), {})
         if not cfg or not cfg.get("enabled", True):
             return
-        title_lower = str(title).lower()
-        if any(word in title_lower for word in ("message", "messages")):
-            category = "messages"
-        elif any(word in title_lower for word in ("member", "ban", "unban", "nickname")):
-            category = "members"
-        elif "role" in title_lower:
-            category = "roles"
-        elif any(word in title_lower for word in ("voice", "stage")):
-            category = "voice"
-        elif any(word in title_lower for word in ("channel", "forum", "category")):
-            category = "channels"
-        elif "invite" in title_lower:
-            category = "invites"
-        elif any(word in title_lower for word in ("emoji", "sticker")):
-            category = "emojis"
-        elif any(word in title_lower for word in ("thread", "post")):
-            category = "threads"
-        elif "webhook" in title_lower:
-            category = "webhooks"
-        elif any(word in title_lower for word in ("integration", "application", "scheduled event")):
-            category = "integrations"
-        else:
-            category = "server"
-        if cfg.get("all_in_one", True):
-            channel_id = cfg.get("channel_id")
-        else:
-            if not cfg.get("categories", {}).get(category, True):
-                return
-            channel_id = cfg.get("channels", {}).get(category)
+
+        title_text = str(title)
+        title_lower = title_text.lower()
+        category_rules = [
+            (("message", "messages"), "messages", "💬", "Nachrichten"),
+            (("member", "ban", "unban", "nickname"), "members", "👥", "Mitglieder"),
+            (("role",), "roles", "🎭", "Rollen"),
+            (("voice", "stage"), "voice", "🔊", "Voice"),
+            (("channel", "forum", "category"), "channels", "📁", "Kanäle"),
+            (("invite",), "invites", "🔗", "Einladungen"),
+            (("emoji", "sticker"), "emojis", "😀", "Emojis & Sticker"),
+            (("thread", "post"), "threads", "🧵", "Threads"),
+            (("webhook",), "webhooks", "🪝", "Webhooks"),
+            (("integration", "application", "scheduled event"), "integrations", "⚙️", "Integrationen"),
+        ]
+        category, emoji, category_label = "server", "📋", "Server"
+        for words, key, icon, label in category_rules:
+            if any(word in title_lower for word in words):
+                category, emoji, category_label = key, icon, label
+                break
+
+        channel_id = cfg.get("channel_id") if cfg.get("all_in_one", True) else cfg.get("channels", {}).get(category)
         channel = guild.get_channel(int(channel_id)) if channel_id else None
         if not isinstance(channel, discord.TextChannel):
             return
+
+        title_map = {
+            "member joined": "Mitglied ist beigetreten",
+            "member left": "Mitglied hat den Server verlassen",
+            "member removed (possibly kicked)": "Mitglied wurde entfernt",
+            "member banned": "Mitglied wurde gebannt",
+            "member unbanned": "Mitglied wurde entbannt",
+            "message deleted": "Nachricht gelöscht",
+            "multiple messages deleted": "Mehrere Nachrichten gelöscht",
+            "message edited": "Nachricht bearbeitet",
+            "nickname changed": "Nickname geändert",
+            "member timeout changed": "Timeout geändert",
+            "member roles changed": "Mitgliederrollen geändert",
+            "channel created": "Kanal erstellt",
+            "channel deleted": "Kanal gelöscht",
+            "channel updated": "Kanal geändert",
+            "role created": "Rolle erstellt",
+            "role deleted": "Rolle gelöscht",
+            "role updated": "Rolle geändert",
+            "joined voice channel": "Voice-Kanal betreten",
+            "left voice channel": "Voice-Kanal verlassen",
+            "switched voice channels": "Voice-Kanal gewechselt",
+            "voice state changed": "Voice-Status geändert",
+            "invite created": "Einladung erstellt",
+            "invite deleted": "Einladung gelöscht",
+            "server settings updated": "Servereinstellungen geändert",
+            "emoji created": "Emoji erstellt",
+            "emoji deleted": "Emoji gelöscht",
+            "emoji updated": "Emoji geändert",
+            "sticker created": "Sticker erstellt",
+            "sticker deleted": "Sticker gelöscht",
+        }
+        display_title = title_map.get(title_lower, title_text)
+        safe_description = discord.utils.escape_mentions(str(description))
         embed = discord.Embed(
-            title=title,
-            description=description[:4000],
+            title=f"{emoji}  {display_title}",
+            description=safe_description[:3900] or "Keine weiteren Details verfügbar.",
             color=color,
             timestamp=datetime.now(timezone.utc),
         )
-        embed.add_field(name="Server", value=f"{guild.name} (ID: {guild.id})", inline=False)
+        embed.add_field(name="📂 Ereignis", value=category_label, inline=True)
+        embed.add_field(name="🏠 Server", value=f"{guild.name}\\n`{guild.id}`", inline=True)
+
         if actor is not None:
-            actor_text = f"{actor} (ID: {actor.id})"
-            if isinstance(actor, discord.Member):
-                actor_text = f"{actor.mention} · {actor} (ID: {actor.id})"
-            embed.add_field(name="Performed by", value=actor_text[:1024], inline=True)
+            actor_name = getattr(actor, "display_name", str(actor))
+            actor_id = getattr(actor, "id", None)
+            actor_text = f"{actor.mention}\\n**{actor_name}**" if isinstance(actor, discord.Member) else f"**{actor_name}**"
+            if actor_id is not None:
+                actor_text += f"\\nID: `{actor_id}`"
         else:
-            embed.add_field(name="Performed by", value="Could not be determined", inline=True)
+            actor_text = "Nicht ermittelbar (Audit-Log-Rechte oder Discord-Informationen fehlen)"
+        embed.add_field(name="👤 Ausgeführt von", value=actor_text[:1024], inline=True)
+
         if target is not None:
-            target_text = str(target)
-            if hasattr(target, "id"):
-                target_text += f" (ID: {target.id})"
-            embed.add_field(name="Target", value=target_text[:1024], inline=True)
-        embed.set_footer(text="IronWolf Server-Logs")
+            target_name = getattr(target, "display_name", getattr(target, "name", str(target)))
+            target_id = getattr(target, "id", None)
+            target_text = f"**{target_name}**"
+            if target_id is not None:
+                target_text += f"\\nID: `{target_id}`"
+                if isinstance(target, (discord.Member, discord.User)):
+                    target_text += f"\\n{target.mention}"
+            embed.add_field(name="🎯 Betroffenes Ziel", value=target_text[:1024], inline=True)
+
+        embed.set_footer(text=f"IronWolf • Server-Protokoll • {guild.name}")
         try:
             await channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
-        except (discord.Forbidden, discord.HTTPException):
-            pass
+        except (discord.Forbidden, discord.HTTPException) as exc:
+            print(f"[ServerLogs] Could not post to #{channel.id} in guild {guild.id}: {type(exc).__name__}: {exc}")
 
     async def audit_actor(self, guild, action, target_id=None, *, channel_id=None, max_age=20):
         """Return a likely audit-log executor only when action/target/time match."""
