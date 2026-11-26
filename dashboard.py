@@ -3930,20 +3930,68 @@ def team_management_dashboard(guild_id):
 _teamlist_refresh_task = None
 
 def _build_teamlist_embeds(guild, matching, cfg):
-    page_size = 25
-    pages = [matching[index:index + page_size] for index in range(0, len(matching), page_size)] or [[]]
-    embeds = []
+    """Build a compact role-grouped team list with live Discord presence indicators."""
+    page_limit = 3800
     premium_server = guild_has_feature(cfg, "custom_bot")
-    for page_index, page_members in enumerate(pages, start=1):
-        embed = discord.Embed(title="👥 Teamliste · " + guild.name[:230], description="**Mitglieder:** " + str(len(matching)), color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
-        for member, member_roles in page_members:
-            display_name = (member.display_name or member.name)[:256]
-            role_names = ", ".join(role.name for role in member_roles)[:1024]
-            embed.add_field(name="👤 " + display_name, value=role_names or "Keine passende Rolle", inline=False)
-        if not page_members:
-            embed.description += "\n\nAktuell wurden keine Mitglieder mit den ausgewählten Rollen gefunden."
-        footer = (guild.name + " · Teamliste · Seite " if premium_server else "IronWolf Teamliste · Seite ") + str(page_index) + "/" + str(len(pages))
-        embed.set_footer(text=footer[:2048])
+    selected_role_ids = {role.id for _, member_roles in matching for role in member_roles}
+    selected_roles = sorted(
+        (role for role in guild.roles if role.id in selected_role_ids),
+        key=lambda role: (-role.position, role.name.casefold()),
+    )
+
+    status_labels = {
+        discord.Status.online: ("🟢", "Online"),
+        discord.Status.idle: ("🌙", "Idle"),
+        discord.Status.dnd: ("⛔", "Do Not Disturb"),
+        discord.Status.offline: ("⚫", "Offline"),
+    }
+    lines = [
+        "Automatically updated every 10 seconds. Member online statuses are shown.",
+        "",
+    ]
+    unique_members = {member.id: member for member, _ in matching}
+
+    for role in selected_roles:
+        role_members = [
+            member for member, member_roles in matching
+            if any(member_role.id == role.id for member_role in member_roles)
+        ]
+        role_members.sort(key=lambda member: (member.display_name or member.name).casefold())
+        lines.append(f"**{role.name} ({len(role_members)})**")
+        if not role_members:
+            lines.append("No members have this role.")
+        else:
+            for member in role_members:
+                status = getattr(member, "status", discord.Status.offline)
+                emoji, label = status_labels.get(status, ("⚫", "Offline"))
+                lines.append(f"{emoji} **{label}** {member.mention}")
+        lines.append("")
+
+    lines.append(f"**{len(unique_members)} unique team members** • BloodFang Bot • Powered by KingSnowy")
+
+    # Split only between lines so every Discord embed stays within the description limit.
+    chunks = []
+    current = ""
+    for line in lines:
+        candidate = current + ("\n" if current else "") + line
+        if len(candidate) > page_limit and current:
+            chunks.append(current)
+            current = line
+        else:
+            current = candidate
+    if current or not chunks:
+        chunks.append(current)
+
+    embeds = []
+    for page_index, description in enumerate(chunks, start=1):
+        embed = discord.Embed(
+            title="👥 🔺 BLOODFANG 🔺 • Team List" if page_index == 1 else f"👥 BLOODFANG • Team List · {page_index}",
+            description=description,
+            color=discord.Color.blurple(),
+            timestamp=datetime.now(timezone.utc),
+        )
+        footer = (guild.name + " · Team List · Page " if premium_server else "BloodFang Bot · Team List · Page ")
+        embed.set_footer(text=(footer + str(page_index) + "/" + str(len(chunks)))[:2048])
         embeds.append(embed)
     return embeds
 
