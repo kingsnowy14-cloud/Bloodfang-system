@@ -4729,11 +4729,7 @@ def guild_page(guild_id):
             ("🔐", "Verification", "Verification panels, channels and roles", "/verification"),
         ]),
         ("🛡️ Security & Moderation", [
-            ("🧪", "Security Lab", "Safely simulate security scenarios without changing server content", "/security-lab"),
-            ("🛡️", "Security Center", "Centralized server protection and security controls", "/security-center"),
-            ("🧱", "Protection Settings", "Anti-raid and anti-nuke controls", "/wolfshield"),
-            ("🍯", "Honeypot", "Hidden trap channel and moderation response", "/honeypot"),
-            ("📡", "Ping Protection", "Protect selected members from unwanted mentions", "/ping-protection"),
+            ("🛡️", "Security Center", "Alle Sicherheitsfunktionen zentral verwalten", "/security-center"),
             ("⚔️", "Action Center", "Moderation and server actions", "/actions"),
         ]),
         ("⚙️ Server Setup & Customization", [
@@ -4853,6 +4849,41 @@ def guild_page(guild_id):
     # The sidebar is the single module directory; keep the overview focused and uncluttered.
     return _render(guild.name + " · Control Center", body)
 
+
+
+@app.route("/guild/<guild_id>/security-center")
+def guild_security_center(guild_id):
+    """Central entry point for all dashboard-based security controls."""
+    guild, response = _authorized_guild(guild_id)
+    if response:
+        return response
+    gid = str(guild.id)
+    sections = [
+        ("🧪", "Security Lab", "Sicherheitsprüfungen und Berichte", "security-lab"),
+        ("🧱", "Protection Settings", "Anti-Raid, Anti-Nuke und Link-Schutz", "wolfshield"),
+        ("🍯", "Honeypot", "Fangkanal und Reaktion auf verdächtige Aktionen", "honeypot"),
+        ("📡", "Ping Protection", "Geschützte Rollen und Mitglieder vor unerwünschten Erwähnungen", "ping-protection"),
+        ("🔐", "Verification", "Verifizierungskanäle und Rollen", "verification"),
+    ]
+    cards = []
+    for icon, title, description, endpoint in sections:
+        cards.append(
+            '<a class="card" style="display:block;text-decoration:none" href="/guild/' + gid + '/' + endpoint + '">'
+            '<h2>' + icon + ' ' + html.escape(title) + '</h2><p class="muted">'
+            + html.escape(description) + '</p><strong>Öffnen →</strong></a>'
+        )
+    body = (
+        '<section class="card hero"><span class="pill">IRONWOLF · SECURITY</span>'
+        '<h1>🛡️ Security Center</h1><p>Alle Sicherheitsbereiche dieses Servers sind hier zentral erreichbar. '
+        'Jeder Bereich hat seine eigene Konfiguration; Serverrechte und CSRF-Schutz bleiben aktiv.</p></section>'
+        '<div class="grid">' + ''.join(cards) + '</div>'
+        '<section class="card"><h2>🔒 Kanal-Lockdown & Backups</h2>'
+        '<p>Lockdown, Entsperren und Server-Backups sind derzeit weiterhin über die Discord-Befehle '
+        '<code>/secure-lockdown</code>, <code>/secure-unlock</code>, <code>/secure-backup</code> und '
+        '<code>/secure-backup-list</code> verfügbar. Diese Aktionen werden nicht automatisch beim Öffnen der Seite ausgeführt.</p></section>'
+        '<p><a href="/guild/' + gid + '">← Zur Serverübersicht</a></p>'
+    )
+    return _page("Security Center", body)
 
 
 @app.route("/guild/<guild_id>/security-lab", methods=["GET", "POST"])
