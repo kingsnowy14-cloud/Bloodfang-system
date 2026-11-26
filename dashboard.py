@@ -3933,7 +3933,7 @@ def _build_teamlist_embeds(guild, matching, cfg):
     """Build a compact role-grouped team list with live Discord presence indicators."""
     page_limit = 3800
     premium_server = guild_has_feature(cfg, "custom_bot")
-    selected_role_ids = {role.id for _, member_roles in matching for role in member_roles}
+    selected_role_ids = {int(value) for value in cfg.get("teamlist_role_ids", []) if str(value).isdigit()}
     selected_roles = sorted(
         (role for role in guild.roles if role.id in selected_role_ids),
         key=lambda role: (-role.position, role.name.casefold()),
