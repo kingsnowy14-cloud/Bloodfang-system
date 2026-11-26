@@ -9602,7 +9602,6 @@ async def developerbuild_slash(interaction: discord.Interaction):
 
 @bot.command(name="deleteserver")
 @commands.guild_only()
-@commands.has_guild_permissions(administrator=True)
 async def deleteserver(ctx, bestaetigung: str = ""):
     """Deletes every channel and category after an explicit confirmation."""
     if bestaetigung.casefold() != "bestätigen":
@@ -9659,7 +9658,6 @@ async def deleteserver_error(ctx, error):
 
 @bot.command(name="serverbau")
 @commands.guild_only()
-@commands.has_guild_permissions(manage_guild=True)
 async def serverbau(ctx):
     """Build a general-purpose Discord community server structure."""
     roles = [
@@ -9703,7 +9701,6 @@ async def serverbau(ctx):
 
 @bot.command(name="serverRPbau")
 @commands.guild_only()
-@commands.has_guild_permissions(manage_guild=True)
 async def server_rp_bau(ctx):
     """Build a roleplay Discord server structure."""
     roles = [
@@ -10008,7 +10005,6 @@ async def server_statistics_worker():
 
 @bot.command(name="TheIsleBau")
 @commands.guild_only()
-@commands.has_guild_permissions(manage_guild=True, manage_channels=True, manage_roles=True)
 async def the_isle_bau(ctx):
     """Creates a The Isle community Discord layout; existing matching roles/channels are kept."""
     guild = ctx.guild
@@ -10681,7 +10677,6 @@ async def on_app_command_error(interaction: discord.Interaction, error):
 
 @bot.command(name="filmserver", aliases=["flimserver"])
 @commands.guild_only()
-@commands.has_guild_permissions(manage_guild=True)
 async def filmserver(ctx):
     """Create a server for people who make their own films and videos."""
     roles = [
