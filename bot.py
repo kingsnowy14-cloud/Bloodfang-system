@@ -134,27 +134,12 @@ async def dashboard_slash_command_check(interaction):
         else:
             await interaction.response.send_message(message, ephemeral=True)
         return False
-    key = f"slash:/{command.qualified_name}"
-    if not await dashboard_command_enabled(interaction.guild_id, key):
-        message = bot_text(interaction.guild_id, "This command has been disabled for this server in the web dashboard.")
-        if interaction.response.is_done():
-            await interaction.followup.send(message, ephemeral=True)
-        else:
-            await interaction.response.send_message(message, ephemeral=True)
-        return False
     cog = getattr(command, "binding", None)
     module_name = cog.__class__.__name__ if cog is not None else None
     premium_feature = {"SecurityTools": "security", "EventTools": "automation"}.get(module_name)
     # Seasonal slash commands are available without a premium feature flag.
     if premium_feature and not guild_has_feature(guild_config(interaction.guild_id), premium_feature):
         message = bot_text(interaction.guild_id, "This Pro module requires an active Premium+ account linked to this server.")
-        if interaction.response.is_done():
-            await interaction.followup.send(message, ephemeral=True)
-        else:
-            await interaction.response.send_message(message, ephemeral=True)
-        return False
-    if not await dashboard_module_enabled(interaction.guild_id, module_name):
-        message = bot_text(interaction.guild_id, "This module has been disabled for this server in the web dashboard.")
         if interaction.response.is_done():
             await interaction.followup.send(message, ephemeral=True)
         else:
