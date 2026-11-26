@@ -3826,6 +3826,7 @@ def team_management_dashboard(guild_id):
         for key, (label, description) in action_labels.items():
             body += '<a class="card" style="display:block;text-decoration:none" href="/guild/' + gid + '/team-management?action=' + key + '"><h2>' + label + ' →</h2><p class="muted">' + description + '</p></a>'
         body += '</div><p><a class="button secondary" href="/guild/' + gid + '/team-management?action=settings">⚙️ Team Settings</a></p>'
+        if not request.path.startswith("/team-management/"):
         body += '<hr><h2>Discord Embed Panel</h2><p class="muted">Gestalte die Nachricht, wähle den Zielkanal und entscheide, welche Team-Aktionsbuttons erscheinen.</p>'
         body += '<form method="post">' + _csrf_field() + '<input type="hidden" name="team_action" value="publish_panel">'
         body += '<label>Discord channel</label><select name="panel_channel_id" required><option value="">— Select channel —</option>'
@@ -3842,6 +3843,8 @@ def team_management_dashboard(guild_id):
             body += '<label class="role-option"><input type="checkbox" name="panel_' + key + '"' + checked + '><span>' + label + '</span></label>'
         body += '<button type="submit">💬 Save & publish/update Discord panel</button></form>'
         body += '<p class="muted">In Discord erscheint ein einzelner Button „Open Team Management“. Alle Auswahlen und Aktionen laufen anschließend privat direkt in Discord. Rollen, Rangfolge und Team-Ban-Rolle konfigurierst du unter Team Settings.</p></section>'
+        else:
+            body += '<p class="muted">Team Actions und Team Settings werden hier separat verwaltet.</p></section>'
         return _render("Team Management · IronWolf", body)
     if selected_action == "settings":
         setting_labels = [
