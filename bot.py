@@ -8718,7 +8718,7 @@ class ServerLogs(commands.Cog):
             category = "threads"
         elif "webhook" in title_lower:
             category = "webhooks"
-        elif any(word in title_lower for word in ("integration", "application")):
+        elif any(word in title_lower for word in ("integration", "application", "scheduled event")):
             category = "integrations"
         else:
             category = "server"
@@ -9065,19 +9065,19 @@ class ServerLogs(commands.Cog):
                        target=guild)
 
     @commands.Cog.listener()
-    async def on_guild_scheduled_event_create(self, event):
+    async def on_scheduled_event_create(self, event):
         await self.log(event.guild, "Scheduled event created",
                        f"Name: {event.name}\\nID: {event.id}", discord.Color.green(), target=event)
 
     @commands.Cog.listener()
-    async def on_guild_scheduled_event_update(self, before, after):
+    async def on_scheduled_event_update(self, before, after):
         if before.name != after.name or before.start_time != after.start_time or before.status != after.status:
             await self.log(after.guild, "Scheduled event updated",
                            f"Name: {before.name} → {after.name}\\nStart: {before.start_time} → {after.start_time}\\nStatus: {before.status} → {after.status}",
                            target=after)
 
     @commands.Cog.listener()
-    async def on_guild_scheduled_event_delete(self, event):
+    async def on_scheduled_event_delete(self, event):
         await self.log(event.guild, "Scheduled event deleted",
                        f"Name: {event.name}\\nID: {event.id}", discord.Color.red(), target=event)
 
