@@ -203,7 +203,11 @@ def setup_wolfguard(bot, guild_config, config, data, save_json, config_file, dat
 
     async def on_guild_channel_update(before, after):
         cfg = guild_config(after.guild.id)
-        if not enabled(cfg, "insider_detection") or before.overwrites == after.overwrites:
+        # Anti-Nuke already audits every overwrite change when enabled.
+        # WolfGuard only emits this supplemental signal when Anti-Nuke is off.
+        if (not enabled(cfg, "insider_detection")
+                or cfg.get("anti_nuke_enabled", False)
+                or before.overwrites == after.overwrites):
             return
         actor = None
         try:
@@ -223,7 +227,9 @@ def setup_wolfguard(bot, guild_config, config, data, save_json, config_file, dat
 
     async def on_guild_role_update(before, after):
         cfg = guild_config(after.guild.id)
-        if not enabled(cfg, "insider_detection"):
+        # Avoid duplicate role-permission alerts: Anti-Nuke is the canonical
+        # detector for these changes whenever it is enabled.
+        if not enabled(cfg, "insider_detection") or cfg.get("anti_nuke_enabled", False):
             return
         sensitive = discord.Permissions(
             administrator=True, manage_guild=True, manage_roles=True,
