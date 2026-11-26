@@ -247,7 +247,22 @@ class PropertySales(commands.Cog):
             if item.get("message_id"):
                 try:
                     message = await channel.fetch_message(int(item["message_id"]))
-                    await message.edit(embed=_embed(guild, item), view=PropertyListingView(self, guild.id, item["id"]))
+                    file = None
+                    if item.get("image_path"):
+                        try:
+                            file = discord.File(item["image_path"], filename=Path(item["image_path"]).name)
+                        except OSError:
+                            file = None
+                    embed = _embed(guild, item)
+                    if file:
+                        embed.set_image(url=f"attachment://{file.filename}")
+                        await message.edit(embed=embed, view=PropertyListingView(self, guild.id, item["id"]), attachments=[file])
+                        if message.attachments:
+                            item["image_url"] = message.attachments[-1].url
+                            embed.set_image(url=item["image_url"])
+                            await message.edit(embed=embed)
+                    else:
+                        await message.edit(embed=embed, view=PropertyListingView(self, guild.id, item["id"]))
                     published += 1
                     continue
                 except (discord.NotFound, discord.Forbidden, discord.HTTPException):
