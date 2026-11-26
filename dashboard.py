@@ -1433,6 +1433,7 @@ def _module_navigation():
         ("birthdays", "🎂 Birthdays", "/birthdays"),
         ("team-management", "👥 Team Management", "/team-management"),
         ("absence-management", "📅 Absence Management", "/absence-management"),
+        ("property-sales", "🏡 Anwesenverkauf", "/property-sales"),
         ("teamlist", "📋 Team List", "/teamlist"),
         ("feedback", "💬 Anonymous Feedback", "/feedback"),
         ("applications", "📝 Applications", "/applications"),
@@ -3327,6 +3328,130 @@ def auto_nickname_dashboard(guild_id):
     body += '<p><a href="/guild/' + str(guild.id) + '">← Back to server overview</a></p></section>'
     return _render("AutoNickname · IronWolf", body)
 
+
+
+
+@app.route("/guild/<guild_id>/property-sales", methods=["GET", "POST"])
+def property_sales_dashboard(guild_id):
+    """Configure up to 50 property listings, upload photos and publish Discord embeds."""
+    guild, response = _authorized_guild(guild_id)
+    if response:
+        return response
+    cfg = _guild_config(guild.id)
+    settings = cfg.setdefault("property_sales", {})
+    items = settings.setdefault("items", [])
+    channels = sorted(guild.text_channels, key=lambda c: c.position)
+    categories = sorted(guild.categories, key=lambda c: c.position)
+    roles = sorted([r for r in guild.roles if not r.is_default() and not r.managed], key=lambda r: r.position, reverse=True)
+
+    def opts(rows, chosen, empty_label):
+        out = [f'<option value="">{html.escape(empty_label)}</option>']
+        for obj in rows:
+            selected = " selected" if str(obj.id) == str(chosen or "") else ""
+            label = ("#" if isinstance(obj, discord.TextChannel) else "") + obj.name
+            out.append(f'<option value="{obj.id}"{selected}>{html.escape(label)}</option>')
+        return "".join(out)
+
+    if request.method == "POST":
+        if not _csrf_ok():
+            abort(400, "CSRF validation failed. Reload the page.")
+        actor_id = str(session.get("user_id", ""))
+        actor = guild.get_member(int(actor_id)) if actor_id.isdigit() else None
+        if actor is None or not (actor.guild_permissions.administrator or actor.guild_permissions.manage_guild):
+            abort(403, "Administrator or Manage Server permission is required.")
+        listing_channel = request.form.get("listing_channel_id", "")
+        sold_channel = request.form.get("sold_channel_id", "")
+        ticket_category = request.form.get("ticket_category_id", "")
+        staff_role = request.form.get("staff_role_id", "")
+        if listing_channel not in {str(c.id) for c in channels} or sold_channel not in {str(c.id) for c in channels}:
+            abort(400, "Please select valid listing and sold channels.")
+        if ticket_category not in {str(c.id) for c in categories} or staff_role not in {str(r.id) for r in roles}:
+            abort(400, "Please select a valid ticket category and staff role.")
+        new_items = []
+        upload_dir = data_path("property_images")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        import uuid
+        from werkzeug.utils import secure_filename
+        for idx in range(50):
+            name = request.form.get(f"property_name_{idx}", "").strip()[:100]
+            price_raw = request.form.get(f"property_price_{idx}", "").strip()
+            old_id = request.form.get(f"property_id_{idx}", "").strip()
+            old = next((x for x in items if x.get("id") == old_id), {}) if old_id else {}
+            upload = request.files.get(f"property_image_{idx}")
+            image_path = old.get("image_path")
+            if upload and upload.filename:
+                filename = secure_filename(upload.filename)
+                ext = Path(filename).suffix.lower()
+                if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+                    abort(400, f"Image {idx + 1}: use PNG, JPG or WEBP.")
+                raw = upload.read(8 * 1024 * 1024 + 1)
+                if len(raw) > 8 * 1024 * 1024:
+                    abort(400, f"Image {idx + 1}: maximum file size is 8 MB.")
+                if not raw:
+                    abort(400, f"Image {idx + 1}: uploaded image is empty.")
+                image_path = str(upload_dir / f"{uuid.uuid4().hex}{ext}")
+                Path(image_path).write_bytes(raw)
+            if not name and not price_raw and not upload:
+                continue
+            try:
+                price = int(price_raw.replace(".", "").replace(",", ""))
+                if price <= 0:
+                    raise ValueError
+            except ValueError:
+                abort(400, f"Enter a valid positive whole-Euro price for property {idx + 1}.")
+            if not name:
+                abort(400, f"Enter a name for property {idx + 1}.")
+            item = dict(old)
+            item.update({"id": old_id or uuid.uuid4().hex[:12], "name": name, "price": price, "paid": min(int(old.get("paid", 0)), price), "image_path": image_path})
+            new_items.append(item)
+        if len(new_items) > 50:
+            abort(400, "A maximum of 50 properties is allowed.")
+        settings.update({
+            "listing_channel_id": int(listing_channel), "sold_channel_id": int(sold_channel),
+            "ticket_category_id": int(ticket_category), "staff_role_id": int(staff_role),
+            "items": new_items,
+        })
+        _save_json(data_path("config.json"), _config)
+        _audit_dashboard_change(guild.id, "Property Sales", actor_id, f"Saved {len(new_items)} property listings")
+        if request.form.get("publish") == "1":
+            if not _bot or not _bot.loop.is_running():
+                abort(503, "IronWolf is offline.")
+            async def publish_properties():
+                cog = _bot.get_cog("PropertySales")
+                if cog is None:
+                    await _bot.load_extension("property_sales")
+                    cog = _bot.get_cog("PropertySales")
+                return await cog.publish(guild)
+            try:
+                asyncio.run_coroutine_threadsafe(publish_properties(), _bot.loop).result(timeout=60)
+            except Exception as exc:
+                abort(400, "Could not publish property listings: " + str(exc)[:300])
+            return redirect(url_for("property_sales_dashboard", guild_id=str(guild.id), published="1"))
+        return redirect(url_for("property_sales_dashboard", guild_id=str(guild.id), saved="1"))
+
+    body = '<section class="card"><h1>🏡 Anwesenverkauf</h1>'
+    if request.args.get("saved"): body += '<p class="success">Einstellungen gespeichert.</p>'
+    if request.args.get("published"): body += '<p class="success">Anwesen-Angebote veröffentlicht bzw. aktualisiert.</p>'
+    body += '<p class="muted">Bis zu 50 Anwesen mit Preis und Bild. Vorhandene Angebote werden beim erneuten Veröffentlichen aktualisiert.</p><form method="post" enctype="multipart/form-data">' + _csrf_field()
+    body += '<label>Angebotskanal</label><select name="listing_channel_id" required>' + opts(channels, settings.get("listing_channel_id"), "Kanal wählen") + '</select>'
+    body += '<label>Verkaufte Anwesen – Kanal</label><select name="sold_channel_id" required>' + opts(channels, settings.get("sold_channel_id"), "Kanal wählen") + '</select>'
+    body += '<label>Ticket-Kategorie</label><select name="ticket_category_id" required>' + opts(categories, settings.get("ticket_category_id"), "Kategorie wählen") + '</select>'
+    body += '<label>Staff-Rolle zum Pingen und Verwalten</label><select name="staff_role_id" required>' + opts(roles, settings.get("staff_role_id"), "Staff-Rolle wählen") + '</select>'
+    body += '<h2>Anwesen-Angebote (max. 50)</h2>'
+    existing = {x.get("id"): x for x in items}
+    for idx in range(50):
+        item = items[idx] if idx < len(items) else {}
+        body += f'<div class="card" style="margin:12px 0;padding:14px"><h3>Anwesen {idx+1}</h3>'
+        body += f'<input type="hidden" name="property_id_{idx}" value="{html.escape(str(item.get("id", "")), quote=True)}">'
+        body += f'<label>Name</label><input name="property_name_{idx}" maxlength="100" value="{html.escape(str(item.get("name", "")), quote=True)}" placeholder="Villa am See">'
+        body += f'<label>Kaufpreis in €</label><input name="property_price_{idx}" inputmode="numeric" value="{html.escape(str(item.get("price", "")), quote=True)}" placeholder="500">'
+        body += f'<label>Bild (PNG/JPG/WEBP, max. 8 MB)</label><input type="file" name="property_image_{idx}" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">'
+        if item.get("image_path") and Path(item["image_path"]).is_file():
+            body += '<p class="muted">Bild bereits hochgeladen – bleibt erhalten, wenn kein neues Bild ausgewählt wird.</p>'
+        body += '</div>'
+    body += '<button type="submit">Einstellungen speichern</button> <button type="submit" name="publish" value="1">Speichern & Angebote veröffentlichen/aktualisieren</button></form>'
+    body += '<p class="muted">Kauf-Tickets werden privat für Käufer und Staff erstellt. Staff kann Zahlungen eintragen; erst bei vollständiger Zahlung kann ein Anwesen als verkauft markiert werden.</p></section>'
+    return _render("Anwesenverkauf · IronWolf", body)
 
 
 @app.route("/guild/<guild_id>/absence-management", methods=["GET", "POST"])
