@@ -8987,7 +8987,9 @@ class ServerLogs(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
-        if after.guild is None or (after.author and after.author.bot) or before.content == after.content:
+        if after.guild is None or (after.author and after.author.bot):
+            return
+        if before.content == after.content and before.attachments == after.attachments:
             return
         # Ticket conversation content is private support context, not a dashboard/server log.
         if str(after.channel.id) in data.setdefault("tickets", {}):
@@ -9009,6 +9011,13 @@ class ServerLogs(commands.Cog):
                 after.guild, "Nickname changed",
                 f"Member: {after.mention} · ID {after.id}\nBefore: {before.nick or 'No nickname'}\nAfter: {after.nick or 'No nickname'}",
                 actor=actor, target=after,
+            )
+        if before.timed_out_until != after.timed_out_until:
+            actor = await self.audit_actor(after.guild, discord.AuditLogAction.member_update, after.id)
+            await self.log(
+                after.guild, "Member timeout changed",
+                f"Member: {after.mention} · ID {after.id}\nBefore: {before.timed_out_until or 'No timeout'}\nAfter: {after.timed_out_until or 'No timeout'}",
+                discord.Color.orange(), actor=actor, target=after,
             )
         added = [role for role in after.roles if role not in before.roles and not role.is_default()]
         removed = [role for role in before.roles if role not in after.roles and not role.is_default()]
@@ -9047,6 +9056,8 @@ class ServerLogs(commands.Cog):
             changes.append(f"Category: {getattr(getattr(before, 'category', None), 'name', 'None')} → {getattr(getattr(after, 'category', None), 'name', 'None')}")
         if getattr(before, "topic", None) != getattr(after, "topic", None):
             changes.append(f"Topic: {getattr(before, 'topic', None) or 'Keins'} → {getattr(after, 'topic', None) or 'Keins'}")
+        if before.overwrites != after.overwrites:
+            changes.append("Channel permissions / access overwrites changed")
         if changes:
             actor = await self.audit_actor(after.guild, discord.AuditLogAction.channel_update, after.id)
             await self.log(after.guild, "Channel updated", "\n".join(changes) + f"\nChannel ID: {after.id}", actor=actor, target=after)
@@ -9081,6 +9092,19 @@ class ServerLogs(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         if before.channel == after.channel:
+            voice_changes = []
+            for attr, label in (("mute", "Server muted"), ("deaf", "Server deafened"),
+                                ("self_mute", "Self muted"), ("self_deaf", "Self deafened"),
+                                ("self_stream", "Screen sharing"), ("self_video", "Camera")):
+                old_value, new_value = getattr(before, attr, False), getattr(after, attr, False)
+                if old_value != new_value:
+                    voice_changes.append(f"{label}: {old_value} → {new_value}")
+            if voice_changes:
+                await self.log(
+                    member.guild, "Voice state changed",
+                    f"Member: {member.mention} · ID {member.id}\nChannel: {getattr(after.channel, 'name', 'None')} · ID {getattr(after.channel, 'id', 'None')}\n" + "\n".join(voice_changes),
+                    actor=member, target=member,
+                )
             return
         if before.channel is None and after.channel is not None:
             title = "Joined voice channel"
