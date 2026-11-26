@@ -6877,6 +6877,18 @@ def guild_economy(guild_id):
         actor = guild.get_member(int(session.get("user_id", "0")))
         if actor is None or not (actor.guild_permissions.administrator or actor.guild_permissions.manage_guild):
             abort(403, "Du brauchst Administrator- oder Server-verwalten-Rechte.")
+        if request.form.get("action") == "toggle_economy_module":
+            disabled_modules = set(cfg.get("disabled_modules", []))
+            if request.form.get("economy_enabled") == "on":
+                disabled_modules.discard("Economy")
+                state_label = "aktiviert"
+            else:
+                disabled_modules.add("Economy")
+                state_label = "deaktiviert"
+            cfg["disabled_modules"] = sorted(disabled_modules)
+            _save_json(data_path("config.json"), _config)
+            _audit_dashboard_change(guild.id, "Economy-Modul", session.get("user_id"), "Economy-Modul " + state_label + ".")
+            return redirect(url_for("guild_economy", guild_id=gid))
         currency_name = request.form.get("currency_name", "").strip()
         currency_emoji = request.form.get("currency_emoji", "").strip()
         if not currency_name or len(currency_name) > 32 or not currency_emoji or len(currency_emoji) > 12:
@@ -6933,7 +6945,20 @@ def guild_economy(guild_id):
         + ' value="' + html.escape(str(values[key]), quote=True) + '" required>'
         for key, label, kind, limit in fields
     )
+    economy_enabled = "Economy" not in set(_guild_config(guild.id).get("disabled_modules", []))
+    module_toggle = (
+        '<section class="card"><h2>⚙️ Economy-Modul</h2>'
+        '<p>Schaltet alle Economy-Befehle dieses Servers gemeinsam an oder aus: Prefix-Befehle wie <code>!work</code>, <code>!crime</code> und <code>!pay</code> sowie die Economy-Slash-Befehle.</p>'
+        '<form method="post">' + _csrf_field() +
+        '<input type="hidden" name="action" value="toggle_economy_module">'
+        '<label style="display:flex;align-items:center;gap:10px"><input type="checkbox" name="economy_enabled"'
+        + (' checked' if economy_enabled else '') +
+        '> Economy aktiviert</label>'
+        '<button type="submit">Economy-Status speichern</button></form>'
+        '<p class="muted">Wenn ausgeschaltet, werden die Economy-Befehle in diesem Server blockiert. Andere Server bleiben unverändert.</p></section>'
+    )
     body = (
+        module_toggle +
         '<section class="card"><span class="pill">ECONOMY CONTROL</span><h1>💰 Wirtschaftssystem</h1>'
         '<p>Diese Werte werden in derselben SQLite-Tabelle gespeichert, die die Economy-Befehle lesen. Änderungen wirken auf die Economy-Funktionen, sobald das Economy-Modul geladen ist.</p>'
         '<form method="post">' + _csrf_field() + form_fields
