@@ -1404,7 +1404,10 @@ async def _create_ticket_from_interaction(interaction: discord.Interaction, pane
     save_json(DATA_FILE, data)
 
     embed = ticket_status_embed(ticket_meta, channel.id)
-    await channel.send(embed=embed, view=TicketControlView())
+    control_message = await channel.send(embed=embed, view=TicketControlView())
+    # Persist the exact controls message so its view can be rebound after every deploy/restart.
+    ticket_meta["control_message_id"] = control_message.id
+    save_json(DATA_FILE, data)
     # English onboarding hint is sent immediately after the ticket controls.
     staff_ping = f"{support_role.mention} " if support_role else ""
     await channel.send(
@@ -10550,12 +10553,47 @@ async def on_ready():
     bot.add_view(TicketControlView())
     bot.add_view(VerifyView(mode="website"))
 
+    # Rebind the controls on every previously opened ticket to its original Discord message.
+    # The generic TicketControlView above remains as a backwards-compatible fallback
+    # for tickets created before control_message_id was persisted.
+    _restored_ticket_controls = 0
+    _missing_ticket_channels = 0
+    for _ticket_channel_id, _ticket_meta in data.setdefault("tickets", {}).items():
+        if not isinstance(_ticket_meta, dict):
+            continue
+        _guild_id = _ticket_meta.get("guild_id")
+        _control_message_id = _ticket_meta.get("control_message_id")
+        if not (str(_guild_id or "").isdigit() and str(_control_message_id or "").isdigit()):
+            continue
+        _guild = bot.get_guild(int(_guild_id))
+        if _guild is None:
+            continue
+        _ticket_channel = _guild.get_channel(int(_ticket_channel_id)) if str(_ticket_channel_id).isdigit() else None
+        if _ticket_channel is None:
+            try:
+                _ticket_channel = await _guild.fetch_channel(int(_ticket_channel_id))
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError):
+                _ticket_channel = None
+        if not isinstance(_ticket_channel, discord.TextChannel):
+            _missing_ticket_channels += 1
+            continue
+        try:
+            bot.add_view(TicketControlView(), message_id=int(_control_message_id))
+            _restored_ticket_controls += 1
+        except Exception as exc:
+            print(f"[TICKET VIEW] Could not restore controls for ticket {_ticket_channel_id}: {type(exc).__name__}: {exc}", flush=True)
+    print(
+        f"[TICKET VIEW] Rebound {_restored_ticket_controls} existing ticket control messages; "
+        f"{_missing_ticket_channels} saved ticket channels were unavailable.",
+        flush=True,
+    )
+
     # Restore persistent ticket panel views saved in config.
     _restored_ticket_panels = 0
     for guild_id, cfg in config.items():
         for panel_key, panel in cfg.get("ticket_panels", {}).items():
             try:
-                bot.add_view(TicketPanelView(panel_key, panel.get("labels", []), panel.get("display_mode", "buttons"), panel.get("option_descriptions", [])))
+                bot.add_view(TicketPanelView(panel_key, panel.get("labels", []), panel.get("display_mode", "buttons"), panel.get("option_descriptions", []), panel.get("option_emojis", [])))
                 _restored_ticket_panels += 1
             except Exception as exc:
                 print(f"[TICKET VIEW] Could not restore panel view: guild={guild_id} panel={panel_key} error={type(exc).__name__}: {exc}", flush=True)
