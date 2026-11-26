@@ -3998,6 +3998,10 @@ async def _ensure_teamlist_refresh_task():
     global _teamlist_refresh_task
     if _teamlist_refresh_task is None or _teamlist_refresh_task.done():
         _teamlist_refresh_task = asyncio.create_task(_teamlist_refresh_loop())
+
+
+async def _teamlist_refresh_on_ready():
+    await _ensure_teamlist_refresh_task()
 @app.route("/guild/<guild_id>/teamlist", methods=["GET", "POST"])
 def teamlist_dashboard(guild_id):
     """Configure team roles and publish matching members to a selected Discord channel."""
@@ -8294,6 +8298,7 @@ def start_dashboard(bot, config, save_json, guild_config):
     if getattr(bot, "_dashboard_started", False):
         return
     _bot, _config, _save_json, _guild_config = bot, config, save_json, guild_config
+    bot.add_listener(_teamlist_refresh_on_ready, "on_ready")
     try:
         import voice_support_dashboard
         voice_support_dashboard.register()
