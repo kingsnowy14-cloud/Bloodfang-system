@@ -8442,36 +8442,15 @@ async def on_member_update(before: discord.Member, after: discord.Member):
             and bot_member.guild_permissions.manage_nicknames
             and after.top_role < bot_member.top_role
         )
-        if can_edit and gained_role_ids:
-            gained_matches = [
-                (role, prefix) for role, prefix in normalized_rules
-                if role.id in gained_role_ids
-            ]
-            if gained_matches or _auto_nickname_original_key(after) in data.get("auto_nickname_originals", {}):
-                await apply_auto_nickname(
-                    after,
-                    "AutoNickname: role hierarchy changed",
-                    preferred_role_ids=gained_role_ids,
-                )
-        elif can_edit and lost_role_ids:
-            removed_rule = next(
-                ((role, prefix) for role, prefix in normalized_rules
-                 if role.id in lost_role_ids
-                 and (after.nick or "") == f"{prefix} {after.name}"[:32]),
-                None,
+        if can_edit and (gained_role_ids or lost_role_ids):
+            # Re-evaluate against the member's actual highest Discord role after
+            # every role change. A lower configured role must never grant its tag
+            # while the member holds any higher role (for example Owner > Bürger).
+            await apply_auto_nickname(
+                after,
+                "AutoNickname: highest role changed",
+                preferred_role_ids=gained_role_ids,
             )
-            if removed_rule is not None:
-                remaining_rule = _auto_nickname_rule_for_member(after)
-                if remaining_rule:
-                    await apply_auto_nickname(
-                        after,
-                        "AutoNickname: another configured role remains",
-                    )
-                else:
-                    await restore_auto_nickname(
-                        after,
-                        "AutoNickname: configured role was removed or is no longer highest; restore previous nickname",
-                    )
     except (ValueError, discord.Forbidden, discord.HTTPException) as exc:
         print(f"[AutoNickname] Could not set nickname for member {after.id} in guild {after.guild.id}: {type(exc).__name__}: {exc}", flush=True)
 
