@@ -1964,7 +1964,7 @@ def dashboard_auth_expired(error):
 
 def _require_login():
     if not session.get("access_token"):
-        return redirect(url_for("login"))
+        return redirect(url_for("login", next=request.full_path))
     return None
 
 
@@ -2600,6 +2600,8 @@ def login():
         return _render("OAuth-Einrichtung", '<div class="card"><h1>Discord OAuth2 fehlt</h1><p>Bitte konfiguriere <code>DISCORD_CLIENT_ID</code>, <code>DISCORD_CLIENT_SECRET</code>, <code>DASHBOARD_REDIRECT_URI</code> und <code>DASHBOARD_SECRET_KEY</code> in Railway. Der Redirect muss exakt auf <code>/callback</code> zeigen.</p></div>', 503)
     state = secrets.token_urlsafe(32)
     session["oauth_state"] = state
+    next_path = request.args.get("next", "")
+    session["oauth_next"] = next_path if next_path.startswith("/") and not next_path.startswith("//") else ""
     query = urlencode({
         "client_id": _env("DISCORD_CLIENT_ID"),
         "redirect_uri": _env("DASHBOARD_REDIRECT_URI"),
@@ -2640,6 +2642,7 @@ def callback():
         profile.raise_for_status()
     except (requests.RequestException, ValueError, KeyError):
         return _render("Anmeldung fehlgeschlagen", '<div class="card"><h1>Discord konnte nicht erreicht werden</h1><p>Bitte versuche es später erneut.</p></div>', 502)
+    next_path = session.pop("oauth_next", "")
     session.clear()
     session.permanent = True
     session["access_token"] = token
@@ -2650,7 +2653,7 @@ def callback():
     session["user_id"] = str(profile_data.get("id", ""))
     session["discord_username"] = str(profile_data.get("global_name") or profile_data.get("username") or "Discord user")[:100]
     session["csrf_token"] = secrets.token_urlsafe(32)
-    return redirect(url_for("index"))
+    return redirect(next_path if next_path.startswith("/") and not next_path.startswith("//") else url_for("index"))
 
 
 @app.route("/logout", methods=["POST"])
