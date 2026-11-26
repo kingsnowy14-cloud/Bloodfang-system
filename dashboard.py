@@ -3373,7 +3373,13 @@ def property_sales_dashboard(guild_id):
         upload_dir.mkdir(parents=True, exist_ok=True)
         import uuid
         from werkzeug.utils import secure_filename
-        for idx in range(50):
+        try:
+            property_count = int(request.form.get("property_count", "0"))
+        except ValueError:
+            abort(400, "Ungültige Anzahl an Anwesen.")
+        if property_count < 0 or property_count > 50:
+            abort(400, "Es sind maximal 50 Anwesen erlaubt.")
+        for idx in range(property_count):
             name = request.form.get(f"property_name_{idx}", "").strip()[:100]
             price_raw = request.form.get(f"property_price_{idx}", "").strip()
             old_id = request.form.get(f"property_id_{idx}", "").strip()
@@ -3438,19 +3444,23 @@ def property_sales_dashboard(guild_id):
     body += '<label>Verkaufte Anwesen – Kanal</label><select name="sold_channel_id" required>' + opts(channels, settings.get("sold_channel_id"), "Kanal wählen") + '</select>'
     body += '<label>Ticket-Kategorie</label><select name="ticket_category_id" required>' + opts(categories, settings.get("ticket_category_id"), "Kategorie wählen") + '</select>'
     body += '<label>Staff-Rolle zum Pingen und Verwalten</label><select name="staff_role_id" required>' + opts(roles, settings.get("staff_role_id"), "Staff-Rolle wählen") + '</select>'
-    body += '<h2>Anwesen-Angebote (max. 50)</h2>'
-    existing = {x.get("id"): x for x in items}
-    for idx in range(50):
-        item = items[idx] if idx < len(items) else {}
-        body += f'<div class="card" style="margin:12px 0;padding:14px"><h3>Anwesen {idx+1}</h3>'
+    body += '<div class="property-heading"><div><h2>🏡 Deine Anwesen-Angebote</h2><p class="muted">Füge nur die Anwesen hinzu, die du wirklich anbieten möchtest. Maximal 50.</p></div><span id="property-count" class="property-count"></span></div>'
+    body += '<style>.property-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:22px}.property-count{color:var(--muted,#9ca3af);font-size:13px}.property-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:14px 0}.property-item{border:1px solid var(--border,rgba(148,163,184,.25));border-radius:14px;padding:16px;background:var(--card,#111827);min-width:0}.property-item h3{margin:0 0 12px}.property-item label{display:block;margin:10px 0 5px}.property-item input{width:100%;box-sizing:border-box}.property-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.property-add{border:1px dashed var(--accent,#8b5cf6);background:transparent;color:inherit;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer}.property-remove{background:transparent;border:1px solid #dc6666;color:#dc8888;border-radius:9px;padding:7px 10px;cursor:pointer}.property-empty{padding:24px;border:1px dashed var(--border,rgba(148,163,184,.3));border-radius:12px;text-align:center;color:var(--muted,#9ca3af)}</style>'
+    body += '<input type="hidden" id="property-count-input" name="property_count" value="' + str(len(items)) + '"><div id="property-list" class="property-list">'
+    for idx, item in enumerate(items):
+        body += f'<div class="property-item" data-property><h3>🏡 Anwesen <span class="property-number">{idx+1}</span></h3>'
         body += f'<input type="hidden" name="property_id_{idx}" value="{html.escape(str(item.get("id", "")), quote=True)}">'
-        body += f'<label>Name</label><input name="property_name_{idx}" maxlength="100" value="{html.escape(str(item.get("name", "")), quote=True)}" placeholder="Villa am See">'
-        body += f'<label>Kaufpreis in €</label><input name="property_price_{idx}" inputmode="numeric" value="{html.escape(str(item.get("price", "")), quote=True)}" placeholder="500">'
+        body += f'<label>Name</label><input name="property_name_{idx}" maxlength="100" required value="{html.escape(str(item.get("name", "")), quote=True)}" placeholder="Villa am See">'
+        body += f'<label>Kaufpreis in €</label><input name="property_price_{idx}" inputmode="numeric" required value="{html.escape(str(item.get("price", "")), quote=True)}" placeholder="500">'
         body += f'<label>Bild (PNG/JPG/WEBP, max. 8 MB)</label><input type="file" name="property_image_{idx}" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">'
         if item.get("image_path") and Path(item["image_path"]).is_file():
-            body += '<p class="muted">Bild bereits hochgeladen – bleibt erhalten, wenn kein neues Bild ausgewählt wird.</p>'
-        body += '</div>'
-    body += '<button type="submit">Einstellungen speichern</button> <button type="submit" name="publish" value="1">Speichern & Angebote veröffentlichen/aktualisieren</button></form>'
+            body += '<p class="muted">✓ Bild gespeichert – bleibt erhalten, wenn du kein neues auswählst.</p>'
+        body += '<div class="property-actions"><button type="button" class="property-remove" onclick="removeProperty(this)">✕ Anwesen entfernen</button></div></div>'
+    body += '</div><div id="property-empty" class="property-empty"' + (' style="display:none"' if items else '') + '>Noch keine Anwesen angelegt. Klicke auf „＋ Anwesen hinzufügen“, um dein erstes Angebot zu erstellen.</div>'
+    body += '<button type="button" class="property-add" id="add-property">＋ Anwesen hinzufügen</button>'
+    body += '<template id="property-template"><div class="property-item" data-property><h3>🏡 Anwesen <span class="property-number"></span></h3><input type="hidden" data-field="property_id" value=""><label>Name</label><input data-field="property_name" maxlength="100" required placeholder="Villa am See"><label>Kaufpreis in €</label><input data-field="property_price" inputmode="numeric" required placeholder="500"><label>Bild (PNG/JPG/WEBP, max. 8 MB)</label><input data-field="property_image" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"><div class="property-actions"><button type="button" class="property-remove" onclick="removeProperty(this)">✕ Anwesen entfernen</button></div></div></template>'
+    body += '<script>(function(){const list=document.getElementById("property-list"),count=document.getElementById("property-count-input"),badge=document.getElementById("property-count"),empty=document.getElementById("property-empty"),tpl=document.getElementById("property-template");function renumber(){const cards=[...list.querySelectorAll("[data-property]")];cards.forEach((card,i)=>{card.querySelector(".property-number").textContent=i+1;for(const field of card.querySelectorAll("[data-field]")){const key=field.dataset.field;field.name=key+"_"+i;}});count.value=cards.length;badge.textContent=cards.length+" / 50 Anwesen";empty.style.display=cards.length?"none":"block";document.getElementById("add-property").disabled=cards.length>=50;}window.removeProperty=function(btn){btn.closest("[data-property]").remove();renumber();};document.getElementById("add-property").addEventListener("click",()=>{if(list.querySelectorAll("[data-property]").length>=50)return;list.appendChild(tpl.content.cloneNode(true));renumber();});renumber();})();</script>'
+    body += '<div class="property-actions"><button type="submit">💾 Einstellungen speichern</button> <button type="submit" name="publish" value="1">🚀 Speichern & Angebote veröffentlichen / aktualisieren</button></div></form>'
     body += '<p class="muted">Kauf-Tickets werden privat für Käufer und Staff erstellt. Staff kann Zahlungen eintragen; erst bei vollständiger Zahlung kann ein Anwesen als verkauft markiert werden.</p></section>'
     return _render("Anwesenverkauf · IronWolf", body)
 
