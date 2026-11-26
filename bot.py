@@ -10443,6 +10443,15 @@ async def on_ready():
         except Exception as exc:
             print(f"[ABSENCE] Could not load Absence Management: {type(exc).__name__}: {exc}", flush=True)
 
+    # Load persistent property-sales views so old listing and ticket buttons keep working after restarts.
+    if not getattr(bot, "_property_sales_loaded", False):
+        try:
+            await bot.load_extension("property_sales")
+            bot._property_sales_loaded = True
+            print("[PROPERTY] Property Sales extension loaded.", flush=True)
+        except Exception as exc:
+            print(f"[PROPERTY] Could not load Property Sales: {type(exc).__name__}: {exc}", flush=True)
+
     # Load the persistent shift tracking module before slash-command sync.
     if not getattr(bot, "_shift_tracker_loaded", False):
         try:
