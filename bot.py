@@ -8979,13 +8979,13 @@ class ServerLogs(commands.Cog):
     @commands.Cog.listener()
     async def on_invite_create(self, invite):
         await self.log(invite.guild, "Invite created",
-                       f"Code: {invite.code}\\nChannel: {getattr(invite.channel, 'mention', 'Unknown')}\\nUses: {invite.max_uses or 'Unlimited'}\\nExpires: {invite.max_age or 'Never'}",
+                       f"Code: {invite.code}\nChannel: {getattr(invite.channel, 'mention', 'Unknown')}\nUses: {invite.max_uses or 'Unlimited'}\nExpires: {invite.max_age or 'Never'}",
                        discord.Color.green(), actor=invite.inviter, target=invite)
 
     @commands.Cog.listener()
     async def on_invite_delete(self, invite):
         await self.log(invite.guild, "Invite deleted",
-                       f"Code: {invite.code}\\nChannel: {getattr(invite.channel, 'mention', 'Unknown')}",
+                       f"Code: {invite.code}\nChannel: {getattr(invite.channel, 'mention', 'Unknown')}",
                        discord.Color.red(), target=invite)
 
     @commands.Cog.listener()
@@ -9001,7 +9001,7 @@ class ServerLogs(commands.Cog):
                 changes.append(f"{label}: {old} → {new}")
         if changes:
             actor = await self.audit_actor(after, discord.AuditLogAction.guild_update, after.id)
-            await self.log(after, "Server settings updated", "\\n".join(changes),
+            await self.log(after, "Server settings updated", "\n".join(changes),
                            actor=actor, target=after)
 
     @commands.Cog.listener()
@@ -9010,16 +9010,16 @@ class ServerLogs(commands.Cog):
         new = {item.id: item for item in after}
         for item_id in new.keys() - old.keys():
             item = new[item_id]
-            await self.log(guild, "Emoji created", f"Name: :{item.name}:\\nID: {item.id}",
+            await self.log(guild, "Emoji created", f"Name: :{item.name}:\nID: {item.id}",
                            discord.Color.green(), target=item)
         for item_id in old.keys() - new.keys():
             item = old[item_id]
-            await self.log(guild, "Emoji deleted", f"Name: :{item.name}:\\nID: {item.id}",
+            await self.log(guild, "Emoji deleted", f"Name: :{item.name}:\nID: {item.id}",
                            discord.Color.red(), target=item)
         for item_id in old.keys() & new.keys():
             if old[item_id].name != new[item_id].name:
                 await self.log(guild, "Emoji updated",
-                               f"Before: {old[item_id].name}\\nAfter: {new[item_id].name}\\nID: {item_id}",
+                               f"Before: {old[item_id].name}\nAfter: {new[item_id].name}\nID: {item_id}",
                                target=new[item_id])
 
     @commands.Cog.listener()
@@ -9027,29 +9027,29 @@ class ServerLogs(commands.Cog):
         old = {item.id: item for item in before}
         new = {item.id: item for item in after}
         for item_id in new.keys() - old.keys():
-            await self.log(guild, "Sticker created", f"Name: {new[item_id].name}\\nID: {item_id}",
+            await self.log(guild, "Sticker created", f"Name: {new[item_id].name}\nID: {item_id}",
                            discord.Color.green(), target=new[item_id])
         for item_id in old.keys() - new.keys():
-            await self.log(guild, "Sticker deleted", f"Name: {old[item_id].name}\\nID: {item_id}",
+            await self.log(guild, "Sticker deleted", f"Name: {old[item_id].name}\nID: {item_id}",
                            discord.Color.red(), target=old[item_id])
 
     @commands.Cog.listener()
     async def on_thread_create(self, thread):
         await self.log(thread.guild, "Thread created",
-                       f"Name: {thread.name}\\nParent: {getattr(thread.parent, 'mention', 'Unknown')}\\nID: {thread.id}",
+                       f"Name: {thread.name}\nParent: {getattr(thread.parent, 'mention', 'Unknown')}\nID: {thread.id}",
                        discord.Color.green(), target=thread)
 
     @commands.Cog.listener()
     async def on_thread_delete(self, thread):
         await self.log(thread.guild, "Thread deleted",
-                       f"Name: {thread.name}\\nParent: {getattr(thread.parent, 'mention', 'Unknown')}\\nID: {thread.id}",
+                       f"Name: {thread.name}\nParent: {getattr(thread.parent, 'mention', 'Unknown')}\nID: {thread.id}",
                        discord.Color.red(), target=thread)
 
     @commands.Cog.listener()
     async def on_thread_update(self, before, after):
         if before.name != after.name or before.archived != after.archived or before.locked != after.locked:
             await self.log(after.guild, "Thread updated",
-                           f"Name: {before.name} → {after.name}\\nArchived: {before.archived} → {after.archived}\\nLocked: {before.locked} → {after.locked}",
+                           f"Name: {before.name} → {after.name}\nArchived: {before.archived} → {after.archived}\nLocked: {before.locked} → {after.locked}",
                            target=after)
 
     @commands.Cog.listener()
@@ -9067,19 +9067,19 @@ class ServerLogs(commands.Cog):
     @commands.Cog.listener()
     async def on_scheduled_event_create(self, event):
         await self.log(event.guild, "Scheduled event created",
-                       f"Name: {event.name}\\nID: {event.id}", discord.Color.green(), target=event)
+                       f"Name: {event.name}\nID: {event.id}", discord.Color.green(), target=event)
 
     @commands.Cog.listener()
     async def on_scheduled_event_update(self, before, after):
         if before.name != after.name or before.start_time != after.start_time or before.status != after.status:
             await self.log(after.guild, "Scheduled event updated",
-                           f"Name: {before.name} → {after.name}\\nStart: {before.start_time} → {after.start_time}\\nStatus: {before.status} → {after.status}",
+                           f"Name: {before.name} → {after.name}\nStart: {before.start_time} → {after.start_time}\nStatus: {before.status} → {after.status}",
                            target=after)
 
     @commands.Cog.listener()
     async def on_scheduled_event_delete(self, event):
         await self.log(event.guild, "Scheduled event deleted",
-                       f"Name: {event.name}\\nID: {event.id}", discord.Color.red(), target=event)
+                       f"Name: {event.name}\nID: {event.id}", discord.Color.red(), target=event)
 
 
 
