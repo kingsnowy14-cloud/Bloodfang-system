@@ -1434,6 +1434,7 @@ def _module_navigation():
         ("team-management", "👥 Team Management", "/team-management"),
         ("absence-management", "📅 Absence Management", "/absence-management"),
         ("property-sales", "🏡 Anwesenverkauf", "/property-sales"),
+        ("commands", "🎛️ !- & .-Befehle an/aus", "/commands"),
         ("teamlist", "📋 Team List", "/teamlist"),
         ("feedback", "💬 Anonymous Feedback", "/feedback"),
         ("applications", "📝 Applications", "/applications"),
