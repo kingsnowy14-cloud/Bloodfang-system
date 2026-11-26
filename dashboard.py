@@ -48,6 +48,17 @@ app.config.update(
     MAX_CONTENT_LENGTH=8 * 1024 * 1024,
 )
 
+@app.route("/healthz", methods=["GET"])
+def healthz():
+    """Lightweight Railway/GitHub Actions health check; does not expose secrets."""
+    try:
+        probe = data_path(".health-check")
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink(missing_ok=True)
+    except OSError:
+        return {"status": "unhealthy", "checks": {"storage": "failed"}}, 503
+    return {"status": "ok", "checks": {"web": "ok", "storage": "ok"}}, 200
+
 _bot = None
 _config = None
 _save_json = None
