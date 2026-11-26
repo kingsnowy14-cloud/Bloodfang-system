@@ -1,4 +1,4 @@
-IronWolf Economy Module
+"""IronWolf Economy Module
 Für discord.py 2.x
 
 Einbindung in deine bestehende Bot-Datei:
