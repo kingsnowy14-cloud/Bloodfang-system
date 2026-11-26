@@ -8933,48 +8933,6 @@ class ServerLogs(commands.Cog):
             return None
         return None
 
-    @app_commands.command(name="serverlogs", description="Sets the channel for server activity logs")
-    @app_commands.guild_only()
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def serverlogs(self, interaction: discord.Interaction, kanal: discord.TextChannel):
-        db = read(SERVER_LOGS, {})
-        db[str(interaction.guild_id)] = {"channel_id": kanal.id}
-        write(SERVER_LOGS, db)
-        await interaction.response.send_message(
-            f"Server logs will now be posted in {kanal.mention}. This setting persists across restarts.",
-            ephemeral=True,
-        )
-        await self.log(
-            interaction.guild, "Server logs enabled",
-            f"Log channel: {kanal.mention} · ID {kanal.id}",
-            discord.Color.green(), actor=interaction.user, target=kanal,
-        )
-
-    @app_commands.command(name="server-logs-disable", description="Disables server activity logs")
-    @app_commands.guild_only()
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def serverlogs_aus(self, interaction: discord.Interaction):
-        db = read(SERVER_LOGS, {})
-        old_cfg = db.get(str(interaction.guild_id), {})
-        old_channel = interaction.guild.get_channel(old_cfg.get("channel_id")) if old_cfg.get("channel_id") else None
-        # Write the disabled setting first, then report directly to the previous log channel.
-        db.pop(str(interaction.guild_id), None)
-        write(SERVER_LOGS, db)
-        await interaction.response.send_message("Server logs have been disabled.", ephemeral=True)
-        if isinstance(old_channel, discord.TextChannel):
-            embed = discord.Embed(
-                title="Server logs disabled",
-                description=f"Disabled by {interaction.user.mention} · ID {interaction.user.id}",
-                color=discord.Color.orange(),
-                timestamp=datetime.now(timezone.utc),
-            )
-            embed.add_field(name="Server", value=f"{interaction.guild.name} (ID: {interaction.guild.id})", inline=False)
-            embed.add_field(name="Target", value=f"Log configuration for {old_channel.mention} (ID: {old_channel.id})", inline=False)
-            try:
-                await old_channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
-            except (discord.Forbidden, discord.HTTPException):
-                pass
-
     @commands.Cog.listener()
     async def on_member_join(self, member):
         await self.log(member.guild, "Member joined", f"Member: {member.mention}\nName: {member}\nUser ID: {member.id}\nAccount created: <t:{int(member.created_at.timestamp())}:F>", discord.Color.green(), target=member)
