@@ -124,33 +124,72 @@ class PropertyListingView(discord.ui.View):
         await self.cog.create_purchase_ticket(interaction, self.property_id)
 
 
+class PropertyPurchaseSelectView(discord.ui.View):
+    def __init__(self, cog, guild_id, items):
+        super().__init__(timeout=180)
+        self.cog, self.guild_id = cog, int(guild_id)
+        options = []
+        for item in items[:25]:
+            price = int(item.get("price", 0))
+            options.append(discord.SelectOption(
+                label=str(item.get("name", "Anwesen"))[:100],
+                description=f"{price:,} €".replace(",", ".")[:100],
+                value=str(item["id"]),
+                default=False,
+            ))
+        select = discord.ui.Select(
+            placeholder="Welches Anwesen möchtest du kaufen?",
+            min_values=1, max_values=1, options=options,
+            custom_id=f"bloodfang:property:choose:{self.guild_id}",
+        )
+
+        async def select_callback(interaction):
+            await self.cog.create_purchase_ticket(interaction, select.values[0])
+
+        select.callback = select_callback
+        self.add_item(select)
+
+
 class PropertyCatalogView(discord.ui.View):
     def __init__(self, cog, guild_id, page, total_pages, items):
         super().__init__(timeout=None)
         self.cog, self.guild_id = cog, int(guild_id)
         self.page, self.total_pages = int(page), max(1, int(total_pages))
-        for number, item in enumerate(items[self.page * 10:self.page * 10 + 10], start=1):
-            pid = str(item["id"])
-            button = discord.ui.Button(label=f"Kaufen {number}", style=discord.ButtonStyle.success,
-                emoji="🛒", custom_id=f"bloodfang:property:catalog_buy:{self.page}:{pid}",
-                row=(number - 1) // 5, disabled=bool(item.get("sold")))
-            async def buy_callback(interaction, property_id=pid):
-                await self.cog.create_purchase_ticket(interaction, property_id)
-            button.callback = buy_callback
-            self.add_item(button)
+        page_items = items[self.page * 10:self.page * 10 + 10]
+        available_items = [item for item in page_items if not item.get("sold")]
+        buy = discord.ui.Button(
+            label="Anwesen kaufen", style=discord.ButtonStyle.success,
+            emoji="🛒", custom_id=f"bloodfang:property:catalog_buy:{self.page}",
+            row=0, disabled=not available_items,
+        )
+
+        async def buy_callback(interaction):
+            if not available_items:
+                await interaction.response.send_message("Auf dieser Seite ist derzeit kein Anwesen verfügbar.", ephemeral=True)
+                return
+            await interaction.response.send_message(
+                "Bitte wähle das Anwesen aus, für das du ein Kauf-Ticket erstellen möchtest:",
+                view=PropertyPurchaseSelectView(self.cog, self.guild_id, available_items),
+                ephemeral=True,
+            )
+
+        buy.callback = buy_callback
+        self.add_item(buy)
         prev = discord.ui.Button(label="Zurück", emoji="◀️", style=discord.ButtonStyle.secondary,
             custom_id=f"bloodfang:property:page:{self.page}:prev", row=4, disabled=self.page == 0)
         nxt = discord.ui.Button(label="Weiter", emoji="▶️", style=discord.ButtonStyle.primary,
             custom_id=f"bloodfang:property:page:{self.page}:next", row=4,
             disabled=self.page >= self.total_pages - 1)
+
         async def prev_callback(interaction):
             await self.cog.change_catalog_page(interaction, self.page - 1)
+
         async def next_callback(interaction):
             await self.cog.change_catalog_page(interaction, self.page + 1)
+
         prev.callback, nxt.callback = prev_callback, next_callback
         self.add_item(prev)
         self.add_item(nxt)
-
 
 
 
