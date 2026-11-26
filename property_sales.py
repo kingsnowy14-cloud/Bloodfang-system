@@ -94,7 +94,7 @@ class PropertyTicketView(discord.ui.View):
         if not item or int(item.get("paid", 0)) < int(item.get("price", 0)):
             await interaction.response.send_message("Erst nach vollständiger Zahlung kann als verkauft markiert werden.", ephemeral=True)
             return
-        match = re.search(r"Property buyer: (\\d+)", getattr(interaction.channel, "topic", "") or "")
+        match = re.search(r"Property buyer: (\d+)", getattr(interaction.channel, "topic", "") or "")
         if not match:
             await interaction.response.send_message("Käufer konnte nicht ermittelt werden.", ephemeral=True)
             return
@@ -107,7 +107,7 @@ class PropertyTicketView(discord.ui.View):
     async def close(self, interaction, button):
         settings = _settings(self.guild_id)
         topic = getattr(interaction.channel, "topic", "") or ""
-        match = re.search(r"Property buyer: (\\d+)", topic)
+        match = re.search(r"Property buyer: (\d+)", topic)
         buyer_id = int(match.group(1)) if match else 0
         if not self.cog.is_staff(interaction, settings) and interaction.user.id != buyer_id:
             await interaction.response.send_message("Nur Käufer oder Staff können dieses Ticket schließen.", ephemeral=True)
@@ -131,6 +131,7 @@ class PropertyListingView(discord.ui.View):
         if not settings.get("staff_role_id") or not settings.get("ticket_category_id"):
             await interaction.response.send_message("Das Anwesen-System ist noch nicht vollständig eingerichtet.", ephemeral=True)
             return
+        await interaction.response.defer(ephemeral=True, thinking=True)
         guild = interaction.guild
         category = guild.get_channel(int(settings["ticket_category_id"]))
         staff_role = guild.get_role(int(settings["staff_role_id"]))
@@ -148,17 +149,24 @@ class PropertyListingView(discord.ui.View):
             category=category, overwrites=overwrites,
             topic=f"Property buyer: {interaction.user.id} | Property: {self.property_id}",
         )
-        embed = _embed(guild, item)
-        embed.title = f"🏡 Kaufanfrage: {item['name']}"
-        await channel.send(
-            content=f"{interaction.user.mention} · {staff_role.mention}",
-            embed=embed, view=PropertyTicketView(self.cog, guild.id, self.property_id),
-            allowed_mentions=discord.AllowedMentions(users=True, roles=True),
-        )
+        try:
+            embed = _embed(guild, item)
+            embed.title = f"🏡 Kaufanfrage: {item['name']}"
+            await channel.send(
+                content=f"{interaction.user.mention} · {staff_role.mention}",
+                embed=embed, view=PropertyTicketView(self.cog, guild.id, self.property_id),
+                allowed_mentions=discord.AllowedMentions(users=True, roles=True),
+            )
+        except Exception:
+            try:
+                await channel.delete(reason="Property ticket setup failed")
+            except discord.HTTPException:
+                pass
+            raise
         item["active_ticket_id"] = channel.id
         item["buyer_id"] = str(interaction.user.id)
         _save()
-        await interaction.response.send_message(f"Dein Kauf-Ticket wurde erstellt: {channel.mention}", ephemeral=True)
+        await interaction.followup.send(f"Dein Kauf-Ticket wurde erstellt: {channel.mention}", ephemeral=True)
 
 
 class PropertyStaffView(discord.ui.View):
@@ -256,16 +264,20 @@ class PropertySales(commands.Cog):
                     embed = _embed(guild, item)
                     if file:
                         embed.set_image(url=f"attachment://{file.filename}")
-                        await message.edit(embed=embed, view=PropertyListingView(self, guild.id, item["id"]), attachments=[file])
-                        if message.attachments:
-                            item["image_url"] = message.attachments[-1].url
+                        edited_message = await message.edit(
+                            embed=embed,
+                            view=PropertyListingView(self, guild.id, item["id"]),
+                            attachments=[file],
+                        )
+                        if edited_message and edited_message.attachments:
+                            item["image_url"] = edited_message.attachments[-1].url
                             embed.set_image(url=item["image_url"])
-                            await message.edit(embed=embed)
+                            await edited_message.edit(embed=embed)
                     else:
                         await message.edit(embed=embed, view=PropertyListingView(self, guild.id, item["id"]))
                     published += 1
                     continue
-                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                except discord.NotFound:
                     pass
             file = None
             if item.get("image_path"):
