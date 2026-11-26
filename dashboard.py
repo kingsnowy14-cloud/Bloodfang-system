@@ -3828,21 +3828,21 @@ def team_management_dashboard(guild_id):
         body += '</div><p><a class="button secondary" href="/guild/' + gid + '/team-management?action=settings">⚙️ Team Settings</a></p>'
         if not request.path.startswith("/team-management/"):
             body += '<hr><h2>Discord Embed Panel</h2><p class="muted">Gestalte die Nachricht, wähle den Zielkanal und entscheide, welche Team-Aktionsbuttons erscheinen.</p>'
-        body += '<form method="post">' + _csrf_field() + '<input type="hidden" name="team_action" value="publish_panel">'
-        body += '<label>Discord channel</label><select name="panel_channel_id" required><option value="">— Select channel —</option>'
-        selected_panel_channel = str(panel.get("channel_id") or cfg.get("team_management_channel_id") or "")
-        for channel in sorted(guild.text_channels, key=lambda item: item.position):
-            chosen = " selected" if str(channel.id) == selected_panel_channel else ""
-            body += '<option value="' + str(channel.id) + '"' + chosen + '>#' + html.escape(channel.name) + '</option>'
-        body += '</select><label>Embed title</label><input name="panel_title" maxlength="256" value="' + html.escape(str(panel.get("title") or (guild.name + " · Team Management")), quote=True) + '" required>'
-        body += '<label>Embed description</label><textarea name="panel_description" maxlength="4000" placeholder="Describe how your team should use these buttons.">' + html.escape(str(panel.get("description") or "")) + '</textarea>'
-        body += '<label>Embed color</label><input type="color" name="panel_color" value="' + html.escape(str(panel.get("color") or "#5865F2"), quote=True) + '">'
-        enabled = set(panel.get("enabled", ["uprank", "downrank", "team_kick", "team_ban"]))
-        for key, label in (("uprank", "⬆️ Team Uprank"), ("downrank", "⬇️ Team Downrank"), ("team_kick", "👢 Team Kick"), ("team_ban", "🔨 Team Ban")):
-            checked = " checked" if key in enabled else ""
-            body += '<label class="role-option"><input type="checkbox" name="panel_' + key + '"' + checked + '><span>' + label + '</span></label>'
-        body += '<button type="submit">💬 Save & publish/update Discord panel</button></form>'
-        body += '<p class="muted">In Discord erscheint ein einzelner Button „Open Team Management“. Alle Auswahlen und Aktionen laufen anschließend privat direkt in Discord. Rollen, Rangfolge und Team-Ban-Rolle konfigurierst du unter Team Settings.</p></section>'
+            body += '<form method="post">' + _csrf_field() + '<input type="hidden" name="team_action" value="publish_panel">'
+            body += '<label>Discord channel</label><select name="panel_channel_id" required><option value="">— Select channel —</option>'
+            selected_panel_channel = str(panel.get("channel_id") or cfg.get("team_management_channel_id") or "")
+            for channel in sorted(guild.text_channels, key=lambda item: item.position):
+                chosen = " selected" if str(channel.id) == selected_panel_channel else ""
+                body += '<option value="' + str(channel.id) + '"' + chosen + '>#' + html.escape(channel.name) + '</option>'
+            body += '</select><label>Embed title</label><input name="panel_title" maxlength="256" value="' + html.escape(str(panel.get("title") or (guild.name + " · Team Management")), quote=True) + '" required>'
+            body += '<label>Embed description</label><textarea name="panel_description" maxlength="4000" placeholder="Describe how your team should use these buttons.">' + html.escape(str(panel.get("description") or "")) + '</textarea>'
+            body += '<label>Embed color</label><input type="color" name="panel_color" value="' + html.escape(str(panel.get("color") or "#5865F2"), quote=True) + '">'
+            enabled = set(panel.get("enabled", ["uprank", "downrank", "team_kick", "team_ban"]))
+            for key, label in (("uprank", "⬆️ Team Uprank"), ("downrank", "⬇️ Team Downrank"), ("team_kick", "👢 Team Kick"), ("team_ban", "🔨 Team Ban")):
+                checked = " checked" if key in enabled else ""
+                body += '<label class="role-option"><input type="checkbox" name="panel_' + key + '"' + checked + '><span>' + label + '</span></label>'
+            body += '<button type="submit">💬 Save & publish/update Discord panel</button></form>'
+            body += '<p class="muted">In Discord erscheint ein einzelner Button „Open Team Management“. Alle Auswahlen und Aktionen laufen anschließend privat direkt in Discord. Rollen, Rangfolge und Team-Ban-Rolle konfigurierst du unter Team Settings.</p></section>'
         else:
             body += '<p class="muted">Team Actions und Team Settings werden hier separat verwaltet.</p></section>'
         return _render("Team Management · IronWolf", body)
