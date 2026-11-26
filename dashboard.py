@@ -4006,11 +4006,43 @@ async def _teamlist_refresh_loop():
                 message_ids = cfg.get("teamlist_message_ids", [])
                 channel_id = cfg.get("teamlist_message_channel_id") or cfg.get("teamlist_channel_id")
                 role_ids = {str(value) for value in cfg.get("teamlist_role_ids", [])}
-                if not message_ids or not channel_id or not role_ids:
+                if not channel_id or not role_ids:
                     continue
                 channel = guild.get_channel(int(channel_id))
                 if not isinstance(channel, discord.TextChannel):
                     continue
+
+                # Adopt legacy team-list posts that were published before message IDs
+                # were stored. This lets the new layout update the old Discord post
+                # instead of creating a second, duplicate team list.
+                if not message_ids:
+                    legacy_messages = []
+                    try:
+                        async for old_message in channel.history(limit=200, oldest_first=True):
+                            if old_message.author.id != _bot.user.id:
+                                continue
+                            if any(
+                                embed.title and "team list" in embed.title.casefold()
+                                and "bloodfang" in embed.title.casefold()
+                                for embed in old_message.embeds
+                            ):
+                                legacy_messages.append(old_message)
+                    except (discord.Forbidden, discord.HTTPException) as history_exc:
+                        print(
+                            f"[TEAMLIST] Could not scan old team-list messages in guild {guild.id}: "
+                            f"{type(history_exc).__name__}: {history_exc}",
+                            flush=True,
+                        )
+                    if legacy_messages:
+                        message_ids = [message.id for message in legacy_messages]
+                        cfg["teamlist_message_ids"] = message_ids
+                        cfg["teamlist_message_channel_id"] = channel.id
+                        _save_json(data_path("config.json"), _config)
+                        print(
+                            f"[TEAMLIST] Adopted {len(message_ids)} existing team-list message(s) "
+                            f"in guild {guild.id}; applying the current layout.",
+                            flush=True,
+                        )
                 members = [member async for member in guild.fetch_members(limit=None)]
                 matching = []
                 for member in members:
