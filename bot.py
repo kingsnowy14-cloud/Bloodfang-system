@@ -2319,6 +2319,9 @@ class TeamManagementActionView(discord.ui.View):
         self.add_item(button)
 
 
+bot.TeamManagementActionView = TeamManagementActionView
+
+
 class DashboardMessageView(discord.ui.View):
     """Persistent buttons created by the dashboard message builder."""
     def __init__(self, guild_id: int, buttons: list[dict]):
