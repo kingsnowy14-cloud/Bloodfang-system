@@ -807,7 +807,7 @@ def _csrf_field():
 
 def _page(title, body):
     logged_in = bool(session.get("access_token"))
-    is_premium_admin = str(session.get("user_id", "")) == "1493110334280564807"
+    is_premium_admin = str(session.get("user_id", "")) == PREMIUM_ADMIN_ID
     custom_theme_css = ""
     match = re.match(r"^/guild/(\d+)", request.path)
     if match and _guild_config:
@@ -2664,7 +2664,10 @@ def premium_page():
     if login:
         return login
     user_id = str(session.get("user_id", ""))
-    is_premium_admin = user_id == PREMIUM_ADMIN_ID
+    # The global Premium administration page is private to the configured website admin.
+    if user_id != PREMIUM_ADMIN_ID:
+        abort(404)
+    is_premium_admin = True
     bulk_results = []
     bulk_errors = []
     if request.method == "POST":
@@ -2693,9 +2696,15 @@ def premium_page():
                 if _bot is not None and _config is not None:
                     for target_guild in _bot.guilds:
                         target_member = target_guild.get_member(int(target_id))
-                        if target_member is None:
-                            continue
-                        if not (target_member.guild_permissions.administrator or target_member.guild_permissions.manage_guild):
+                        is_server_owner = int(target_guild.owner_id or 0) == int(target_id)
+                        can_manage_server = bool(
+                            target_member
+                            and (
+                                target_member.guild_permissions.administrator
+                                or target_member.guild_permissions.manage_guild
+                            )
+                        )
+                        if not (is_server_owner or can_manage_server):
                             continue
                         guild_cfg = _config.setdefault(str(target_guild.id), {})
                         current_owner = str(guild_cfg.get("premium_owner_id") or "")
