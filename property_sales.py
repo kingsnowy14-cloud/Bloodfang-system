@@ -184,10 +184,11 @@ class PropertyStaffView(discord.ui.View):
             topic = getattr(channel, "topic", "") or ""
             match = re.search(r"Property buyer: (\d+)", topic)
             buyer_id = match.group(1) if match else None
-        if not buyer_id:
-            await interaction.response.send_message("Käufer konnte nicht ermittelt werden. Bitte Ticket prüfen.", ephemeral=True)
-            return
-        item.update({"sold": True, "buyer_id": str(buyer_id), "sold_by": str(interaction.user.id)})
+        item.update({
+            "sold": True,
+            "buyer_id": str(buyer_id) if buyer_id else None,
+            "sold_by": str(interaction.user.id),
+        })
         _save()
         await self.cog.refresh_listing(interaction.guild, item)
         await interaction.response.send_message(f"🏡 {item['name']} wurde als verkauft markiert an <@{buyer_id}>.", ephemeral=False)
