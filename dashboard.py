@@ -3636,8 +3636,8 @@ def team_management_dashboard(guild_id):
             abort(400, "Select an announcement channel for this module.")
         cfg[announcement_channel_keys[action]] = int(channel_id)
         _save_json(data_path("config.json"), _config)
-        if not cfg.get("team_role_ids"):
-            abort(400, "Save at least one team role first.")
+        if action in {"team_ban", "team_kick"} and not cfg.get("team_role_ids") and not cfg.get(ladder_key):
+            abort(400, "Configure at least one Team Member Role or Rank Role in Team Settings first.")
         if action not in {"uprank", "downrank", "team_ban", "team_kick"}:
             abort(400, "Unknown team action.")
         old_role_raw = request.form.get("old_role_id", "").strip()
