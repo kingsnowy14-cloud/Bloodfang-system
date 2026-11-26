@@ -5924,11 +5924,17 @@ def guild_server_logs(guild_id):
         log_db = {}
     cfg = log_db.get(gid, {})
     categories = [
-        ("members", "Members", "Member joins, leaves, bans and unbans"),
-        ("messages", "Messages", "Deleted, edited and bulk-deleted messages"),
-        ("roles", "Roles", "Role creation, deletion and changes"),
-        ("channels", "Channels", "Channel creation, deletion and changes"),
-        ("voice", "Voice", "Voice channel joins, leaves and switches"),
+        ("members", "Members", "Joins, leaves, kicks, bans, unbans, nicknames and member roles"),
+        ("messages", "Messages", "Edited, deleted and bulk-deleted messages"),
+        ("roles", "Roles", "Role creation, deletion, permission and setting changes"),
+        ("channels", "Channels", "Text, voice, forum and category creation, deletion and changes"),
+        ("voice", "Voice & Stage", "Voice joins, leaves, switches and stage activity"),
+        ("invites", "Invites", "Invite links created and deleted"),
+        ("server", "Server Settings", "Server name, description, verification and settings changes"),
+        ("emojis", "Emojis & Stickers", "Custom emoji and sticker creation, deletion and updates"),
+        ("threads", "Threads & Posts", "Thread creation, deletion, archive and lock changes"),
+        ("webhooks", "Webhooks", "Webhook configuration changes"),
+        ("integrations", "Integrations & Events", "Integration and scheduled event changes"),
     ]
     channels = _guild_channels(guild)
     valid_ids = {str(cid) for cid, _ in channels}
