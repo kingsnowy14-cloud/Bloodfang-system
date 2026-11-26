@@ -3645,17 +3645,7 @@ def team_management_dashboard(guild_id):
                     raise ValueError("IronWolf needs Send Messages and Embed Links in the selected channel.")
                 embed = discord.Embed(title=title, description=description or "Choose a team action below.", color=int(color_raw[1:], 16))
                 embed.set_footer(text="IronWolf · Team Management")
-                view = discord.ui.View(timeout=None)
-                labels = {
-                    "uprank": ("⬆️ Team Uprank", "uprank"),
-                    "downrank": ("⬇️ Team Downrank", "downrank"),
-                    "team_kick": ("👢 Team Kick", "team_kick"),
-                    "team_ban": ("🔨 Team Ban", "team_ban"),
-                }
-                base_url = "https://ironwolf-bot.up.railway.app/guild/" + gid + "/team-management?action="
-                for key in enabled:
-                    label, route = labels[key]
-                    view.add_item(discord.ui.Button(label=label, style=discord.ButtonStyle.link, url=base_url + route))
+                view = _bot.TeamManagementActionView(guild.id)
                 old_id = cfg.get("team_management_panel_message_id")
                 old_channel_id = cfg.get("team_management_panel_channel_id")
                 message = None
@@ -3845,7 +3835,7 @@ def team_management_dashboard(guild_id):
             checked = " checked" if key in enabled else ""
             body += '<label class="role-option"><input type="checkbox" name="panel_' + key + '"' + checked + '><span>' + label + '</span></label>'
         body += '<button type="submit">💬 Save & publish/update Discord panel</button></form>'
-        body += '<p class="muted">Die Buttons öffnen die passende Team-Aktionsseite. Rollen, Rangfolge und Team-Ban-Rolle konfigurierst du unter Team Settings. IronWolf benötigt Send Messages und Embed Links im Zielkanal.</p></section>'
+        body += '<p class="muted">In Discord erscheint ein einzelner Button „Open Team Management“. Alle Auswahlen und Aktionen laufen anschließend privat direkt in Discord. Rollen, Rangfolge und Team-Ban-Rolle konfigurierst du unter Team Settings.</p></section>'
         return _render("Team Management · IronWolf", body)
     if selected_action == "settings":
         setting_labels = [
