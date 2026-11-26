@@ -8981,46 +8981,63 @@ class ServerLogs(commands.Cog):
         details = f"Member: {member}\nUser ID: {member.id}\nLast known nickname: {member.nick or 'None'}"
         await self.log(member.guild, title, details, discord.Color.red(), actor=actor, target=member)
 
-    @commands.Cog.listener()
-    async def on_message_delete(self, message):
-        if message.guild is None or (message.author and message.author.bot):
+    def _is_log_channel(self, guild, channel_id):
+        cfg = read(SERVER_LOGS, {}).get(str(guild.id), {})
+        configured = cfg.get("channel_id") if cfg.get("all_in_one", True) else None
+        return configured is not None and int(configured) == int(channel_id)
+
+    async def _log_deleted_message(self, guild, channel, message_id, message=None):
+        if guild is None or channel is None or self._is_log_channel(guild, channel.id):
             return
-        # Ticket conversation content is private support context, not a dashboard/server log.
-        if str(message.channel.id) in data.setdefault("tickets", {}):
-            return
-        author = f"{message.author} · ID {message.author.id}" if message.author else "Unknown"
-        content = discord.utils.escape_mentions(message.content or "[Text unavailable in cache]")
+        # Deleted messages may only be available from the local Discord cache.
+        author = getattr(message, "author", None)
+        author_text = f"{author} · ID {author.id}" if author else "Nicht im Cache verfügbar"
+        body = discord.utils.escape_mentions(getattr(message, "content", "") or "[Kein Text im Cache verfügbar]")
+        attachments = getattr(message, "attachments", []) or []
+        attachment_lines = [f"• {discord.utils.escape_mentions(item.filename)} ({item.size} Bytes): {item.url}" for item in attachments]
+        embeds = getattr(message, "embeds", []) or []
+        details = [
+            f"**Kanal:** {channel.mention} · `{channel.id}`",
+            f"**Nachrichten-ID:** `{message_id}`",
+            f"**Autor:** {author_text}",
+            f"**Inhalt (soweit im Cache vorhanden):**\\n{body[:1800]}",
+            "**Anhänge:**\\n" + ("\\n".join(attachment_lines)[:900] if attachment_lines else "Keine / nicht im Cache verfügbar"),
+            f"**Eingebettete Inhalte:** {len(embeds)}",
+            f"**Nachrichtenlink:** https://discord.com/channels/{guild.id}/{channel.id}/{message_id}",
+        ]
         actor = None
-        if message.author:
-            actor = await self.audit_actor(
-                message.guild, discord.AuditLogAction.message_delete,
-                message.author.id, channel_id=message.channel.id,
-            )
-        await self.log(
-            message.guild, "Message deleted",
-            f"Channel: {message.channel.mention} · ID {message.channel.id}\nMessage author: {author}\n"
-            f"Message ID: {message.id}\nContent:\n{content}",
-            discord.Color.red(), actor=actor, target=f"Message by {author} in #{message.channel.name}",
-        )
+        if author:
+            actor = await self.audit_actor(guild, discord.AuditLogAction.message_delete, author.id, channel_id=channel.id)
+        await self.log(guild, "Message deleted", "\\n".join(details), discord.Color.red(), actor=actor,
+                       target=f"Gelöschte Nachricht von {author_text} in #{channel.name}")
 
     @commands.Cog.listener()
-    async def on_bulk_message_delete(self, messages):
-        messages = list(messages)
-        if not messages:
-            return
-        guild = messages[0].guild
+    async def on_raw_message_delete(self, payload):
+        guild = self.bot.get_guild(payload.guild_id) if payload.guild_id else None
         if guild is None:
             return
-        channel = messages[0].channel
-        # Never copy ticket conversation activity into the dashboard/server logs.
-        if str(channel.id) in data.setdefault("tickets", {}):
+        channel = guild.get_channel(payload.channel_id)
+        await self._log_deleted_message(guild, channel, payload.message_id, payload.cached_message)
+
+    @commands.Cog.listener()
+    async def on_raw_bulk_message_delete(self, payload):
+        guild = self.bot.get_guild(payload.guild_id) if payload.guild_id else None
+        if guild is None:
             return
-        actor = await self.audit_actor(guild, discord.AuditLogAction.message_bulk_delete, channel_id=channel.id)
-        await self.log(
-            guild, "Multiple messages deleted",
-            f"Channel: {channel.mention} · ID {channel.id}\nMessage count: {len(messages)}",
-            discord.Color.red(), actor=actor, target=f"{len(messages)} messages in #{channel.name}",
-        )
+        channel = guild.get_channel(payload.channel_id)
+        if channel is None or self._is_log_channel(guild, channel.id):
+            return
+        cached = list(getattr(payload, "cached_messages", []) or [])
+        cached_ids = {message.id for message in cached}
+        uncached_count = len(payload.message_ids) - len(cached_ids)
+        await self.log(guild, "Multiple messages deleted",
+                       f"**Kanal:** {channel.mention} · `{channel.id}`\\n"
+                       f"**Anzahl:** {len(payload.message_ids)}\\n"
+                       f"**Im Cache mit Inhalt verfügbar:** {len(cached)}\\n"
+                       f"**Nicht im Cache:** {max(0, uncached_count)}",
+                       discord.Color.red(), target=f"{len(payload.message_ids)} gelöschte Nachrichten in #{channel.name}")
+        for message in cached[:10]:
+            await self._log_deleted_message(guild, channel, message.id, message)
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
