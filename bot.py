@@ -47,6 +47,7 @@ DATA_FILE = data_path("data.json")
 intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
+intents.presences = True
 intents.message_content = True
 
 class GuildGateBot(commands.Bot):
