@@ -40,8 +40,6 @@ def _embed(guild, item):
         color=discord.Color.green() if sold else discord.Color.blurple(),
     )
     embed.set_footer(text=f"{guild.name} · Anwesenverkauf")
-    if item.get("image_url"):
-        embed.set_image(url=item["image_url"])
     return embed
 
 
@@ -314,6 +312,16 @@ class PropertySales(commands.Cog):
             except (discord.NotFound, discord.Forbidden, discord.HTTPException):
                 pass
         del ids[pages:]
+
+        # Remove legacy one-embed-per-property posts after the new catalogue is live.
+        for item in items:
+            legacy_id = item.pop("message_id", None)
+            if legacy_id:
+                try:
+                    legacy = await channel.fetch_message(int(legacy_id))
+                    await legacy.delete()
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                    pass
 
         # Send each uploaded image as a normal bot message, separate from the catalogue embeds.
         for item in items:
