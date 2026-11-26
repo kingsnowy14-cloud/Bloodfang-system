@@ -154,7 +154,7 @@ class SecuritySuite(commands.Cog):
         save_guild_state(interaction.guild_id, cfg)
         await interaction.response.send_message(f"🛡️ Security logs will be posted in {kanal.mention} gespeichert.", ephemeral=True)
 
-    @app_commands.command(name="secure-lockdown", description="Sperrt Textkanäle für @everyone und merkt vorherige Rechte")
+    @app_commands.command(name="secure-lockdown", description="Sperrt Text-, Ankündigungs- und Forumkanäle für @everyone")
     @app_commands.guild_only()
     @is_admin()
     async def lockdown(self, interaction: discord.Interaction):
@@ -172,10 +172,13 @@ class SecuritySuite(commands.Cog):
         changed = 0
         failed = []
         await interaction.response.defer(ephemeral=True, thinking=True)
-        for channel in guild.text_channels:
-            if isinstance(channel, discord.TextChannel) and channel.category_id is not None:
-                # Only ordinary text channels are included; forums, voice and categories are untouched.
-                pass
+        # TextChannel also covers Discord announcement/news channels. Forum channels
+        # are included explicitly so @everyone cannot create new forum posts.
+        lockable_channels = [
+            channel for channel in guild.channels
+            if isinstance(channel, (discord.TextChannel, discord.ForumChannel))
+        ]
+        for channel in lockable_channels:
             old = channel.overwrites_for(everyone).send_messages
             snapshot[str(channel.id)] = old
             overwrite = channel.overwrites_for(everyone)
@@ -188,7 +191,7 @@ class SecuritySuite(commands.Cog):
         cfg["lockdown"] = {"started_at": datetime.now(timezone.utc).isoformat(), "send_messages": snapshot}
         save_guild_state(guild.id, cfg)
         await send_log(guild, f"🔒 Lockdown gestartet von {interaction.user} ({interaction.user.id}). Geänderte Kanäle: {changed}; fehlgeschlagen: {len(failed)}.")
-        details = f"🔒 Lockdown ausgeführt: {changed} Textkanäle gesperrt."
+        details = f"🔒 Lockdown ausgeführt: {changed} Text-, Ankündigungs- und Forumkanäle gesperrt."
         if failed:
             details += "\nNicht geändert: " + ", ".join(failed[:10])
         details += "\nNutze **/secure-unlock**, um die zuvor gespeicherten @everyone-Schreibrechte wiederherzustellen."
@@ -214,7 +217,7 @@ class SecuritySuite(commands.Cog):
         remaining = {}
         for channel_id, old_value in lockdown.get("send_messages", {}).items():
             channel = guild.get_channel(int(channel_id))
-            if not isinstance(channel, discord.TextChannel):
+            if not isinstance(channel, (discord.TextChannel, discord.ForumChannel)):
                 skipped += 1
                 continue
             overwrite = channel.overwrites_for(everyone)
