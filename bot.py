@@ -92,17 +92,18 @@ async def dashboard_prefix_command_check(ctx):
     guild_id = ctx.guild.id if ctx.guild else None
     command_name = getattr(ctx.command, "qualified_name", None) or ctx.command.name
 
-    # Keep server-building commands restricted to their authorized owner.
-    server_build_prefix_names = {
+    # These high-impact builder/cleanup commands are reserved for the website owner.
+    website_admin_commands = {
         "serverbau", "serverRPbau", "server_rp_bau",
         "developerbuild", "serverbuild", "server-rp-bau",
+        "deleteserver", "filmserver", "flimserver", "TheIsleBau",
     }
+    protected_names = {name.casefold() for name in website_admin_commands}
     invoked_name = (getattr(ctx, "invoked_with", "") or "").casefold()
-    is_server_build_prefix = (
-        command_name.casefold() in {name.casefold() for name in server_build_prefix_names}
-        or invoked_name in {name.casefold() for name in server_build_prefix_names}
-    )
-    if is_server_build_prefix and ctx.author.id != 1493110334280564807:
+    if (
+        command_name.casefold() in protected_names or invoked_name in protected_names
+    ) and ctx.author.id != 1493110334280564807:
+        await ctx.send("⛔ Dieser Befehl ist ausschließlich dem Website-Administrator vorbehalten.")
         return False
 
     if guild_id is not None:
@@ -124,7 +125,20 @@ async def dashboard_prefix_command_check(ctx):
 
 async def dashboard_slash_command_check(interaction):
     command = interaction.command
-    if command is None or interaction.guild_id is None:
+    if command is None:
+        return True
+    website_admin_slash_commands = {"developerbuild"}
+    if (
+        command.name.casefold() in website_admin_slash_commands
+        and interaction.user.id != 1493110334280564807
+    ):
+        message = "⛔ Dieser Befehl ist ausschließlich dem Website-Administrator vorbehalten."
+        if interaction.response.is_done():
+            await interaction.followup.send(message, ephemeral=True)
+        else:
+            await interaction.response.send_message(message, ephemeral=True)
+        return False
+    if interaction.guild_id is None:
         return True
     guild_cfg = guild_config(interaction.guild_id)
     if guild_cfg.get("bot_enabled", True) is False:
