@@ -2663,122 +2663,76 @@ def premium_page():
     login = _require_login()
     if login:
         return login
-    user_id = str(session.get("user_id", ""))
-    # The global Premium administration page is private to the configured website admin.
-    if user_id != PREMIUM_ADMIN_ID:
+    actor_id = str(session.get("user_id", ""))
+    if actor_id != PREMIUM_ADMIN_ID:
         abort(404)
-    is_premium_admin = True
-    bulk_results = []
-    bulk_errors = []
+
+    notice = ""
     if request.method == "POST":
-        if not is_premium_admin:
-            abort(403)
         if not _csrf_ok():
             abort(400, "CSRF-Prüfung fehlgeschlagen. Bitte Seite neu laden.")
-        raw_ids = request.form.get("discord_user_ids", "")
-        # Accept one or many IDs, separated by commas, spaces, semicolons or new lines.
-        target_ids = list(dict.fromkeys(
-            item for item in re.split(r"[\s,;]+", raw_ids.strip()) if item
-        ))
-        if not target_ids:
-            abort(400, "Bitte mindestens eine Discord-Benutzer-ID eingeben.")
-        if len(target_ids) > 100:
-            abort(400, "Auf einmal können maximal 100 Discord-Konten freigeschaltet werden.")
-        for target_id in target_ids:
-            if not target_id.isdigit() or not 17 <= len(target_id) <= 20:
-                bulk_errors.append(target_id[:40])
-                continue
-            try:
-                grant_manual_premium(target_id, user_id)
-                # Immediately link the newly upgraded account to servers where
-                # that user is an administrator, without replacing another owner.
-                linked_servers = []
-                if _bot is not None and _config is not None:
-                    for target_guild in _bot.guilds:
-                        target_member = target_guild.get_member(int(target_id))
-                        is_server_owner = int(target_guild.owner_id or 0) == int(target_id)
-                        can_manage_server = bool(
-                            target_member
-                            and (
-                                target_member.guild_permissions.administrator
-                                or target_member.guild_permissions.manage_guild
-                            )
-                        )
-                        if not (is_server_owner or can_manage_server):
-                            continue
-                        guild_cfg = _config.setdefault(str(target_guild.id), {})
-                        current_owner = str(guild_cfg.get("premium_owner_id") or "")
-                        if not current_owner or current_owner == target_id:
-                            guild_cfg["premium_owner_id"] = target_id
-                            linked_servers.append(target_guild.name)
-                    if linked_servers:
-                        _save_json(data_path("config.json"), _config)
-                bulk_results.append(target_id)
-            except (ValueError, PermissionError):
-                bulk_errors.append(target_id)
-    plan = account_plan(user_id)
-    current_grants = sync_manual_grants()
-    own_grant = current_grants.get(user_id, {})
-    own_expiry = str(own_grant.get("expires_at", ""))[:10] if isinstance(own_grant, dict) else ""
-    included_features = set(PLAN_FEATURES.get(plan, frozenset()))
-    rows = []
-    for feature, label in PREMIUM_FEATURES.items():
-        status = "Enthalten" if feature in included_features else "Nicht enthalten"
-        rows.append('<div class="card"><h2>' + html.escape(label) + '</h2><p>' + html.escape(status) + '</p></div>')
+        if _bot is None or _config is None:
+            abort(503, "Der Bot ist momentan nicht verfügbar.")
+        guild_id = request.form.get("guild_id", "").strip()
+        action = request.form.get("action", "").strip().lower()
+        if not guild_id.isdigit() or action not in {"enable", "disable"}:
+            abort(400, "Ungültige Server-ID oder Aktion.")
+        guild = _bot.get_guild(int(guild_id))
+        if guild is None:
+            abort(404, "Der Server ist nicht mit IronWolf verbunden.")
+        guild_cfg = _config.setdefault(str(guild.id), {})
+        if action == "enable":
+            guild_cfg["premium_server_override"] = "premium"
+            guild_cfg["premium_server_granted_by"] = actor_id
+            guild_cfg["premium_server_granted_at"] = datetime.now(timezone.utc).isoformat()
+            message = "Premium für " + guild.name + " aktiviert."
+        else:
+            guild_cfg.pop("premium_server_override", None)
+            guild_cfg.pop("premium_server_granted_by", None)
+            guild_cfg.pop("premium_server_granted_at", None)
+            message = "Manuelles Premium für " + guild.name + " deaktiviert."
+        _save_json(data_path("config.json"), _config)
+        _audit_dashboard_change(guild.id, "Server Premium", actor_id, action)
+        return redirect(url_for("premium_page", updated="1", message=message))
+
+    updated_message = request.args.get("message", "")
+    if request.args.get("updated") == "1" and updated_message:
+        notice = '<div class="notice">✅ ' + html.escape(updated_message[:180]) + '</div>'
+    guild_rows = []
+    if _bot:
+        for guild in sorted(_bot.guilds, key=lambda item: item.name.casefold()):
+            cfg = _config.setdefault(str(guild.id), {}) if _config is not None else {}
+            enabled = cfg.get("premium_server_override") in {"premium", "premium_plus"}
+            status = '<span style="color:#62e6b4;font-weight:800">● PREMIUM AKTIV</span>' if enabled else '<span class="muted">● FREE</span>'
+            action = "disable" if enabled else "enable"
+            button = "Premium deaktivieren" if enabled else "Premium aktivieren"
+            guild_rows.append(
+                '<tr data-search="' + html.escape((guild.name + " " + str(guild.id)).casefold(), quote=True) + '">'
+                '<td><strong>' + html.escape(guild.name) + '</strong></td>'
+                '<td><code>' + str(guild.id) + '</code></td>'
+                '<td>' + status + '</td><td>'
+                '<form method="post">' + _csrf_field()
+                + '<input type="hidden" name="guild_id" value="' + str(guild.id) + '">'
+                + '<input type="hidden" name="action" value="' + action + '">'
+                + '<button class="' + ("secondary" if enabled else "") + '" type="submit">'
+                + button + '</button></form></td></tr>'
+            )
     body = (
-        '<section class="card hero"><span class="pill">IRONWOLF PREMIUM</span><h1 style="margin-top:14px">Dein Premium-Konto</h1>'
-        '<p>Dein Zugriff wird an dein angemeldetes Discord-Konto gebunden.</p>'
-        '<div class="notice">Aktueller Plan: <strong>' + ("Premium" if plan == "premium" else "Free") + '</strong>'
-        + (' · Valid until: <strong>' + html.escape(own_expiry) + '</strong>' if plan == "premium" and own_expiry else '')
-        + '</div>'
-        '<p>Dein Plan und die enthaltenen Funktionen werden bei jedem Seitenaufruf direkt aus deinem aktuellen Premium-Zugang geladen.</p>'
-        '</section><div class="grid">' + "".join(rows) + '</div>'
-        '<section class="card"><h2>Premium</h2><p><strong>Alle Premium-Funktionen in einem Plan.</strong></p>'
-        '<p class="muted">Ein Online-Checkout ist derzeit nicht verbunden. Server-Testphasen und bestehende Freischaltungen bleiben erhalten.</p>'
-        '<a class="button secondary" href="/">Zur Serverübersicht</a></section>'
+        '<section class="iw-hero"><span class="iw-kicker">IRONWOLF · ADMIN CENTER</span>'
+        '<h1>🛡️ Server-Premium verwalten</h1>'
+        '<p>Premium wird direkt einem Discord-Server zugewiesen – nicht einem Benutzerkonto. '
+        'Suche nach Servername oder ID und aktiviere oder deaktiviere Premium mit einem Klick.</p>'
+        '</section>' + notice
+        + '<section class="card"><h2>Discord-Server auswählen</h2>'
+        '<input id="premium-server-search" type="search" placeholder="Servername oder Discord-ID suchen" '
+        'aria-label="Server suchen" style="width:100%;margin:8px 0 14px">'
+        + ('<div style="overflow-x:auto"><table><thead><tr><th>Servername</th><th>Discord-ID</th><th>Status</th><th>Aktion</th></tr></thead><tbody id="premium-server-list">'
+           + ''.join(guild_rows) + '</tbody></table></div>' if guild_rows else
+           '<p class="muted">Der Bot ist aktuell mit keinem Discord-Server verbunden.</p>')
+        + '</section><p><a class="button secondary" href="/">Zur Serverübersicht</a></p>'
+        + '<script>(function(){const i=document.getElementById("premium-server-search");const rows=[...document.querySelectorAll("#premium-server-list tr")];if(!i)return;i.addEventListener("input",()=>{const q=i.value.trim().toLowerCase();rows.forEach(r=>{r.hidden=!r.dataset.search.includes(q);});});})();</script>'
     )
-    if is_premium_admin:
-        result_notice = ""
-        if bulk_results:
-            result_notice += (
-                '<div class="notice">✅ Premium für <strong>' + str(len(bulk_results))
-                + '</strong> Discord-Konto/Konten freigeschaltet bzw. verlängert:<br>'
-                + '<code>' + html.escape(", ".join(bulk_results)) + '</code></div>'
-            )
-        if bulk_errors:
-            result_notice += (
-                '<div class="notice">⚠️ Ungültige oder fehlgeschlagene IDs ('
-                + str(len(bulk_errors)) + '):<br><code>'
-                + html.escape(", ".join(bulk_errors)) + '</code></div>'
-            )
-        guild_rows = []
-        if _bot:
-            for guild in sorted(_bot.guilds, key=lambda item: item.name.casefold()):
-                guild_rows.append(
-                    '<li><strong>' + html.escape(guild.name) + '</strong>'
-                    + ' <span class="muted">· ' + str(guild.member_count or 0)
-                    + ' Mitglieder · ID ' + str(guild.id) + '</span></li>'
-                )
-        guild_list = (
-            '<section class="card"><h2>🛡️ Serverübersicht für Admins</h2>'
-            '<p class="muted">Alle Discord-Server, auf denen IronWolf aktuell Mitglied ist.</p>'
-            + ('<ul>' + ''.join(guild_rows) + '</ul>' if guild_rows else '<p class="muted">Der Bot ist aktuell mit keinem Server verbunden oder die Serverliste ist noch nicht verfügbar.</p>')
-            + '</section>'
-        )
-        body += (
-            '<section class="card"><h2>🔐 Premium für mehrere Discord-Konten vergeben</h2>'
-            '<p>Nur dieses Administratorkonto kann Premium vergeben. Pro Konto gilt die Freischaltung 365 Tage. '
-            'Du kannst mehrere IDs gleichzeitig einfügen – jeweils eine pro Zeile oder getrennt durch Komma oder Leerzeichen.</p>'
-            + result_notice +
-            '<form method="post">' + _csrf_field() +
-            '<label>Discord-Benutzer-IDs<textarea name="discord_user_ids" rows="6" required '
-            'placeholder="123456789012345678&#10;234567890123456789"></textarea></label>'
-            '<button type="submit">👑 Premium für alle IDs freischalten</button></form>'
-            '<p class="muted">Maximal 100 IDs pro Vorgang. Bereits vorhandenes Premium wird um weitere 365 Tage verlängert.</p></section>'
-            + guild_list
-        )
-        body += '<p><a class="button" href="/premium/users">👥 Premium-Benutzer verwalten →</a></p>'
-    return _render("Premium · IronWolf", body)
+    return _render("Server-Premium · IronWolf", body)
 
 
 @app.route("/premium/users", methods=["GET", "POST"])
@@ -2786,77 +2740,10 @@ def premium_users_admin():
     login = _require_login()
     if login:
         return login
-    actor_id = str(session.get("user_id", ""))
-    if actor_id != PREMIUM_ADMIN_ID:
-        abort(403)
-    if request.method == "POST":
-        if not _csrf_ok():
-            abort(400, "CSRF-Prüfung fehlgeschlagen. Bitte Seite neu laden.")
-        target_id = request.form.get("discord_user_id", "").strip()
-        try:
-            revoked = revoke_manual_premium(target_id, actor_id)
-        except (ValueError, PermissionError) as exc:
-            abort(400, str(exc))
-        return redirect(url_for("premium_users_admin", result="revoked" if revoked else "missing"))
-    grants = sync_manual_grants()
-    rows = []
-    source_labels = {
-        "dashboard_admin": "Admin-Freischaltung",
-        "manual_allowlist": "Railway-Allowlist",
-        "legacy_migration": "Migrierte Freischaltung",
-        "server_boost": "Server-Boost",
-    }
-    now = datetime.now(timezone.utc)
-    for target_id, grant in sorted(grants.items(), key=lambda item: str(item[0])):
-        if not isinstance(grant, dict):
-            continue
-        expiry_raw = str(grant.get("expires_at", ""))
-        try:
-            expiry_dt = datetime.fromisoformat(expiry_raw.replace("Z", "+00:00"))
-            if expiry_dt.tzinfo is None:
-                expiry_dt = expiry_dt.replace(tzinfo=timezone.utc)
-            expiry_label = expiry_dt.strftime("%d.%m.%Y")
-            status_label = "Aktiv" if expiry_dt > now else "Abgelaufen"
-        except (TypeError, ValueError):
-            expiry_label, status_label = "Unbekannt", "Unbekannt"
-        source = str(grant.get("source", "unknown"))
-        action = (
-            '<form method="post" onsubmit="return confirm(\'Premium für dieses Konto wirklich widerrufen?\')">'
-            + _csrf_field()
-            + '<input type="hidden" name="discord_user_id" value="' + html.escape(str(target_id), quote=True) + '">'
-            + '<button class="secondary" type="submit">Widerrufen</button></form>'
-            if source == "dashboard_admin"
-            else '<span class="muted">Geschützt</span>'
-        )
-        rows.append(
-            '<tr><td><code>' + html.escape(str(target_id)) + '</code></td>'
-            + '<td>' + html.escape(source_labels.get(source, source)) + '</td>'
-            + '<td>' + ("Premium" if status_label == "Aktiv" and grant.get("plan") in {"premium", "premium_plus"} else "Free") + '</td>'
-            + '<td>' + html.escape(expiry_label) + '</td>'
-            + '<td>' + html.escape(status_label) + '</td><td>' + action + '</td></tr>'
-        )
-    notice = ""
-    if request.args.get("result") == "revoked":
-        notice = '<div class="notice">✅ Admin-Premium wurde widerrufen.</div>'
-    elif request.args.get("result") == "missing":
-        notice = '<div class="notice">Für diese ID wurde keine Admin-Freischaltung gefunden.</div>'
-    table = (
-        '<div style="overflow-x:auto"><table><thead><tr><th>Discord-ID</th><th>Quelle</th><th>Plan</th><th>Valid until</th><th>Status</th><th>Aktion</th></tr></thead><tbody>'
-        + ''.join(rows)
-        + '</tbody></table></div>'
-        if rows else '<p class="muted">Noch keine Premium-Freischaltungen vorhanden.</p>'
-    )
-    body = (
-        '<section class="iw-hero"><span class="iw-kicker">IRONWOLF · ADMIN CENTER</span>'
-        '<h1>👥 Premium-Benutzerverwaltung</h1>'
-        '<p>Verwalte Premium-Zugänge zentral. Freischaltungen aus Railway-Allowlisten und Server-Boosts werden angezeigt, können hier aber nicht versehentlich entfernt werden.</p>'
-        '<a class="button secondary" href="/premium">← Zur Premium-Übersicht</a></section>'
-        + notice
-        + '<section class="card"><h2>Alle Premium-Konten</h2>'
-        '<p class="muted">Nur manuell über das Dashboard vergebene Premium-Zugänge können hier widerrufen werden.</p>'
-        + table + '</section>'
-    )
-    return _render("Premium-Benutzerverwaltung · IronWolf", body)
+    if str(session.get("user_id", "")) != PREMIUM_ADMIN_ID:
+        abort(404)
+    return redirect(url_for("premium_page"))
+
 
 @app.route("/guild/<guild_id>/premium", methods=["GET", "POST"])
 def guild_premium(guild_id):
