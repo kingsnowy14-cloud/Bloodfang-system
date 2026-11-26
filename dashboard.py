@@ -5985,7 +5985,7 @@ def guild_server_logs(guild_id):
     body += '<div id="server-logs-single"><label for="channel_id">Gemeinsamer System-Log-Kanal</label>' + channel_select("channel_id", cfg.get("channel_id")) + '</div>'
     body += '<div id="server-logs-split"><h2>Getrennte Log-Kanäle</h2>'
     for key, title, description in categories:
-        checked = ' checked' if cfg.get("categories", {}).get(key, True) else ''
+        checked = ' checked' if cfg.get("categories", {}).get(key, bool(cfg.get("channels", {}).get(key))) else ''
         body += '<div class="card"><div class="check"><input type="checkbox" id="category_' + key + '" name="category_' + key + '"' + checked + '><label for="category_' + key + '">' + title + '</label></div><small class="muted">' + description + '</small><label for="channel_' + key + '">Log-Kanal</label>' + channel_select("channel_" + key, cfg.get("channels", {}).get(key)) + '</div>'
     body += '</div><button type="submit">💾 System-Log-Einstellungen speichern</button> <a class="button secondary" href="/guild/' + gid + '">Zur Serverübersicht</a></form></section>'
     body += '<script>(function(){const all=document.getElementById("server-logs-all"),one=document.getElementById("server-logs-single"),split=document.getElementById("server-logs-split");function update(){one.hidden=!all.checked;split.hidden=all.checked;}all.addEventListener("change",update);update();})();</script>'
