@@ -8,7 +8,7 @@ from math import ceil
 import discord
 from discord import app_commands
 from discord.ext import commands
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from storage import data_path
 
@@ -130,32 +130,37 @@ def _make_id_card(guild, member, answers, questions, card_id, issue_date):
     value_font = _font(43, True)
     small_font = _font(21)
 
-    # Kopfbereich: Titel links, Serveremblem mittig, Mitgliedsavatar rechts.
-    draw.text((margin, 58), "DIGITALER RP-AUSWEIS", font=title_font, fill="#172033")
-    draw.text((margin, 124), f"AUSWEIS-ID  {card_id}", font=id_font, fill="#2865e8")
-    draw.ellipse((margin, 178, margin + 18, 196), fill="#20bd70")
-    draw.text((margin + 32, 173), "AKTIVER RP-AUSWEIS", font=status_font, fill="#172033")
-
+    # Serverlogo als deutlich sichtbares Wasserzeichen über die gesamte Ausweisfläche.
+    # Es wird VOR Text, Feldern und Porträt eingefügt, damit alle Angaben klar lesbar bleiben.
     try:
         if guild and guild.icon:
             icon_request = urllib.request.Request(
                 str(guild.icon.with_size(512).url),
                 headers={"User-Agent": "Bloodfang-RP-ID/1.0"}
             )
-            with urllib.request.urlopen(icon_request, timeout=4) as response:
-                icon_bytes = response.read(1_500_000)
-            emblem = Image.open(io.BytesIO(icon_bytes)).convert("RGBA")
-            emblem.thumbnail((148, 148), Image.Resampling.LANCZOS)
-            # Helles Emblem im eigenen freien Kopfbereich, nicht unter den Feldern.
-            alpha = emblem.getchannel("A").point(lambda value: int(value * 0.48))
-            emblem.putalpha(alpha)
-            emblem_x = (width - emblem.width) // 2
-            emblem_y = 54 + (148 - emblem.height) // 2
-            image.paste(emblem, (emblem_x, emblem_y), emblem)
+            with urllib.request.urlopen(icon_request, timeout=8) as response:
+                icon_bytes = response.read(2_000_000)
+            watermark = Image.open(io.BytesIO(icon_bytes)).convert("RGBA")
+            watermark = ImageOps.fit(
+                watermark,
+                (width - 48, height - 48),
+                method=Image.Resampling.LANCZOS,
+                centering=(0.5, 0.5),
+            )
+            # 26 % Deckkraft: sichtbar über die ganze Karte, ohne Inhalte zu überdecken.
+            alpha = watermark.getchannel("A").point(lambda value: int(value * 0.26))
+            watermark.putalpha(alpha)
+            image.paste(watermark, (24, 24), watermark)
             draw = ImageDraw.Draw(image)
-            draw.ellipse((width // 2 - 82, 44, width // 2 + 82, 208), outline="#e4eaf3", width=3)
     except Exception:
+        # Der Ausweis wird auch dann erstellt, wenn Discord das Servericon nicht liefert.
         pass
+
+    # Kopfbereich und alle Ausweisdaten werden nach dem Wasserzeichen gezeichnet.
+    draw.text((margin, 58), "DIGITALER RP-AUSWEIS", font=title_font, fill="#172033")
+    draw.text((margin, 124), f"AUSWEIS-ID  {card_id}", font=id_font, fill="#2865e8")
+    draw.ellipse((margin, 178, margin + 18, 196), fill="#20bd70")
+    draw.text((margin + 32, 173), "AKTIVER RP-AUSWEIS", font=status_font, fill="#172033")
 
     try:
         request = urllib.request.Request(
