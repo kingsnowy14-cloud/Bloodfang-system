@@ -120,7 +120,7 @@ def _make_id_card(member, answers, questions, card_id, issue_date):
         col, row = index % columns, index // columns
         x, y = 46 + col * 456, top + row * (field_height + row_gap)
         draw.rounded_rectangle((x, y, x + 433, y + field_height), radius=12, fill="#f1f3f6", outline="#d5dce6", width=1)
-        draw.text((x + 16, y + 10), _fit_text(draw, question["label"].upper(), label_font, 398), font=label_font, fill="#697386")
+        draw.text((x + 16, y + 10), _fit_text(draw, question["label"], label_font, 398), font=label_font, fill="#697386")
         value = answers.get(question["key"], "")
         draw.text((x + 16, y + 34), _fit_text(draw, value, value_font, 398), font=value_font, fill="#191d25")
 
