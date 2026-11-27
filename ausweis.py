@@ -62,16 +62,32 @@ def get_questions(guild_id):
 
 
 def _font(size, bold=False):
+    # Erst installierte TrueType-Schriften versuchen. Der skalierbare Pillow-Font
+    # ist der wichtige Fallback: load_default() ohne size ist winzig und war
+    # der Grund, warum die Schrift auf Railway trotz großer Werte kaum lesbar war.
     candidates = (
-        ["DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
-        if bold else ["DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+        [
+            "DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+            "/usr/share/fonts/truetype/lato/Lato-Bold.ttf",
+        ]
+        if bold else [
+            "DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/lato/Lato-Regular.ttf",
+        ]
     )
     for candidate in candidates:
         try:
             return ImageFont.truetype(candidate, size)
         except OSError:
             pass
-    return ImageFont.load_default()
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
 
 
 def _fit_text(draw, text, font, max_width):
@@ -83,72 +99,119 @@ def _fit_text(draw, text, font, max_width):
 
 def _make_id_card(guild, member, answers, questions, card_id, issue_date):
     questions = questions[:5]
+    width = 1200
+    margin = 58
     columns = 2
+    field_gap_x = 28
+    field_width = (width - 2 * margin - field_gap_x) // 2
+    field_height = 142
+    row_gap = 22
+    header_bottom = 260
+    top = 300
     rows = max(1, ceil(len(questions) / columns))
-    top = 190
-    field_height = 96
-    row_gap = 12
-    metadata_y = top + rows * (field_height + row_gap) + 4
-    height = metadata_y + 170
-    image = Image.new("RGB", (980, height), "#ffffff")
-    draw = ImageDraw.Draw(image)
-    title_font, id_font = _font(38, True), _font(23, True)
-    label_font, value_font = _font(23, True), _font(37, True)
-    small_font, status_font = _font(19), _font(21, True)
+    fields_bottom = top + rows * field_height + max(0, rows - 1) * row_gap
+    status_y = fields_bottom + 30
+    footer_y = status_y + 138
+    height = footer_y + 112
 
-    draw.rounded_rectangle((18, 18, 962, height - 18), radius=25, fill="#ffffff", outline="#cbd3df", width=3)
-    # Das Serverlogo liegt nur als sehr dezentes Wasserzeichen unter den Angaben.
+    image = Image.new("RGB", (width, height), "#f7f9fc")
+    draw = ImageDraw.Draw(image)
+
+    # Ruhiger, klarer Kartenrahmen mit leichtem Innenhintergrund.
+    draw.rounded_rectangle(
+        (18, 18, width - 18, height - 18),
+        radius=34, fill="#ffffff", outline="#cbd5e1", width=4
+    )
+
+    title_font = _font(39, True)
+    id_font = _font(25, True)
+    status_font = _font(24, True)
+    label_font = _font(27, True)
+    value_font = _font(43, True)
+    small_font = _font(21)
+
+    # Kopfbereich: Titel links, Serveremblem mittig, Mitgliedsavatar rechts.
+    draw.text((margin, 58), "DIGITALER RP-AUSWEIS", font=title_font, fill="#172033")
+    draw.text((margin, 124), f"AUSWEIS-ID  {card_id}", font=id_font, fill="#2865e8")
+    draw.ellipse((margin, 178, margin + 18, 196), fill="#20bd70")
+    draw.text((margin + 32, 173), "AKTIVER RP-AUSWEIS", font=status_font, fill="#172033")
+
     try:
         if guild and guild.icon:
-            icon_request = urllib.request.Request(str(guild.icon.with_size(512).url), headers={"User-Agent": "Bloodfang-RP-ID/1.0"})
+            icon_request = urllib.request.Request(
+                str(guild.icon.with_size(512).url),
+                headers={"User-Agent": "Bloodfang-RP-ID/1.0"}
+            )
             with urllib.request.urlopen(icon_request, timeout=4) as response:
                 icon_bytes = response.read(1_500_000)
-            watermark = Image.open(io.BytesIO(icon_bytes)).convert("RGBA")
-            watermark.thumbnail((410, 410), Image.Resampling.LANCZOS)
-            watermark.putalpha(watermark.getchannel("A").point(lambda value: int(value * 0.09)))
-            image.paste(watermark, (500, 220), watermark)
+            emblem = Image.open(io.BytesIO(icon_bytes)).convert("RGBA")
+            emblem.thumbnail((148, 148), Image.Resampling.LANCZOS)
+            # Helles Emblem im eigenen freien Kopfbereich, nicht unter den Feldern.
+            alpha = emblem.getchannel("A").point(lambda value: int(value * 0.48))
+            emblem.putalpha(alpha)
+            emblem_x = (width - emblem.width) // 2
+            emblem_y = 54 + (148 - emblem.height) // 2
+            image.paste(emblem, (emblem_x, emblem_y), emblem)
+            draw = ImageDraw.Draw(image)
+            draw.ellipse((width // 2 - 82, 44, width // 2 + 82, 208), outline="#e4eaf3", width=3)
     except Exception:
         pass
-    draw.text((46, 40), "DIGITALER RP-AUSWEIS", font=title_font, fill="#171b23")
-    draw.text((558, 45), f"AUSWEIS-ID {card_id}", font=id_font, fill="#2865e8")
-    draw.ellipse((597, 81, 610, 94), fill="#20c46b")
-    draw.text((619, 78), "AKTIVER RP-AUSWEIS", font=status_font, fill="#171b23")
 
     try:
-        request = urllib.request.Request(str(member.display_avatar.with_size(128).url), headers={"User-Agent": "Bloodfang-RP-ID/1.0"})
+        request = urllib.request.Request(
+            str(member.display_avatar.with_size(256).url),
+            headers={"User-Agent": "Bloodfang-RP-ID/1.0"}
+        )
         with urllib.request.urlopen(request, timeout=4) as response:
             avatar_bytes = response.read(1_500_000)
-        avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGB").resize((96, 96), Image.Resampling.LANCZOS)
-        mask = Image.new("L", (96, 96), 0)
-        ImageDraw.Draw(mask).ellipse((0, 0, 95, 95), fill=255)
-        image.paste(avatar, (830, 47), mask)
+        avatar = Image.open(io.BytesIO(avatar_bytes)).convert("RGB").resize((126, 126), Image.Resampling.LANCZOS)
+        mask = Image.new("L", (126, 126), 0)
+        ImageDraw.Draw(mask).ellipse((0, 0, 125, 125), fill=255)
+        image.paste(avatar, (width - margin - 126, 52), mask)
     except Exception:
-        draw.ellipse((830, 47, 926, 143), fill="#e9edf4")
+        draw.ellipse((width - margin - 126, 52, width - margin, 178), fill="#e9edf4")
         initials = (member.display_name[:2] or "RP").upper()
         box = draw.textbbox((0, 0), initials, font=value_font)
-        draw.text((878 - (box[2] - box[0]) / 2, 95 - (box[3] - box[1]) / 2), initials, font=value_font, fill="#343b49")
+        draw.text(
+            (width - margin - 63 - (box[2] - box[0]) / 2,
+             115 - (box[3] - box[1]) / 2),
+            initials, font=value_font, fill="#343b49"
+        )
 
-    draw.line((46, 168, 935, 168), fill="#d9dfe8", width=2)
+    draw.line((margin, header_bottom, width - margin, header_bottom), fill="#d9e1ec", width=3)
+
+    # Gleich große Felder in einem sauberen 2-Spalten-Raster.
     for index, question in enumerate(questions):
         col, row = index % columns, index // columns
-        x, y = 46 + col * 456, top + row * (field_height + row_gap)
-        draw.rounded_rectangle((x, y, x + 433, y + field_height), radius=12, fill="#f1f3f6", outline="#d5dce6", width=1)
-        draw.text((x + 16, y + 12), _fit_text(draw, question["label"], label_font, 398), font=label_font, fill="#697386")
-        value = answers.get(question["key"], "")
-        draw.text((x + 16, y + 48), _fit_text(draw, value, value_font, 398), font=value_font, fill="#191d25")
+        x = margin + col * (field_width + field_gap_x)
+        y = top + row * (field_height + row_gap)
+        draw.rounded_rectangle(
+            (x, y, x + field_width, y + field_height),
+            radius=18, fill="#f3f6fa", outline="#d5deea", width=2
+        )
+        label = _fit_text(draw, question["label"], label_font, field_width - 44)
+        draw.text((x + 22, y + 20), label, font=label_font, fill="#526078")
+        value = _fit_text(draw, answers.get(question["key"], ""), value_font, field_width - 44)
+        draw.text((x + 22, y + 70), value, font=value_font, fill="#141b2a")
 
-    draw.rounded_rectangle((46, metadata_y, 935, metadata_y + 68), radius=12, fill="#f1f3f6", outline="#d5dce6", width=1)
-    draw.text((62, metadata_y + 10), "AUSWEISSTATUS", font=label_font, fill="#697386")
-    draw.text((62, metadata_y + 33), "Aktiv", font=value_font, fill="#191d25")
-    draw.line((46, metadata_y + 88, 935, metadata_y + 88), fill="#d9dfe8", width=2)
-    draw.text((46, metadata_y + 108), f"Ausgestellt am: {issue_date}", font=small_font, fill="#778195")
-    draw.text((690, metadata_y + 108), "DIGITALES RP-AUSWEISSYSTEM", font=small_font, fill="#778195")
+    # Status als eigener, gut lesbarer Bereich unter den persönlichen Angaben.
+    draw.rounded_rectangle(
+        (margin, status_y, width - margin, status_y + 104),
+        radius=18, fill="#edf8f2", outline="#b9e5cc", width=2
+    )
+    draw.text((margin + 24, status_y + 15), "AUSWEISSTATUS", font=label_font, fill="#526078")
+    draw.text((margin + 24, status_y + 57), "AKTIV", font=value_font, fill="#147a46")
+
+    draw.line((margin, footer_y, width - margin, footer_y), fill="#d9e1ec", width=2)
+    draw.text((margin, footer_y + 28), f"AUSGESTELLT AM  {issue_date}", font=small_font, fill="#68758b")
+    footer = "DIGITALES RP-AUSWEISSYSTEM"
+    footer_box = draw.textbbox((0, 0), footer, font=small_font)
+    draw.text((width - margin - (footer_box[2] - footer_box[0]), footer_y + 28), footer, font=small_font, fill="#68758b")
 
     output = io.BytesIO()
-    image.save(output, format="PNG")
+    image.save(output, format="PNG", optimize=True)
     output.seek(0)
     return output
-
 
 class AusweisModal(discord.ui.Modal):
     def __init__(self, bot, guild_id, member_id, channel_id):
