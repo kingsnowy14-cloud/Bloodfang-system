@@ -10,6 +10,7 @@ import asyncio
 import random
 import shutil
 import re
+from functools import lru_cache
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
@@ -763,9 +764,37 @@ def server_now(guild_id):
     """Current time in the time zone configured for this server."""
     return datetime.now(server_timezone(guild_id))
 
+@lru_cache(maxsize=4096)
+def _cached_bot_translation(text, language):
+    """Translate uncatalogued bot text and cache it to avoid repeat API calls."""
+    try:
+        from deep_translator import GoogleTranslator
+        return GoogleTranslator(source="auto", target=language).translate(text)
+    except Exception as exc:
+        print(f"[I18N] Bot translation unavailable ({type(exc).__name__}); using original text.", flush=True)
+        return text
+
+
 def bot_text(guild_id, text):
-    """Translate catalogued common bot messages; unknown text remains unchanged."""
-    return BOT_TRANSLATIONS.get(server_language(guild_id), {}).get(text, text)
+    """Translate catalogued or uncatalogued text using the server-wide language."""
+    if not isinstance(text, str) or not text:
+        return text
+    language = server_language(guild_id)
+    known = BOT_TRANSLATIONS.get(language, {}).get(text)
+    if known is not None:
+        return known
+    if language == "en":
+        return text
+    placeholders = {}
+    def protect(match):
+        key = f"IWPLACEHOLDER{len(placeholders)}TOKEN"
+        placeholders[key] = match.group(0)
+        return key
+    protected = re.sub(r"\\{[^{}]+\\}|<@!?[0-9]+>|<@&[0-9]+>|<#[0-9]+>|https?://\\S+", protect, text)
+    translated = _cached_bot_translation(protected, language)
+    for key, value in placeholders.items():
+        translated = translated.replace(key, value)
+    return translated
 
 def migrate_all_guild_configs():
     """Apply new defaults to every known server while preserving existing settings."""

@@ -17,6 +17,8 @@ import sqlite3
 import threading
 import sys
 import time
+from functools import lru_cache
+from html.parser import HTMLParser
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlencode, urlparse
@@ -1846,10 +1848,64 @@ DASHBOARD_TRANSLATIONS["en"].update({
     "Änderungen gespeichert.": "Changes saved.",
 })
 
+@lru_cache(maxsize=8192)
+def _translate_dashboard_text(value, language):
+    if not value or not value.strip() or language == "en":
+        return value
+    try:
+        from deep_translator import GoogleTranslator
+        return GoogleTranslator(source="auto", target=language).translate(value)
+    except Exception as exc:
+        print(f"[I18N] Dashboard translation unavailable ({type(exc).__name__}); showing source text.", flush=True)
+        return value
+
+
+class _DashboardTextTranslator(HTMLParser):
+    """Translate visible HTML text only; never alter tags, attributes, scripts or styles."""
+    def __init__(self, language):
+        super().__init__(convert_charrefs=False)
+        self.language = language
+        self.parts = []
+        self.skip_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() in {"script", "style", "code", "pre", "textarea"}:
+            self.skip_depth += 1
+        self.parts.append(self.get_starttag_text())
+
+    def handle_startendtag(self, tag, attrs):
+        self.parts.append(self.get_starttag_text())
+
+    def handle_endtag(self, tag):
+        self.parts.append(f"</{tag}>")
+        if tag.lower() in {"script", "style", "code", "pre", "textarea"} and self.skip_depth:
+            self.skip_depth -= 1
+
+    def handle_data(self, data):
+        if self.skip_depth or not data.strip():
+            self.parts.append(data)
+        else:
+            self.parts.append(_translate_dashboard_text(data, self.language))
+
+    def handle_entityref(self, name):
+        self.parts.append(f"&{name};")
+
+    def handle_charref(self, name):
+        self.parts.append(f"&#{name};")
+
+
 def _translate_dashboard(value, language):
     translations = DASHBOARD_TRANSLATIONS.get(language, {})
     for source in sorted(translations, key=len, reverse=True):
         value = value.replace(source, translations[source])
+    if language in {"de", "en"} or not value:
+        parser = _DashboardTextTranslator(language)
+        try:
+            parser.feed(value)
+            parser.close()
+            return "".join(parser.parts)
+        except Exception as exc:
+            print(f"[I18N] Dashboard HTML translation skipped ({type(exc).__name__}).", flush=True)
     return value
 
 def _dashboard_language():
