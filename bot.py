@@ -6681,129 +6681,132 @@ async def on_message(message: discord.Message):
     await bot.process_commands(message)
 
 
-class TempVoiceRenameModal(discord.ui.Modal, title="Voice-Kanal umbenennen"):
-    def __init__(self, channel_id: int, owner_id: int):
-        super().__init__(timeout=180)
-        self.channel_id = channel_id
-        self.owner_id = owner_id
+def tempvoice_text(guild_id: int, english: str, german: str) -> str:
+    """Return temporary-voice UI text in the server's configured bot language."""
+    return german if server_language(guild_id) == "de" else english
+
+
+class TempVoiceRenameModal(discord.ui.Modal):
+    def __init__(self, channel_id: int, owner_id: int, guild_id: int):
+        super().__init__(title=tempvoice_text(guild_id, "Rename voice room", "Voice-Kanal umbenennen"), timeout=180)
+        self.channel_id, self.owner_id, self.guild_id = channel_id, owner_id, guild_id
         self.channel_name = discord.ui.TextInput(
-            label="Neuer Kanalname", min_length=1, max_length=100,
-            placeholder="Mein Voice-Raum",
+            label=tempvoice_text(guild_id, "New channel name", "Neuer Kanalname"),
+            min_length=1, max_length=100,
+            placeholder=tempvoice_text(guild_id, "My voice room", "Mein Voice-Raum"),
         )
         self.add_item(self.channel_name)
 
     async def on_submit(self, interaction: discord.Interaction):
         channel = interaction.guild.get_channel(self.channel_id) if interaction.guild else None
         if not isinstance(channel, discord.VoiceChannel) or interaction.user.id != self.owner_id:
-            await interaction.response.send_message("Du kannst diesen Raum nicht verwalten.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "You cannot manage this room.", "Du kannst diesen Raum nicht verwalten."), ephemeral=True)
             return
         try:
-            await channel.edit(name=str(self.channel_name.value).strip(), reason="Temporärer Voice-Raum: Besitzer hat Namen geändert")
-            await interaction.response.send_message("✅ Kanalname wurde geändert.", ephemeral=True)
+            await channel.edit(name=str(self.channel_name.value).strip(), reason="Temporary voice room renamed by its owner")
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "✅ Channel name updated.", "✅ Kanalname wurde geändert."), ephemeral=True)
         except (discord.Forbidden, discord.HTTPException):
-            await interaction.response.send_message("❌ Der Kanalname konnte nicht geändert werden.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "❌ I couldn't rename this channel. Check my Manage Channels permission.", "❌ Der Kanalname konnte nicht geändert werden. Prüfe meine Berechtigung Kanäle verwalten."), ephemeral=True)
 
 
-class TempVoiceLimitModal(discord.ui.Modal, title="Nutzerlimit festlegen"):
-    def __init__(self, channel_id: int, owner_id: int, current_limit: int = 0):
-        super().__init__(timeout=180)
-        self.channel_id = channel_id
-        self.owner_id = owner_id
+class TempVoiceLimitModal(discord.ui.Modal):
+    def __init__(self, channel_id: int, owner_id: int, guild_id: int, current_limit: int = 0):
+        super().__init__(title=tempvoice_text(guild_id, "Set member limit", "Nutzerlimit festlegen"), timeout=180)
+        self.channel_id, self.owner_id, self.guild_id = channel_id, owner_id, guild_id
         self.limit_value = discord.ui.TextInput(
-            label="Maximale Nutzerzahl (0 = unbegrenzt)",
-            min_length=1, max_length=2, default=str(current_limit),
-            placeholder="0 bis 99",
+            label=tempvoice_text(guild_id, "Maximum members (0 = unlimited)", "Maximale Nutzerzahl (0 = unbegrenzt)"),
+            min_length=1, max_length=2, default=str(current_limit), placeholder="0-99",
         )
         self.add_item(self.limit_value)
 
     async def on_submit(self, interaction: discord.Interaction):
         channel = interaction.guild.get_channel(self.channel_id) if interaction.guild else None
         if not isinstance(channel, discord.VoiceChannel) or interaction.user.id != self.owner_id:
-            await interaction.response.send_message("Du kannst diesen Raum nicht verwalten.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "You cannot manage this room.", "Du kannst diesen Raum nicht verwalten."), ephemeral=True)
             return
         try:
             limit = int(str(self.limit_value.value).strip())
             if not 0 <= limit <= 99:
                 raise ValueError
-            await channel.edit(user_limit=limit, reason="Temporärer Voice-Raum: Besitzer hat Nutzerlimit geändert")
-            label = "unbegrenzt" if limit == 0 else str(limit)
-            await interaction.response.send_message(f"✅ Nutzerlimit: **{label}**.", ephemeral=True)
+            await channel.edit(user_limit=limit, reason="Temporary voice room limit changed by its owner")
+            label = tempvoice_text(self.guild_id, "unlimited", "unbegrenzt") if limit == 0 else str(limit)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, f"✅ Member limit updated: **{label}**.", f"✅ Nutzerlimit aktualisiert: **{label}**."), ephemeral=True)
         except ValueError:
-            await interaction.response.send_message("Bitte gib eine Zahl zwischen 0 und 99 ein.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "Please enter a number from 0 to 99.", "Bitte gib eine Zahl zwischen 0 und 99 ein."), ephemeral=True)
         except (discord.Forbidden, discord.HTTPException):
-            await interaction.response.send_message("❌ Das Nutzerlimit konnte nicht geändert werden.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "❌ I couldn't update the member limit.", "❌ Das Nutzerlimit konnte nicht geändert werden."), ephemeral=True)
 
 
 class TempVoiceKickSelect(discord.ui.UserSelect):
-    def __init__(self, channel_id: int, owner_id: int):
-        super().__init__(
-            placeholder="Mitglied zum Entfernen auswählen",
-            min_values=1, max_values=1,
-            custom_id=f"tempvoice:kick-select:{channel_id}",
-        )
-        self.channel_id = channel_id
-        self.owner_id = owner_id
+    def __init__(self, channel_id: int, owner_id: int, guild_id: int):
+        super().__init__(placeholder=tempvoice_text(guild_id, "Select a member to disconnect", "Mitglied zum Entfernen auswählen"), min_values=1, max_values=1, custom_id=f"tempvoice:kick-select:{channel_id}")
+        self.channel_id, self.owner_id, self.guild_id = channel_id, owner_id, guild_id
 
     async def callback(self, interaction: discord.Interaction):
         channel = interaction.guild.get_channel(self.channel_id) if interaction.guild else None
         if interaction.user.id != self.owner_id or not isinstance(channel, discord.VoiceChannel):
-            await interaction.response.send_message("Du kannst diesen Raum nicht verwalten.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "You cannot manage this room.", "Du kannst diesen Raum nicht verwalten."), ephemeral=True)
             return
         target = self.values[0]
         if target.id == self.owner_id or target not in channel.members:
-            await interaction.response.send_message("Dieses Mitglied befindet sich nicht mehr im Raum oder kann nicht entfernt werden.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "That member is no longer in this room or cannot be disconnected.", "Dieses Mitglied befindet sich nicht mehr im Raum oder kann nicht entfernt werden."), ephemeral=True)
             return
         try:
-            await target.move_to(None, reason=f"Aus temporärem Voice-Raum entfernt von Besitzer {interaction.user}")
-            await interaction.response.send_message(f"✅ **{target.display_name}** wurde aus dem Raum entfernt.", ephemeral=True)
+            await target.move_to(None, reason=f"Disconnected from temporary voice room by owner {interaction.user.id}")
+            await interaction.response.send_message(tempvoice_text(self.guild_id, f"✅ **{target.display_name}** was disconnected from your room.", f"✅ **{target.display_name}** wurde aus deinem Raum entfernt."), ephemeral=True)
         except (discord.Forbidden, discord.HTTPException):
-            await interaction.response.send_message("❌ Das Mitglied konnte nicht entfernt werden.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "❌ I couldn't disconnect that member. Check my Move Members permission.", "❌ Das Mitglied konnte nicht entfernt werden. Prüfe meine Berechtigung Mitglieder verschieben."), ephemeral=True)
 
 
 class TempVoiceKickView(discord.ui.View):
-    def __init__(self, channel_id: int, owner_id: int):
+    def __init__(self, channel_id: int, owner_id: int, guild_id: int):
         super().__init__(timeout=90)
-        self.add_item(TempVoiceKickSelect(channel_id, owner_id))
+        self.add_item(TempVoiceKickSelect(channel_id, owner_id, guild_id))
 
 
 class TempVoiceAdminView(discord.ui.View):
-    def __init__(self, channel_id: int, owner_id: int):
+    def __init__(self, channel_id: int, owner_id: int, guild_id: int):
         super().__init__(timeout=None)
-        self.channel_id = channel_id
-        self.owner_id = owner_id
-        # Each room needs distinct component IDs so persistent views do not collide.
-        for item in self.children:
-            if getattr(item, "custom_id", None):
+        self.channel_id, self.owner_id, self.guild_id = channel_id, owner_id, guild_id
+        labels = [
+            tempvoice_text(guild_id, "Rename", "Name ändern"),
+            tempvoice_text(guild_id, "Member limit", "Nutzerlimit"),
+            tempvoice_text(guild_id, "Private / Public", "Privat / Öffentlich"),
+            tempvoice_text(guild_id, "Disconnect member", "Mitglied entfernen"),
+        ]
+        for item, label in zip(self.children, labels):
+            item.label = label
+            if item.custom_id:
                 item.custom_id = f"tempvoice:{channel_id}:{item.custom_id}"
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("🔒 Dieses Admin-Panel gehört ausschließlich dem Ersteller des Voice-Kanals.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "🔒 Only the person who created this voice room can use its control panel.", "🔒 Dieses Steuerungs-Panel kann nur der Ersteller des Voice-Kanals verwenden."), ephemeral=True)
             return False
         return True
 
-    @discord.ui.button(label="Name ändern", style=discord.ButtonStyle.primary, emoji="✏️", custom_id="tempvoice:rename")
+    @discord.ui.button(label="Rename", style=discord.ButtonStyle.primary, emoji="✏️", custom_id="tempvoice:rename")
     async def rename_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         channel = interaction.guild.get_channel(self.channel_id) if interaction.guild else None
         if not isinstance(channel, discord.VoiceChannel):
-            await interaction.response.send_message("Der Voice-Kanal existiert nicht mehr.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "This voice channel no longer exists.", "Der Voice-Kanal existiert nicht mehr."), ephemeral=True)
             return
-        await interaction.response.send_modal(TempVoiceRenameModal(self.channel_id, self.owner_id))
+        await interaction.response.send_modal(TempVoiceRenameModal(self.channel_id, self.owner_id, self.guild_id))
 
-    @discord.ui.button(label="Nutzerlimit", style=discord.ButtonStyle.secondary, emoji="👥", custom_id="tempvoice:limit")
+    @discord.ui.button(label="Member limit", style=discord.ButtonStyle.secondary, emoji="👥", custom_id="tempvoice:limit")
     async def limit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         channel = interaction.guild.get_channel(self.channel_id) if interaction.guild else None
         if not isinstance(channel, discord.VoiceChannel):
-            await interaction.response.send_message("Der Voice-Kanal existiert nicht mehr.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "This voice channel no longer exists.", "Der Voice-Kanal existiert nicht mehr."), ephemeral=True)
             return
-        await interaction.response.send_modal(TempVoiceLimitModal(self.channel_id, self.owner_id, channel.user_limit))
+        await interaction.response.send_modal(TempVoiceLimitModal(self.channel_id, self.owner_id, self.guild_id, channel.user_limit))
 
-    @discord.ui.button(label="Privat / Öffentlich", style=discord.ButtonStyle.secondary, emoji="🔐", custom_id="tempvoice:visibility")
+    @discord.ui.button(label="Private / Public", style=discord.ButtonStyle.secondary, emoji="🔐", custom_id="tempvoice:visibility")
     async def visibility_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild = interaction.guild
         channel = guild.get_channel(self.channel_id) if guild else None
         if not isinstance(channel, discord.VoiceChannel):
-            await interaction.response.send_message("Der Voice-Kanal existiert nicht mehr.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "This voice channel no longer exists.", "Der Voice-Kanal existiert nicht mehr."), ephemeral=True)
             return
         overwrites = channel.overwrites
         everyone = overwrites.get(guild.default_role, discord.PermissionOverwrite())
@@ -6816,27 +6819,29 @@ class TempVoiceAdminView(discord.ui.View):
             owner_overwrite = overwrites.get(owner, discord.PermissionOverwrite())
             owner_overwrite.view_channel = True
             owner_overwrite.connect = True
+            owner_overwrite.send_messages = True
             overwrites[owner] = owner_overwrite
         try:
-            await channel.edit(overwrites=overwrites, reason="Temporärer Voice-Raum: Besitzer hat Sichtbarkeit geändert")
-            state = "🔒 Privat" if make_private else "🌐 Öffentlich"
-            await interaction.response.send_message(f"✅ Der Raum ist jetzt **{state}**.", ephemeral=True)
+            await channel.edit(overwrites=overwrites, reason="Temporary voice room visibility changed by its owner")
+            state_en = "🔒 Private" if make_private else "🌐 Public"
+            state_de = "🔒 Privat" if make_private else "🌐 Öffentlich"
+            await interaction.response.send_message(tempvoice_text(self.guild_id, f"✅ Your room is now **{state_en}**.", f"✅ Dein Raum ist jetzt **{state_de}**."), ephemeral=True)
         except (discord.Forbidden, discord.HTTPException):
-            await interaction.response.send_message("❌ Die Sichtbarkeit konnte nicht geändert werden.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "❌ I couldn't change the room visibility.", "❌ Die Sichtbarkeit konnte nicht geändert werden."), ephemeral=True)
 
-    @discord.ui.button(label="Mitglied kicken", style=discord.ButtonStyle.danger, emoji="👢", custom_id="tempvoice:kick")
+    @discord.ui.button(label="Disconnect member", style=discord.ButtonStyle.danger, emoji="👢", custom_id="tempvoice:kick")
     async def kick_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         channel = interaction.guild.get_channel(self.channel_id) if interaction.guild else None
         if not isinstance(channel, discord.VoiceChannel):
-            await interaction.response.send_message("Der Voice-Kanal existiert nicht mehr.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "This voice channel no longer exists.", "Der Voice-Kanal existiert nicht mehr."), ephemeral=True)
             return
         candidates = [member for member in channel.members if member.id != self.owner_id and not member.bot]
         if not candidates:
-            await interaction.response.send_message("Es befindet sich kein entfernbares Mitglied im Raum.", ephemeral=True)
+            await interaction.response.send_message(tempvoice_text(self.guild_id, "There are no members you can disconnect right now.", "Es befindet sich gerade kein entfernbares Mitglied im Raum."), ephemeral=True)
             return
         await interaction.response.send_message(
-            "Wähle das Mitglied aus, das aus deinem Voice-Raum entfernt werden soll:",
-            view=TempVoiceKickView(self.channel_id, self.owner_id),
+            tempvoice_text(self.guild_id, "Choose the member you want to disconnect from your voice room:", "Wähle das Mitglied aus, das du aus deinem Voice-Raum entfernen möchtest:"),
+            view=TempVoiceKickView(self.channel_id, self.owner_id, self.guild_id),
             ephemeral=True,
         )
 
@@ -6858,60 +6863,49 @@ async def on_voice_state_update(
     if not member.bot and after.channel and after.channel.id == trigger_id and before.channel != after.channel:
         category_id = cfg.get("tempvoice_category")
         category = member.guild.get_channel(int(category_id)) if category_id else after.channel.category
-        owner_overwrite = discord.PermissionOverwrite(view_channel=True, connect=True)
+        owner_overwrite = discord.PermissionOverwrite(view_channel=True, connect=True, send_messages=True, read_message_history=True)
         overwrites = {member: owner_overwrite}
+        bot_member = member.guild.me
+        if bot_member:
+            overwrites[bot_member] = discord.PermissionOverwrite(view_channel=True, connect=True, send_messages=True, read_message_history=True, embed_links=True)
         temp_channel = None
-        control_channel = None
         try:
-            temp_channel = await member.guild.create_voice_channel(
-                name=f"{member.display_name[:80]}'s Raum",
-                category=category,
-                overwrites=overwrites,
-                reason="Temporärer Voice-Kanal erstellt",
-            )
-            await member.move_to(temp_channel, reason="In eigenen temporären Voice-Kanal verschieben")
-
-            control_overwrites = {
-                member.guild.default_role: discord.PermissionOverwrite(view_channel=False),
-                member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
-            }
-            if member.guild.me:
-                control_overwrites[member.guild.me] = discord.PermissionOverwrite(
-                    view_channel=True, send_messages=True, read_message_history=True,
-                )
-            control_channel = await member.guild.create_text_channel(
-                name=f"🎛️-raumsteuerung-{member.display_name[:35]}".lower()[:100],
-                category=category,
-                overwrites=control_overwrites,
-                reason="Privates Admin-Panel für temporären Voice-Kanal",
-            )
+            temp_channel = await member.guild.create_voice_channel(name=f"{member.display_name[:80]}'s room", category=category, overwrites=overwrites, reason="Temporary voice room created")
+            await member.move_to(temp_channel, reason="Move member into their temporary voice room")
             data.setdefault("temp_voice_channels", {})[str(temp_channel.id)] = {
-                "guild_id": member.guild.id,
-                "owner_id": member.id,
-                "control_channel_id": control_channel.id,
+                "guild_id": member.guild.id, "owner_id": member.id, "control_channel_id": None,
             }
             save_json(DATA_FILE, data)
-            embed = discord.Embed(
-                title="🎛️ Dein Voice-Raum",
-                description=(
-                    f"Du bist jetzt in {temp_channel.mention}.\n"
-                    "Dieses Steuerungs-Panel ist nur für dich sichtbar und bedienbar."
-                ),
-                color=discord.Color.blurple(),
-            )
-            embed.add_field(name="Verwalten", value="Name ändern · Nutzerlimit setzen · Privat/Öffentlich · Mitglieder kicken", inline=False)
-            await control_channel.send(embed=embed, view=TempVoiceAdminView(temp_channel.id, member.id))
-            print(f"[TEMPVOICE] Created channel {temp_channel.id} and private control panel {control_channel.id} for {member.id}", flush=True)
+
+            if server_language(member.guild.id) == "de":
+                embed = discord.Embed(
+                    title="🎛️ DEIN VOICE-RAUM",
+                    description=f"Willkommen in deinem persönlichen Sprachkanal, {member.mention}!\\nVerwalte deinen Raum direkt hier im Voice-Chat über die Schaltflächen unten.",
+                    color=discord.Color.blurple(),
+                )
+                embed.add_field(name="✏️ NAME", value="Ändere den Namen deines Kanals.", inline=True)
+                embed.add_field(name="👥 LIMIT", value="Lege fest, wie viele Personen beitreten können. 0 = unbegrenzt.", inline=True)
+                embed.add_field(name="🔐 SICHTBARKEIT", value="Schalte zwischen privat und öffentlich um.", inline=True)
+                embed.add_field(name="👢 MITGLIED ENTFERNEN", value="Trenne ein Mitglied von deinem Voice-Raum.", inline=True)
+                embed.set_footer(text="Nur der Ersteller kann die Schaltflächen bedienen.")
+            else:
+                embed = discord.Embed(
+                    title="🎛️ YOUR VOICE ROOM",
+                    description=f"Welcome to your personal voice channel, {member.mention}!\\nManage your room right here in voice chat using the controls below.",
+                    color=discord.Color.blurple(),
+                )
+                embed.add_field(name="✏️ RENAME", value="Change your channel name.", inline=True)
+                embed.add_field(name="👥 MEMBER LIMIT", value="Set how many people can join. 0 = unlimited.", inline=True)
+                embed.add_field(name="🔐 VISIBILITY", value="Switch between private and public.", inline=True)
+                embed.add_field(name="👢 DISCONNECT MEMBER", value="Disconnect a member from your voice room.", inline=True)
+                embed.set_footer(text="Only the room creator can use these controls.")
+            await temp_channel.send(embed=embed, view=TempVoiceAdminView(temp_channel.id, member.id, member.guild.id))
+            print(f"[TEMPVOICE] Created voice room {temp_channel.id} and posted owner controls in its voice chat for {member.id}", flush=True)
         except (discord.Forbidden, discord.HTTPException) as exc:
-            print(f"[TEMPVOICE] Could not create/move channel or panel: {type(exc).__name__}: {exc}", flush=True)
-            if control_channel is not None:
-                try:
-                    await control_channel.delete(reason="Temporäres Voice-Panel konnte nicht eingerichtet werden")
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
+            print(f"[TEMPVOICE] Could not create/move voice channel or post its panel: {type(exc).__name__}: {exc}", flush=True)
             if temp_channel is not None and not temp_channel.members:
                 try:
-                    await temp_channel.delete(reason="Temporärer Voice-Kanal konnte nicht vollständig eingerichtet werden")
+                    await temp_channel.delete(reason="Temporary voice room setup failed")
                 except (discord.Forbidden, discord.HTTPException):
                     pass
 
@@ -6920,32 +6914,28 @@ async def on_voice_state_update(
         channel_key = str(before.channel.id)
         metadata = temp_channels.get(channel_key)
         if metadata is not None and len(before.channel.members) == 0:
-            control_channel_id = metadata.get("control_channel_id") if isinstance(metadata, dict) else None
+            old_control_channel_id = metadata.get("control_channel_id") if isinstance(metadata, dict) else None
             try:
-                await before.channel.delete(reason="Temporärer Voice-Kanal ist leer")
-                if control_channel_id:
-                    control_channel = member.guild.get_channel(int(control_channel_id))
-                    if control_channel is not None:
-                        await control_channel.delete(reason="Zugehöriger temporärer Voice-Kanal ist leer")
+                await before.channel.delete(reason="Temporary voice room is empty")
+                if old_control_channel_id:
+                    old_control_channel = member.guild.get_channel(int(old_control_channel_id))
+                    if old_control_channel is not None:
+                        await old_control_channel.delete(reason="Legacy temporary voice control channel cleanup")
                 temp_channels.pop(channel_key, None)
                 save_json(DATA_FILE, data)
-            except (discord.Forbidden, discord.HTTPException):
+            except (discord.Forbidden, discord.HTTPException, TypeError, ValueError):
                 pass
     if member.bot:
         return
 
     key = (member.guild.id, member.id)
     now = datetime.now(timezone.utc)
-
-    # Voice joins/leaves count as activity and are stored with a UTC timestamp.
     if before.channel != after.channel and (before.channel is None or after.channel is None):
         stats = get_user_stats(member.guild.id, member.id)
         activity_now = now.isoformat()
         stats["last_voice_at"] = activity_now
         stats["last_activity_at"] = activity_now
         save_json(DATA_FILE, data)
-
-    # Leaving voice: add the completed session to the persistent total.
     if before.channel is not None and after.channel is None:
         started_at = _active_voice_sessions.pop(key, None)
         if started_at is not None:
@@ -6953,9 +6943,6 @@ async def on_voice_state_update(
             stats = get_user_stats(member.guild.id, member.id)
             stats["voice_seconds"] = int(stats.get("voice_seconds", 0)) + elapsed
             save_json(DATA_FILE, data)
-
-    # Joining voice starts a new session. Moving between voice channels keeps
-    # the same session running and does not double-count time.
     elif before.channel is None and after.channel is not None:
         _active_voice_sessions[key] = now
 
@@ -10709,7 +10696,7 @@ async def on_ready():
         if not isinstance(metadata, dict):
             continue
         try:
-            bot.add_view(TempVoiceAdminView(int(channel_id), int(metadata["owner_id"])))
+            bot.add_view(TempVoiceAdminView(int(channel_id), int(metadata["owner_id"]), int(metadata.get("guild_id") or 0)))
         except (KeyError, TypeError, ValueError):
             continue
 
