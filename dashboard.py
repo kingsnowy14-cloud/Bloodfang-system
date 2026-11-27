@@ -1850,7 +1850,7 @@ DASHBOARD_TRANSLATIONS["en"].update({
 
 @lru_cache(maxsize=8192)
 def _translate_dashboard_text(value, language):
-    if not value or not value.strip() or language == "en":
+    if not value or not value.strip():
         return value
     try:
         from deep_translator import GoogleTranslator
@@ -1906,7 +1906,7 @@ class _DashboardTextTranslator(HTMLParser):
             self.skip_depth -= 1
 
     def handle_data(self, data):
-        if self.skip_depth or not data.strip() or self.language == "en":
+        if self.skip_depth or not data.strip():
             self.parts.append(data)
         else:
             self.text_indexes.append(len(self.parts))
@@ -1936,8 +1936,6 @@ def _translate_dashboard(value, language):
     translations = DASHBOARD_TRANSLATIONS.get(language, {})
     for source in sorted(translations, key=len, reverse=True):
         value = value.replace(source, translations[source])
-    if language == "en":
-        return value
     parser = _DashboardTextTranslator(language)
     try:
         parser.feed(value)

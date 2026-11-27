@@ -782,8 +782,6 @@ def bot_text(guild_id, text):
     known = BOT_TRANSLATIONS.get(language, {}).get(text)
     if known is not None:
         return known
-    if language == "en":
-        return text
     placeholders = {}
     def protect(match):
         key = f"IWPLACEHOLDER{len(placeholders)}TOKEN"
