@@ -763,14 +763,32 @@ def server_now(guild_id):
     """Current time in the time zone configured for this server."""
     return datetime.now(server_timezone(guild_id))
 
-@lru_cache(maxsize=4096)
+@lru_cache(maxsize=8192)
 def _cached_bot_translation(text, language):
-    """Translate uncatalogued bot text and cache it to avoid repeat API calls."""
+    """Translate uncatalogued bot text with bounded retries, fallback, and caching."""
+    import time
+    last_error = None
+    for attempt in range(3):
+        try:
+            from deep_translator import GoogleTranslator
+            result = GoogleTranslator(source="auto", target=language).translate(text)
+            if isinstance(result, str) and result.strip():
+                return result
+            last_error = ValueError("Empty translation response")
+        except Exception as exc:
+            last_error = exc
+        if attempt < 2:
+            time.sleep((1, 3)[attempt])
+
+    print(f"[I18N] Primary bot translation failed ({type(last_error).__name__ if last_error else 'UnknownError'}); trying fallback provider.", flush=True)
     try:
-        from deep_translator import GoogleTranslator
-        return GoogleTranslator(source="auto", target=language).translate(text)
+        from deep_translator import MyMemoryTranslator
+        result = MyMemoryTranslator(source="auto", target=language).translate(text)
+        if isinstance(result, str) and result.strip():
+            return result
+        raise ValueError("Empty fallback translation response")
     except Exception as exc:
-        print(f"[I18N] Bot translation unavailable ({type(exc).__name__}); using original text.", flush=True)
+        print(f"[I18N] Bot translation fallback failed ({type(exc).__name__}); using original text.", flush=True)
         return text
 
 
