@@ -4619,25 +4619,30 @@ def guild_ausweis_settings(guild_id):
             })
         if not updated:
             abort(400, "Lege mindestens eine Frage für den Ausweis fest.")
-        raw_channel = request.form.get("ausweis_channel", "").strip()
-        channel = guild.get_channel(int(raw_channel)) if raw_channel.isdigit() else None
-        if not isinstance(channel, discord.TextChannel):
-            abort(400, "Bitte wähle einen gültigen Textkanal für das Ausweis-Panel.")
+        raw_output_channel = request.form.get("ausweis_channel", "").strip()
+        raw_panel_channel = request.form.get("ausweis_panel_channel", "").strip()
+        output_channel = guild.get_channel(int(raw_output_channel)) if raw_output_channel.isdigit() else None
+        panel_channel = guild.get_channel(int(raw_panel_channel)) if raw_panel_channel.isdigit() else None
+        if not isinstance(output_channel, discord.TextChannel):
+            abort(400, "Bitte wähle einen gültigen Kanal für fertige Ausweisbilder.")
+        if not isinstance(panel_channel, discord.TextChannel):
+            abort(400, "Bitte wähle einen gültigen Kanal für das Ausweis-Panel.")
         cfg["ausweis_questions"] = updated
-        cfg["ausweis_channel"] = channel.id
+        cfg["ausweis_channel"] = output_channel.id
+        cfg["ausweis_panel_channel"] = panel_channel.id
         _save_json(data_path("config.json"), _config)
 
         async def publish_panel():
             if guild.me is None:
                 raise RuntimeError("Der Bot ist auf diesem Server nicht verfügbar.")
-            permissions = channel.permissions_for(guild.me)
+            permissions = panel_channel.permissions_for(guild.me)
             missing = [name for name, allowed in (
                 ("Kanal ansehen", permissions.view_channel),
                 ("Nachrichten senden", permissions.send_messages),
                 ("Links einbetten", permissions.embed_links),
             ) if not allowed]
             if missing:
-                raise RuntimeError("Dem Bot fehlen im gewählten Kanal diese Rechte: " + ", ".join(missing))
+                raise RuntimeError("Dem Bot fehlen im Panel-Kanal diese Rechte: " + ", ".join(missing))
             from ausweis import AusweisPanelView
             embed = discord.Embed(
                 title="🪪 Digitalen RP-Ausweis beantragen",
@@ -4645,17 +4650,17 @@ def guild_ausweis_settings(guild_id):
                 color=discord.Color.from_rgb(44, 101, 232),
             )
             embed.set_footer(text="Bloodfang RP · Digitales Ausweissystem")
-            view = AusweisPanelView(_bot, guild.id, channel.id)
+            view = AusweisPanelView(_bot, guild.id, output_channel.id)
             message = None
             previous_id = cfg.get("ausweis_panel_message_id")
             if previous_id:
                 try:
-                    message = await channel.fetch_message(int(previous_id))
+                    message = await panel_channel.fetch_message(int(previous_id))
                     await message.edit(embed=embed, view=view)
                 except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError):
                     message = None
             if message is None:
-                message = await channel.send(embed=embed, view=view)
+                message = await panel_channel.send(embed=embed, view=view)
             cfg["ausweis_panel_message_id"] = message.id
             _save_json(data_path("config.json"), _config)
             panel_path = data_path("ausweis_panels.json")
@@ -4666,7 +4671,7 @@ def guild_ausweis_settings(guild_id):
             except (OSError, json.JSONDecodeError):
                 panels = []
             panels = [item for item in panels if str(item.get("guild_id")) != str(guild.id)]
-            panels.append({"guild_id": guild.id, "channel_id": channel.id})
+            panels.append({"guild_id": guild.id, "channel_id": output_channel.id, "output_channel_id": output_channel.id, "panel_channel_id": panel_channel.id})
             panel_path.write_text(json.dumps(panels, ensure_ascii=False, indent=2), encoding="utf-8")
             _bot.add_view(view, message_id=message.id)
             return message.id
@@ -4680,17 +4685,20 @@ def guild_ausweis_settings(guild_id):
             print(f"[DASHBOARD] RP ID panel publish failed for guild {guild.id}: {type(exc).__name__}: {exc}", flush=True)
             abort(502, "Die Fragen wurden gespeichert, aber das Panel konnte nicht gesendet werden. Prüfe die Bot-Rechte im gewählten Kanal und versuche erneut zu speichern.")
         _audit_dashboard_change(guild.id, "RP-Ausweissystem", session.get("user_id"),
-            "Ausweisfragen und Panel-Kanal aktualisiert: " + channel.name)
+            "Ausweisfragen und getrennte Ausweis-Kanäle aktualisiert: " + panel_channel.name + " / " + output_channel.name)
         return redirect(url_for("guild_ausweis_settings", guild_id=gid, saved="1"))
-    channel_options = ['<option value="">— Kanal auswählen —</option>']
-    for channel in guild.text_channels:
-        selected = " selected" if str(channel.id) == str(cfg.get("ausweis_channel") or "") else ""
-        channel_options.append(f'<option value="{channel.id}"{selected}>{html.escape(channel.name)}</option>')
-    body = '<section class="card"><span class="pill">RP · IDENTITÄT</span><h1 style="margin-top:12px">🪪 Digitaler RP-Ausweis</h1><p>Lege fest, welche Fragen Mitglieder beim Antrag beantworten. Die jeweilige Überschrift erscheint später direkt als Feldtitel auf dem Ausweisbild. Wähle außerdem den Kanal: Beim Speichern wird dort automatisch das Panel mit dem Button „Ausweis beantragen“ gesendet. Wenn bereits ein Panel existiert, wird es aktualisiert statt ein neues zu posten.</p>'
+    def channel_options(current):
+        values = ['<option value="">— Kanal auswählen —</option>']
+        for text_channel in guild.text_channels:
+            selected = " selected" if str(text_channel.id) == str(current or "") else ""
+            values.append(f'<option value="{text_channel.id}"{selected}>{html.escape(text_channel.name)}</option>')
+        return "".join(values)
+    body = '<section class="card"><span class="pill">RP · IDENTITÄT</span><h1 style="margin-top:12px">🪪 Digitaler RP-Ausweis</h1><p>Lege fest, welche Fragen Mitglieder beim Antrag beantworten. Die jeweilige Überschrift erscheint später direkt als Feldtitel auf dem Ausweisbild. Wähle getrennt den Kanal für das Antrags-Panel und den Kanal, in dem fertige Ausweisbilder veröffentlicht werden. Beim Speichern wird das Panel im Panel-Kanal erstellt oder aktualisiert.</p>'
     if request.args.get("saved") == "1":
         body += '<div class="notice">✅ Die Ausweisfragen wurden gespeichert. Neue Anträge verwenden ab sofort diese Felder.</div>'
     body += '<form method="post">' + _csrf_field()
-    body += '<label for="ausweis_channel">Kanal für das Ausweis-Panel und die fertigen Ausweisbilder</label><select id="ausweis_channel" name="ausweis_channel" required>' + "".join(channel_options) + '</select>'
+    body += '<label for="ausweis_panel_channel">Kanal für das Ausweis-Panel (Button „Ausweis beantragen“)</label><select id="ausweis_panel_channel" name="ausweis_panel_channel" required>' + channel_options(cfg.get("ausweis_panel_channel") or cfg.get("ausweis_channel")) + '</select>'
+    body += '<label for="ausweis_channel">Kanal für fertige Ausweisbilder</label><select id="ausweis_channel" name="ausweis_channel" required>' + channel_options(cfg.get("ausweis_channel")) + '</select>'
     for index, item in enumerate(questions, 1):
         item = item if isinstance(item, dict) else {}
         label = html.escape(str(item.get("label", "")), quote=True)

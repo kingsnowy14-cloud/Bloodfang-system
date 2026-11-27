@@ -86,15 +86,15 @@ def _make_id_card(guild, member, answers, questions, card_id, issue_date):
     columns = 2
     rows = max(1, ceil(len(questions) / columns))
     top = 190
-    field_height = 72
-    row_gap = 10
+    field_height = 96
+    row_gap = 12
     metadata_y = top + rows * (field_height + row_gap) + 4
     height = metadata_y + 170
     image = Image.new("RGB", (980, height), "#ffffff")
     draw = ImageDraw.Draw(image)
-    title_font, id_font = _font(36, True), _font(21, True)
-    label_font, value_font = _font(17, True), _font(28, True)
-    small_font, status_font = _font(15), _font(16, True)
+    title_font, id_font = _font(38, True), _font(23, True)
+    label_font, value_font = _font(23, True), _font(37, True)
+    small_font, status_font = _font(19), _font(21, True)
 
     draw.rounded_rectangle((18, 18, 962, height - 18), radius=25, fill="#ffffff", outline="#cbd3df", width=3)
     # Das Serverlogo liegt nur als sehr dezentes Wasserzeichen unter den Angaben.
@@ -133,9 +133,9 @@ def _make_id_card(guild, member, answers, questions, card_id, issue_date):
         col, row = index % columns, index // columns
         x, y = 46 + col * 456, top + row * (field_height + row_gap)
         draw.rounded_rectangle((x, y, x + 433, y + field_height), radius=12, fill="#f1f3f6", outline="#d5dce6", width=1)
-        draw.text((x + 16, y + 10), _fit_text(draw, question["label"], label_font, 398), font=label_font, fill="#697386")
+        draw.text((x + 16, y + 12), _fit_text(draw, question["label"], label_font, 398), font=label_font, fill="#697386")
         value = answers.get(question["key"], "")
-        draw.text((x + 16, y + 34), _fit_text(draw, value, value_font, 398), font=value_font, fill="#191d25")
+        draw.text((x + 16, y + 48), _fit_text(draw, value, value_font, 398), font=value_font, fill="#191d25")
 
     draw.rounded_rectangle((46, metadata_y, 935, metadata_y + 68), radius=12, fill="#f1f3f6", outline="#d5dce6", width=1)
     draw.text((62, metadata_y + 10), "AUSWEISSTATUS", font=label_font, fill="#697386")
@@ -247,9 +247,9 @@ class AusweisRequestButton(discord.ui.Button):
 
 
 class AusweisPanelView(discord.ui.View):
-    def __init__(self, bot, guild_id, channel_id):
+    def __init__(self, bot, guild_id, output_channel_id):
         super().__init__(timeout=None)
-        self.add_item(AusweisRequestButton(bot, guild_id, channel_id))
+        self.add_item(AusweisRequestButton(bot, guild_id, output_channel_id))
 
 
 class Ausweis(commands.Cog):
@@ -259,7 +259,7 @@ class Ausweis(commands.Cog):
     async def cog_load(self):
         for panel in load_panels():
             try:
-                self.bot.add_view(AusweisPanelView(self.bot, int(panel["guild_id"]), int(panel["channel_id"])))
+                self.bot.add_view(AusweisPanelView(self.bot, int(panel["guild_id"]), int(panel.get("output_channel_id", panel["channel_id"]))))
             except (KeyError, TypeError, ValueError):
                 continue
 
