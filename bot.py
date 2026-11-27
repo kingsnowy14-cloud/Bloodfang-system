@@ -17,7 +17,7 @@ from typing import Optional
 from urllib.parse import parse_qs, urlparse
 import urllib.request
 import urllib.error
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from storage import data_path
 from guild_announcement import cleanup_mainserver_announcements
 from premium import guild_has_feature, account_plan, expired_grants, mark_expiry_dm_sent, grant_server_boost_premium
@@ -4435,13 +4435,18 @@ def _id_card_image(guild, member, card_number, answers=None):
             with urllib.request.urlopen(icon_request, timeout=4) as response:
                 icon_bytes = response.read(1_500_000)
             watermark = Image.open(io.BytesIO(icon_bytes)).convert("RGBA")
-            watermark.thumbnail((560, 560), Image.Resampling.LANCZOS)
-            alpha = watermark.getchannel("A").point(lambda value: int(value * 0.14))
+            # Fill virtually the entire card with the server logo, cropping to the
+            # landscape card ratio instead of leaving it as a small top-centered badge.
+            watermark = ImageOps.fit(
+                watermark,
+                (image.width - 24, image.height - 24),
+                method=Image.Resampling.LANCZOS,
+                centering=(0.5, 0.5),
+            )
+            alpha = watermark.getchannel("A").point(lambda value: int(value * 0.20))
             watermark.putalpha(alpha)
-            # Large, genuinely centered server logo as a subtle watermark behind the card text.
-            logo_x = (image.width - watermark.width) // 2
-            logo_y = (image.height - watermark.height) // 2
-            image.paste(watermark, (logo_x, logo_y), watermark)
+            # Full-card background watermark; all card text and portrait are drawn above it.
+            image.paste(watermark, (12, 12), watermark)
     except Exception:
         pass
     title = str(cfg.get("id_card_title", "Notruf Craftopia RP"))[:42]
