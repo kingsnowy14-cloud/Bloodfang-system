@@ -11457,16 +11457,16 @@ async def language_command(ctx, language: str = "auto"):
 @bot.command(name="serverlanguage", aliases=["serverlang"])
 @commands.guild_only()
 @commands.has_guild_permissions(manage_guild=True)
-async def server_language_command(ctx, language: str = "auto"):
+async def server_language_command(ctx, language: str = "en"):
     """Set this server's default bot language."""
     language = language.lower()
-    if language not in {"de", "en", "auto"}:
-        await ctx.reply("🌐 Usage: `!serverlanguage de`, `!serverlanguage en` or `!serverlanguage auto`.", mention_author=False)
+    if language not in {"de", "en"}:
+        await ctx.reply("🌐 Usage: `!serverlanguage en` or `!serverlanguage de`.", mention_author=False)
         return
     cfg = guild_config(ctx.guild.id)
     cfg["bot_language"] = language
     save_json(CONFIG_FILE, config)
-    label = {"de": "Deutsch", "en": "English", "auto": "Discord-Serversprache"}[language]
+    label = {"de": "Deutsch", "en": "English"}[language]
     message = (
         f"✅ Die Standardsprache von IronWolf für diesen Server ist jetzt **{label}**."
         if language == "de"
