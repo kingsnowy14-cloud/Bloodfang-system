@@ -1946,30 +1946,8 @@ def _translate_dashboard(value, language):
         return value
 
 def _dashboard_language():
-    """Guild dashboard pages always follow that server's bot language."""
-    guild_match = re.match(r"^/guild/(\d+)(?:/|$)", request.path)
-    if guild_match and _guild_config:
-        try:
-            guild_id = int(guild_match.group(1))
-            selected = str(_guild_config(guild_id).get("bot_language", "en")).lower()
-            # Guild dashboards support exactly German and English.
-            return selected if selected in {"de", "en"} else "en"
-        except (TypeError, ValueError):
-            return "en"
-
-    # Non-guild pages may still use the signed-in user's dashboard preference.
-    user_id = str(session.get("user_id", ""))
-    if user_id:
-        try:
-            stored = json.loads(data_path("data.json").read_text(encoding="utf-8"))
-            selected = str(stored.get("languages", {}).get(user_id, "")).lower()
-            if selected in {"de", "en"}:
-                return selected
-        except (OSError, ValueError, AttributeError):
-            pass
-
-    selected = str(session.get("dashboard_language", "en")).lower()
-    return selected if selected in {"de", "en"} else "en"
+    """The website UI is English-only; bot language is configured separately."""
+    return "en"
 
 
 def _render(title, body, status=200):
@@ -1977,9 +1955,8 @@ def _render(title, body, status=200):
     team_only_page = request.path.startswith("/team-management/") or request.path.endswith("/team-management")
     body = ("" if team_only_page else _module_navigation()) + body
     current_path = html.escape(request.path + (("?" + request.query_string.decode("utf-8", "ignore")) if request.query_string else ""), quote=True)
-    # Translate the completed page once. Translating body, title and then the
-    # completed HTML caused duplicate API requests and sometimes re-translated text.
-    rendered_page = _translate_dashboard(_page(title, body), language)
+    # The dashboard is always rendered in English, independent of bot language.
+    rendered_page = _page(title, body)
     rendered_page = re.sub(r'<html lang="[^"]*">', f'<html lang="{language}">', rendered_page, count=1)
     response = make_response(rendered_page, status)
     response.headers["Content-Language"] = language
@@ -5154,7 +5131,7 @@ def guild_page(guild_id):
             settings_html += '</select><div class="notice">Aktuelle Bot-Zeit: <strong>' + html.escape(datetime.now(ZoneInfo(selected_timezone if selected_timezone in timezone_choices else "UTC")).strftime("%d.%m.%Y · %H:%M")) + '</strong></div>'
             selected_language_ui = str(cfg.get("bot_language", "en"))
             language_choices = (("en", "English"), ("de", "Deutsch"))
-            settings_html += '<h3>🌐 Website & Bot Language</h3><p class="muted">Choose English or German for this Discord server. The server dashboard and IronWolf bot use the same language.</p><label for="bot_language">Website and bot language</label><select id="bot_language" name="bot_language">' + ''.join('<option value="' + lang + '"' + (' selected' if selected_language_ui == lang else '') + '>' + label + '</option>' for lang, label in language_choices) + '</select>'
+            settings_html += '<h3>🌐 Bot Language</h3><p class="muted">Choose the language IronWolf uses on this Discord server. The website dashboard always stays in English.</p><label for="bot_language">Bot language</label><select id="bot_language" name="bot_language">' + ''.join('<option value="' + lang + '"' + (' selected' if selected_language_ui == lang else '') + '>' + label + '</option>' for lang, label in language_choices) + '</select>'
         elif section == "general":
             bot_enabled_checked = " checked" if cfg.get("bot_enabled", True) else ""
             settings_html += '<div class="check"><input type="checkbox" id="bot_enabled" name="bot_enabled"' + bot_enabled_checked + '><label for="bot_enabled">🐺 Enable IronWolf on this server</label></div><p class="muted">When disabled, the bot will not respond on this server. New servers start disabled; existing servers keep their current behavior.</p>'
