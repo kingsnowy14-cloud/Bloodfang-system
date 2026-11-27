@@ -1952,10 +1952,16 @@ def _dashboard_language():
     guild_match = re.match(r"^/guild/(\d+)(?:/|$)", request.path)
     if guild_match and _guild_config:
         try:
-            selected = str(_guild_config(int(guild_match.group(1))).get("bot_language", "en")).lower()
-            # "auto" and invalid/empty values deliberately fall back to English.
-            # Personal user/session language must never override a server setting.
-            return selected if selected in {"de", "en"} else "en"
+            guild_id = int(guild_match.group(1))
+            selected = str(_guild_config(guild_id).get("bot_language", "en")).lower()
+            # Match bot.server_language(): explicit choices win; auto follows the Discord server locale.
+            if selected in {"de", "en"}:
+                return selected
+            if selected == "auto":
+                guild = _bot.get_guild(guild_id) if _bot else None
+                locale = str(getattr(guild, "preferred_locale", "")).lower() if guild else ""
+                return "de" if locale.startswith("de") else "en"
+            return "en"
         except (TypeError, ValueError):
             return "en"
 
@@ -5159,7 +5165,7 @@ def guild_page(guild_id):
             settings_html += '</select><div class="notice">Aktuelle Bot-Zeit: <strong>' + html.escape(datetime.now(ZoneInfo(selected_timezone if selected_timezone in timezone_choices else "UTC")).strftime("%d.%m.%Y · %H:%M")) + '</strong></div>'
             selected_language_ui = str(cfg.get("bot_language", "en"))
             language_choices = (("en", "English (default)"), ("de", "Deutsch"), ("auto", "Auto (English fallback)"))
-            settings_html += '<h3>🤖 Bot Language</h3><p class="muted">Choose the language used by the bot for this Discord server. This does not change Discord’s interface language.</p><label for="bot_language">Bot language</label><select id="bot_language" name="bot_language">' + ''.join('<option value="' + lang + '"' + (' selected' if selected_language_ui == lang else '') + '>' + label + '</option>' for lang, label in language_choices) + '</select>'
+            settings_html += '<h3>🌐 Website & Bot Language</h3><p class="muted">Choose one shared language for this Discord server. The server dashboard and IronWolf bot AI use this same language. Auto follows the Discord server language.</p><label for="bot_language">Website and bot language</label><select id="bot_language" name="bot_language">' + ''.join('<option value="' + lang + '"' + (' selected' if selected_language_ui == lang else '') + '>' + label + '</option>' for lang, label in language_choices) + '</select>'
         elif section == "general":
             bot_enabled_checked = " checked" if cfg.get("bot_enabled", True) else ""
             settings_html += '<div class="check"><input type="checkbox" id="bot_enabled" name="bot_enabled"' + bot_enabled_checked + '><label for="bot_enabled">🐺 Enable IronWolf on this server</label></div><p class="muted">When disabled, the bot will not respond on this server. New servers start disabled; existing servers keep their current behavior.</p>'
