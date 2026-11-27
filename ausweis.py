@@ -81,7 +81,8 @@ def _fit_text(draw, text, font, max_width):
     return value or "—"
 
 
-def _make_id_card(member, answers, questions, card_id, issue_date):
+def _make_id_card(guild, member, answers, questions, card_id, issue_date):
+    questions = questions[:5]
     columns = 2
     rows = max(1, ceil(len(questions) / columns))
     top = 190
@@ -91,11 +92,23 @@ def _make_id_card(member, answers, questions, card_id, issue_date):
     height = metadata_y + 170
     image = Image.new("RGB", (980, height), "#ffffff")
     draw = ImageDraw.Draw(image)
-    title_font, id_font = _font(31, True), _font(19, True)
-    label_font, value_font = _font(13, True), _font(22, True)
+    title_font, id_font = _font(36, True), _font(21, True)
+    label_font, value_font = _font(17, True), _font(28, True)
     small_font, status_font = _font(15), _font(16, True)
 
     draw.rounded_rectangle((18, 18, 962, height - 18), radius=25, fill="#ffffff", outline="#cbd3df", width=3)
+    # Das Serverlogo liegt nur als sehr dezentes Wasserzeichen unter den Angaben.
+    try:
+        if guild and guild.icon:
+            icon_request = urllib.request.Request(str(guild.icon.with_size(512).url), headers={"User-Agent": "Bloodfang-RP-ID/1.0"})
+            with urllib.request.urlopen(icon_request, timeout=4) as response:
+                icon_bytes = response.read(1_500_000)
+            watermark = Image.open(io.BytesIO(icon_bytes)).convert("RGBA")
+            watermark.thumbnail((410, 410), Image.Resampling.LANCZOS)
+            watermark.putalpha(watermark.getchannel("A").point(lambda value: int(value * 0.09)))
+            image.paste(watermark, (500, 220), watermark)
+    except Exception:
+        pass
     draw.text((46, 40), "DIGITALER RP-AUSWEIS", font=title_font, fill="#171b23")
     draw.text((558, 45), f"AUSWEIS-ID {card_id}", font=id_font, fill="#2865e8")
     draw.ellipse((597, 81, 610, 94), fill="#20c46b")
@@ -186,7 +199,7 @@ class AusweisModal(discord.ui.Modal):
 
         card_id = "BA-" + secrets.token_hex(3).upper()
         issue_date = datetime.datetime.now(datetime.timezone.utc).astimezone().strftime("%d.%m.%Y")
-        card_image = _make_id_card(member, answers, self.questions, card_id, issue_date)
+        card_image = _make_id_card(self.bot.get_guild(self.guild_id), member, answers, self.questions, card_id, issue_date)
         try:
             await channel.send(file=discord.File(io.BytesIO(card_image.getvalue()), filename="digitaler-rp-ausweis.png"), allowed_mentions=discord.AllowedMentions.none())
         except (discord.Forbidden, discord.HTTPException):

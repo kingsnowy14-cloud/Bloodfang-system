@@ -4382,9 +4382,9 @@ def _id_card_image(guild, member, card_number, answers=None):
     try:
         font_title = ImageFont.truetype("DejaVuSans.ttf", 36)
         font_heading = ImageFont.truetype("DejaVuSans.ttf", 23)
-        font_body = ImageFont.truetype("DejaVuSans.ttf", 25)
-        font_small = ImageFont.truetype("DejaVuSans.ttf", 20)
-        font_tiny = ImageFont.truetype("DejaVuSans.ttf", 15)
+        font_body = ImageFont.truetype("DejaVuSans-Bold.ttf", 31)
+        font_small = ImageFont.truetype("DejaVuSans.ttf", 21)
+        font_tiny = ImageFont.truetype("DejaVuSans-Bold.ttf", 18)
     except OSError:
         font_title = font_heading = font_body = font_small = font_tiny = ImageFont.load_default()
 
@@ -4399,6 +4399,19 @@ def _id_card_image(guild, member, card_number, answers=None):
         draw.line((x, 170, min(x + 260, 1180), 735), fill="#edf3f6", width=2)
     draw.rounded_rectangle((12, 12, 1188, 166), radius=28, fill="#132d40")
     draw.rectangle((12, 126, 1188, 166), fill=accent)
+    # Dezentes Serverwappen als Wasserzeichen im Kartenhintergrund.
+    try:
+        if guild.icon:
+            icon_request = urllib.request.Request(str(guild.icon.with_size(512).url), headers={"User-Agent": "Roleplay-IDCard/1.0"})
+            with urllib.request.urlopen(icon_request, timeout=4) as response:
+                icon_bytes = response.read(1_500_000)
+            watermark = Image.open(io.BytesIO(icon_bytes)).convert("RGBA")
+            watermark.thumbnail((390, 390), Image.Resampling.LANCZOS)
+            alpha = watermark.getchannel("A").point(lambda value: int(value * 0.10))
+            watermark.putalpha(alpha)
+            image.paste(watermark, (690, 285), watermark)
+    except Exception:
+        pass
     title = str(cfg.get("id_card_title", "Notruf Craftopia RP"))[:42]
     draw.text((38, 35), title, font=font_title, fill="#ffffff")
     draw.text((40, 91), "BÜRGERAUSWEIS  /  ROLEPLAY-DOKUMENT", font=font_tiny, fill="#c4d3dd")
@@ -4437,14 +4450,14 @@ def _id_card_image(guild, member, card_number, answers=None):
     draw.text((320, 204), "PERSONENDATEN", font=font_heading, fill="#28495c")
     draw.line((320, 245, 1148, 245), fill=accent, width=3)
     fields = []
-    for item in answers[:8]:
+    for item in answers[:5]:
         question = " ".join(str(item.get("question", "Angabe")).split()).strip(" ?:")
         answer = " ".join(str(item.get("answer", "—")).split()) or "—"
         if answer:
             fields.append((question[:28].upper(), answer[:32]))
     # Nur selbst konfigurierte Fragen werden auf dem Ausweis angezeigt.
-    display_fields = fields[:6]
-    positions = [(320, 272), (730, 272), (320, 368), (730, 368), (320, 464), (730, 464)]
+    display_fields = fields[:5]
+    positions = [(320, 272), (730, 272), (320, 370), (730, 370), (320, 468)]
     for (label, value), (x, y) in zip(display_fields, positions):
         draw.text((x, y), label[:30], font=font_tiny, fill="#6b8491")
         draw.text((x, y + 29), value[:34], font=font_body, fill="#203746")
@@ -4487,7 +4500,7 @@ async def _id_card_dm_application(guild_id, user):
         if guild is None:
             return
         cfg = guild_config(guild.id)
-        questions = [str(q).strip()[:45] for q in (cfg.get("id_card_questions") or ["What name would you like on your ID card?", "Why do you need an ID card?"]) if str(q).strip()][:10]
+        questions = [str(q).strip()[:45] for q in (cfg.get("id_card_questions") or ["What name would you like on your ID card?", "Why do you need an ID card?"]) if str(q).strip()][:5]
         if not questions:
             questions = ["What name would you like on your ID card?", "Why do you need an ID card?"]
         await user.send(f"🪪 **ID card application for {guild.name}**\nI will now ask you {len(questions)} question(s). Reply directly to my DM. You have 5 minutes per question. Type CANCEL to stop.")

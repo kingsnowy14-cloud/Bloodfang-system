@@ -3023,8 +3023,8 @@ def guild_ausweis(guild_id):
         if not re.fullmatch(r"[0-9a-fA-F]{6}", color):
             abort(400, "Bitte eine gültige Ausweisfarbe auswählen.")
         questions = [line.strip() for line in request.form.get("questions", "").splitlines() if line.strip()]
-        if len(questions) > 10:
-            abort(400, "Es sind maximal 10 Ausweisfragen erlaubt.")
+        if len(questions) > 5:
+            abort(400, "Es sind maximal 5 Ausweisfragen erlaubt.")
         if any(len(question) > 45 for question in questions):
             abort(400, "Jede Frage darf höchstens 45 Zeichen lang sein.")
         if not questions:
@@ -3082,7 +3082,7 @@ def guild_ausweis(guild_id):
         '<label for="id_card_output_channel_id">Optionaler Kanal für fertige Ausweise</label><select id="id_card_output_channel_id" name="id_card_output_channel_id">' + output_channel_options + '</select>'
         '<small class="muted">Der Ausgabekanal ist optional und erhält den fertigen Ausweis inklusive Antworten. Bei manueller Prüfung müssen Teamrolle und Prüfkanal gesetzt sein. Admins und Server-Verwalter können ebenfalls prüfen.</small>'
         '<label for="id_card_role_id">Optionale Ausweisrolle nach Genehmigung</label><select id="id_card_role_id" name="id_card_role_id">' + role_options + '</select>'
-        '<h3>Formularfragen (maximal 10)</h3><label for="questions">Eine Frage pro Zeile, maximal 45 Zeichen je Frage</label><textarea id="questions" name="questions" rows="10" maxlength="500">' + html.escape("\n".join(cfg.get("id_card_questions", defaults["id_card_questions"]))) + '</textarea>'
+        '<h3>Formularfragen (maximal 5)</h3><label for="questions">Eine Frage pro Zeile, maximal 45 Zeichen je Frage</label><textarea id="questions" name="questions" rows="5" maxlength="250">' + html.escape("\n".join(cfg.get("id_card_questions", defaults["id_card_questions"])[:5])) + '</textarea>'
         '<p class="muted">Auf dem Ausweis erscheinen ausschließlich die Überschriften und Antworten deiner eigenen Formularfragen. Du bestimmst selbst, welche Angaben abgefragt und angezeigt werden.</p>'
         '<button type="submit">💾 Ausweissystem speichern</button></form>'
         '<p class="notice">Der Ausweis ist ein digitaler Server-Ausweis, kein amtlicher Identitätsnachweis. Der Bot benötigt passende Rollen- und Kanalrechte.</p>'
