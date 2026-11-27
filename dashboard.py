@@ -5164,7 +5164,7 @@ def guild_page(guild_id):
             settings_html += ''.join('<option value="' + zone + '"' + (' selected' if selected_timezone == zone else '') + '>' + zone.replace("_", " ") + '</option>' for zone in timezone_choices)
             settings_html += '</select><div class="notice">Aktuelle Bot-Zeit: <strong>' + html.escape(datetime.now(ZoneInfo(selected_timezone if selected_timezone in timezone_choices else "UTC")).strftime("%d.%m.%Y · %H:%M")) + '</strong></div>'
             selected_language_ui = str(cfg.get("bot_language", "en"))
-            language_choices = (("en", "English (default)"), ("de", "Deutsch"), ("auto", "Auto (English fallback)"))
+            language_choices = (("en", "English"), ("de", "Deutsch"), ("auto", "Auto (Discord server language)"))
             settings_html += '<h3>🌐 Website & Bot Language</h3><p class="muted">Choose one shared language for this Discord server. The server dashboard and IronWolf bot AI use this same language. Auto follows the Discord server language.</p><label for="bot_language">Website and bot language</label><select id="bot_language" name="bot_language">' + ''.join('<option value="' + lang + '"' + (' selected' if selected_language_ui == lang else '') + '>' + label + '</option>' for lang, label in language_choices) + '</select>'
         elif section == "general":
             bot_enabled_checked = " checked" if cfg.get("bot_enabled", True) else ""
