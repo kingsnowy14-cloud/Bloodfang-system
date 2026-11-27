@@ -1856,31 +1856,64 @@ def _translate_dashboard_text(value, language):
         from deep_translator import GoogleTranslator
         return GoogleTranslator(source="auto", target=language).translate(value)
     except Exception as exc:
-        print(f"[I18N] Dashboard translation unavailable ({type(exc).__name__}); showing source text.", flush=True)
-        return value
-
-
-def _translate_dashboard_batch(values, language):
-    """Translate visible text in batches; one network request per group, not per HTML node."""
-    if not values:
-        return values
-    from deep_translator import GoogleTranslator
-    translator = GoogleTranslator(source="auto", target=language)
-    translated = []
-    for offset in range(0, len(values), 25):
-        chunk = values[offset:offset + 25]
+        print(f"[I18N] Dashboard translation unavailable ({type(exc).__name__}); trying fallback provider.", flush=True)
         try:
-            results = translator.translate_batch(chunk)
-            if not isinstance(results, list) or len(results) != len(chunk):
-                raise ValueError("Unexpected translation batch response")
+            from deep_translator import MyMemoryTranslator
+            result = MyMemoryTranslator(source="auto", target=language).translate(value)
+            return result if isinstance(result, str) and result.strip() else value
+        except Exception as fallback_exc:
+            print(f"[I18N] Dashboard fallback failed ({type(fallback_exc).__name__}); showing source text.", flush=True)
+            return value
+
+
+@lru_cache(maxsize=512)
+def _translate_dashboard_batch_cached(values, language):
+    """Cache completed page batches and retry small groups to avoid provider rate limits."""
+    from deep_translator import GoogleTranslator
+    from deep_translator import MyMemoryTranslator
+    translated = []
+    for offset in range(0, len(values), 5):
+        chunk = list(values[offset:offset + 5])
+        results = None
+        last_error = None
+        for attempt in range(3):
+            try:
+                results = GoogleTranslator(source="auto", target=language).translate_batch(chunk)
+                if not isinstance(results, list) or len(results) != len(chunk):
+                    raise ValueError("Unexpected translation batch response")
+                break
+            except Exception as exc:
+                last_error = exc
+                if attempt < 2:
+                    time.sleep((1, 3)[attempt])
+        if isinstance(results, list) and len(results) == len(chunk):
             translated.extend(
                 result if isinstance(result, str) and result.strip() else original
                 for original, result in zip(chunk, results)
             )
-        except Exception as exc:
-            print(f"[I18N] Dashboard translation batch failed ({type(exc).__name__}); preserving this batch.", flush=True)
-            translated.extend(chunk)
-    return translated
+            continue
+        print(f"[I18N] Dashboard batch failed ({type(last_error).__name__ if last_error else 'UnknownError'}); trying fallback provider.", flush=True)
+        fallback = MyMemoryTranslator(source="auto", target=language)
+        for original in chunk:
+            try:
+                result = fallback.translate(original)
+                translated.append(result if isinstance(result, str) and result.strip() else original)
+            except Exception as exc:
+                print(f"[I18N] Dashboard fallback failed ({type(exc).__name__}); preserving one text node.", flush=True)
+                translated.append(original)
+            time.sleep(0.35)
+    return tuple(translated)
+
+
+def _translate_dashboard_batch(values, language):
+    """Translate visible text in small cached batches with retry and provider fallback."""
+    if not values:
+        return values
+    try:
+        return list(_translate_dashboard_batch_cached(tuple(values), language))
+    except Exception as exc:
+        print(f"[I18N] Dashboard translation unavailable ({type(exc).__name__}); showing source text.", flush=True)
+        return values
 
 
 class _DashboardTextTranslator(HTMLParser):
