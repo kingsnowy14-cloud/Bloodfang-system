@@ -6116,6 +6116,7 @@ async def _generate_ticket_ai_reply(channel, message, meta, initial_reason=None,
         guild = getattr(channel, "guild", None)
         guild_id = getattr(guild, "id", None)
         cfg = guild_config(guild_id) if guild_id else {}
+        language_name = "German" if server_language(guild_id) == "de" else "English"
         # Give the model a verified directory of channels visible to the member.
         # This lets it create real Discord channel mentions/links without guessing IDs.
         channel_directory = []
@@ -6172,9 +6173,7 @@ async def _generate_ticket_ai_reply(channel, message, meta, initial_reason=None,
         prompt = (
             "You are IronWolf, a helpful, reliable AI assistant for this Discord server. "
             + conversation_mode
-            + "LANGUAGE RULE (highest priority): Reply in the same language as the author's latest actual message, not the server's default language, not earlier messages, and not the language of this instruction. "
-            "If the latest message is German, answer in natural German; if English, answer in English; otherwise match the latest message's language. "
-            "Keep that language consistently unless the user explicitly asks for a translation or another language. "
+            + f"LANGUAGE RULE (highest priority): Always reply in {language_name}, the language configured for this Discord server. Do not switch languages to match an individual message or the conversation history. If the member asks for a translation, provide the translated content but keep your explanation in the configured server language. "
             "Answer genuine questions directly and helpfully, using the recent conversation for context. "
             "Understand URLs and Discord links included in messages. Use the verified channel directory below to link relevant server channels. "
             "When mentioning a server channel in your answer, write its exact #channel-name token from the directory; the bot converts it into a clickable Discord channel link. "
