@@ -1462,6 +1462,7 @@ def _module_navigation():
         ("messages", "✉️ Message Builder", "/messages"),
         ("rp-control", "🎭 RP Start / Stop", "/rp-control"),
         ("temporary-voice", "🔊 Temporary Voice", "/temporary-voice"),
+        ("ausweis", "🪪 RP-Ausweis", "/ausweis"),
         ("branding", "🎨 Server Branding", "/branding"),
         ("custom-bot", "🤖 Custom Bot Profile", "/custom-bot"),
         ("__ai_category__", "🛡️ SECURITY & MODERATION", ""),
@@ -4584,6 +4585,77 @@ def guild_welcome_settings(guild_id):
     return _render(guild.name + " · Welcome & Goodbye", body)
 
 
+@app.route("/guild/<guild_id>/ausweis", methods=["GET", "POST"])
+def guild_ausweis_settings(guild_id):
+    """Configure the custom questions printed on each member's RP ID card."""
+    guild, response = _authorized_guild(guild_id)
+    if response:
+        return response
+    gid = str(guild.id)
+    cfg = _guild_config(guild.id)
+    defaults = [
+        {"label": "RP-Name", "placeholder": "Dein RP-Name", "required": True},
+        {"label": "Roblox User-ID", "placeholder": "Deine numerische Roblox-ID", "required": True},
+        {"label": "Stats", "placeholder": "Deine Stats", "required": False},
+        {"label": "Haustiere", "placeholder": "z. B. Ja / Nein", "required": False},
+    ]
+    questions = cfg.get("ausweis_questions")
+    if not isinstance(questions, list) or not questions:
+        questions = defaults
+    questions = (questions + [{}] * 5)[:5]
+    if request.method == "POST":
+        if not _csrf_ok():
+            abort(400, "CSRF-Prüfung fehlgeschlagen. Bitte Seite neu laden.")
+        actor = guild.get_member(int(session.get("user_id", "0")))
+        if actor is None or not (actor.guild_permissions.administrator or actor.guild_permissions.manage_guild):
+            abort(403, "Du brauchst Administrator- oder Server-verwalten-Rechte.")
+        updated = []
+        for index in range(1, 6):
+            label = request.form.get(f"ausweis_label_{index}", "").strip()
+            placeholder = request.form.get(f"ausweis_placeholder_{index}", "").strip()
+            required = request.form.get(f"ausweis_required_{index}") == "on"
+            if not label:
+                if placeholder or required:
+                    abort(400, f"Frage {index}: Bitte gib eine Überschrift ein oder entferne die übrigen Angaben.")
+                continue
+            if len(label) > 45 or len(placeholder) > 100:
+                abort(400, f"Frage {index}: Überschrift maximal 45, Beschreibung maximal 100 Zeichen.")
+            updated.append({
+                "label": label,
+                "placeholder": placeholder,
+                "required": required,
+            })
+        if not updated:
+            abort(400, "Lege mindestens eine Frage für den Ausweis fest.")
+        cfg["ausweis_questions"] = updated
+        _save_json(data_path("config.json"), _config)
+        _audit_dashboard_change(guild.id, "RP-Ausweissystem", session.get("user_id"),
+            "Ausweisfragen aktualisiert: " + ", ".join(item["label"] for item in updated))
+        return redirect(url_for("guild_ausweis_settings", guild_id=gid, saved="1"))
+    body = '<section class="card"><span class="pill">RP · IDENTITÄT</span><h1 style="margin-top:12px">🪪 Digitaler RP-Ausweis</h1><p>Lege fest, welche Fragen Mitglieder beim Antrag beantworten. Die jeweilige Überschrift erscheint später direkt als Feldtitel auf dem Ausweisbild. Es sind bis zu fünf Fragen möglich.</p>'
+    if request.args.get("saved") == "1":
+        body += '<div class="notice">✅ Die Ausweisfragen wurden gespeichert. Neue Anträge verwenden ab sofort diese Felder.</div>'
+    body += '<form method="post">' + _csrf_field()
+    for index, item in enumerate(questions, 1):
+        item = item if isinstance(item, dict) else {}
+        label = html.escape(str(item.get("label", "")), quote=True)
+        placeholder = html.escape(str(item.get("placeholder", "")), quote=True)
+        checked = " checked" if item.get("required", False) else ""
+        body += (
+            f'<div style="border:1px solid var(--border);border-radius:12px;padding:14px;margin:14px 0">'
+            f'<h3>Frage {index}</h3>'
+            f'<label for="ausweis_label_{index}">Überschrift auf dem Ausweis</label>'
+            f'<input id="ausweis_label_{index}" name="ausweis_label_{index}" maxlength="45" value="{label}" placeholder="z. B. Roblox User-ID">'
+            f'<label for="ausweis_placeholder_{index}">Hinweis im Formular</label>'
+            f'<input id="ausweis_placeholder_{index}" name="ausweis_placeholder_{index}" maxlength="100" value="{placeholder}" placeholder="z. B. Deine numerische Roblox-ID">'
+            f'<div class="check"><input type="checkbox" id="ausweis_required_{index}" name="ausweis_required_{index}"{checked}><label for="ausweis_required_{index}">Pflichtfeld</label></div>'
+            f'</div>'
+        )
+    body += '<p class="muted">Beispiel: Überschrift „Haustiere“, Antwort „Ja“. Auf dem Ausweis steht dann unter HAUSTIERE der Wert JA. Für Roblox User-ID wird eine rein numerische Antwort geprüft.</p>'
+    body += '<button type="submit">💾 Ausweisfragen speichern</button> <a class="button secondary" href="/guild/' + gid + '">Zur Serverübersicht</a></form></section>'
+    return _render(guild.name + " · RP-Ausweis", body)
+
+
 @app.route("/guild/<guild_id>/temporary-voice", methods=["GET", "POST"])
 def guild_temporary_voice_settings(guild_id):
     """Dedicated temporary voice settings page with a validated save action."""
@@ -5072,6 +5144,7 @@ def guild_page(guild_id):
             ("✉️", "Message Builder", "Create messages, embeds and interactive buttons", "/messages"),
             ("🎭", "RP Start / Stop", "Control roleplay sessions", "/rp-control"),
             ("🔊", "Temporary Voice", "Voice triggers and room categories", "/temporary-voice"),
+            ("🪪", "RP ID Card", "Customize the questions and labels printed on RP ID cards", "/ausweis"),
             ("🎨", "Server Branding", "Customize the server dashboard branding", "/branding"),
             ("🤖", "Custom Bot Profile", "Configure a custom bot identity", "/custom-bot"),
         ]),
