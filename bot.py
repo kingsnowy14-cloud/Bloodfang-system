@@ -698,7 +698,7 @@ def guild_config(guild_id):
     return cfg
 
 
-SUPPORTED_BOT_LANGUAGES = {"auto", "de", "en"}
+SUPPORTED_BOT_LANGUAGES = {"de", "en"}
 BOT_TRANSLATIONS = {
     "de": {
         "This command has been disabled for this server in the web dashboard.": "Dieser Befehl wurde für diesen Server im Dashboard deaktiviert.",
@@ -746,9 +746,8 @@ def server_language(guild_id):
     selected = str(cfg.get("bot_language", "en")).lower()
     if selected in {"de", "en"}:
         return selected
-    guild = bot.get_guild(int(guild_id)) if bot else None
-    locale = str(getattr(guild, "preferred_locale", "")).lower() if guild else ""
-    return "de" if selected == "auto" and locale.startswith("de") else "en"
+    # Only German and English are supported; legacy "auto" settings fall back to English.
+    return "en"
 
 def server_timezone(guild_id):
     """Return the IANA time zone selected for this bot's server in the dashboard."""
