@@ -2991,7 +2991,7 @@ def guild_automation(guild_id):
 
 
 
-@app.route("/guild/<guild_id>/ausweis", methods=["GET", "POST"])
+@app.route("/guild/<guild_id>/mitgliedsausweis", methods=["GET", "POST"])
 def guild_ausweis(guild_id):
     """Configure the member ID application and card."""
     guild, response = _authorized_guild(guild_id)
