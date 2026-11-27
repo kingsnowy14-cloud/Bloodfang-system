@@ -1841,8 +1841,32 @@ def _translate_dashboard(value, language):
     return value
 
 def _dashboard_language():
-    """IronWolf dashboard is English-only."""
-    return "en"
+    """Use the selected server language, then the signed-in user's bot preference."""
+    guild_match = re.match(r"^/guild/(\d+)(?:/|$)", request.path)
+    if guild_match and _guild_config:
+        try:
+            selected = str(_guild_config(int(guild_match.group(1))).get("bot_language", "en")).lower()
+            if selected in {"de", "en"}:
+                return selected
+            if selected == "auto" and _bot:
+                guild = _bot.get_guild(int(guild_match.group(1)))
+                if guild and str(getattr(guild, "preferred_locale", "")).lower().startswith("de"):
+                    return "de"
+        except (TypeError, ValueError):
+            pass
+
+    user_id = str(session.get("user_id", ""))
+    if user_id:
+        try:
+            stored = json.loads(data_path("data.json").read_text(encoding="utf-8"))
+            selected = str(stored.get("languages", {}).get(user_id, "")).lower()
+            if selected in {"de", "en"}:
+                return selected
+        except (OSError, ValueError, AttributeError):
+            pass
+
+    selected = str(session.get("dashboard_language", "en")).lower()
+    return selected if selected in {"de", "en"} else "en"
 
 
 def _render(title, body, status=200):
@@ -1853,9 +1877,9 @@ def _render(title, body, status=200):
     current_path = html.escape(request.path + (("?" + request.query_string.decode("utf-8", "ignore")) if request.query_string else ""), quote=True)
     rendered_page = _page(title, body)
     rendered_page = _translate_dashboard(rendered_page, language)
-    rendered_page = re.sub(r'<html lang="[^"]*">', '<html lang="en">', rendered_page, count=1)
+    rendered_page = re.sub(r'<html lang="[^"]*">', f'<html lang="{language}">', rendered_page, count=1)
     response = make_response(rendered_page, status)
-    response.headers["Content-Language"] = "en"
+    response.headers["Content-Language"] = language
     response.headers["Vary"] = "Accept-Language, Cookie"
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
@@ -2267,7 +2291,7 @@ def set_dashboard_language():
 
     # A server language choice controls the bot's default locale for that guild.
     referrer_path = urlparse(request.referrer or "").path
-    guild_match = re.match(r"^/guild/(\\d+)(?:/|$)", referrer_path)
+    guild_match = re.match(r"^/guild/(\d+)(?:/|$)", referrer_path)
     if guild_match and _guild_config and _config is not None and _save_json:
         guild_id = int(guild_match.group(1))
         _authorized_guild(guild_id)

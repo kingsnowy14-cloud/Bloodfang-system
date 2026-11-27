@@ -738,12 +738,16 @@ BOT_TRANSLATIONS = {
 }
 
 def server_language(guild_id):
-    """Resolve a server language, using Discord's preferred locale when set to auto."""
+    """Resolve the configured server language, including Discord locale for auto."""
     if guild_id is None:
         return "en"
     cfg = guild_config(guild_id)
     selected = str(cfg.get("bot_language", "en")).lower()
-    return selected if selected in {"de", "en"} else "en"
+    if selected in {"de", "en"}:
+        return selected
+    guild = bot.get_guild(int(guild_id)) if bot else None
+    locale = str(getattr(guild, "preferred_locale", "")).lower() if guild else ""
+    return "de" if selected == "auto" and locale.startswith("de") else "en"
 
 def server_timezone(guild_id):
     """Return the IANA time zone selected for this bot's server in the dashboard."""
@@ -1026,8 +1030,12 @@ async def premium_automation_worker():
 
 
 def user_language(user_id, discord_locale=None):
-    """IronWolf is English-only."""
-    return "en"
+    """Return a saved personal language, falling back to Discord locale and English."""
+    selected = str(data.get("languages", {}).get(str(user_id), "auto")).lower()
+    if selected in {"de", "en"}:
+        return selected
+    locale = str(discord_locale or "").lower()
+    return "de" if locale.startswith("de") else "en"
 
 
 TEXTS = {
@@ -1050,14 +1058,14 @@ TEXTS = {
         "skin": "Skin",
         "location": "Standort",
         "modal_title": "Server Sign-in",
-        "signin_success": "Your sign-in has been submitted.",
-        "signout_success": "Your sign-out has been submitted.",
-        "need_signin": "You are not currently signed in.",
-        "signin_first": "You need to sign in first.",
+        "signin_success": "Deine Anmeldung wurde übermittelt.",
+        "signout_success": "Deine Abmeldung wurde übermittelt.",
+        "need_signin": "Du bist derzeit nicht angemeldet.",
+        "signin_first": "Du musst dich zuerst anmelden.",
         "signin_modal": "Anmelden",
         "signout_modal": "Abmelden",
         "submit": "Absenden",
-        "language_saved": "The bot language is English.",
+        "language_saved": "Die Sprache deiner privaten Formulare und Bestätigungen ist jetzt Deutsch.",
     },
     "cs": {
         "dinosaur": "Dinosaurus",
@@ -1143,13 +1151,14 @@ class LanguageSelect(discord.ui.Select):
     def __init__(self):
         options = [
             discord.SelectOption(label="English", value="en", emoji="🇬🇧"),
+            discord.SelectOption(label="Deutsch", value="de", emoji="🇩🇪"),
         ]
-        super().__init__(placeholder="Language: English",
+        super().__init__(placeholder="Choose language / Sprache wählen",
                          min_values=1, max_values=1, options=options,
                          custom_id="registration:language")
 
     async def callback(self, interaction: discord.Interaction):
-        language = "en"
+        language = self.values[0]
         set_user_language(interaction.user.id, language)
         await interaction.response.send_message(TEXTS[language]["language_saved"], ephemeral=True)
 
@@ -1212,7 +1221,7 @@ class LanguageView(discord.ui.View):
 class RegistrationModal(discord.ui.Modal):
     def __init__(self, action: str, language: str):
         self.action = action
-        self.language = "en"
+        self.language = language if language in TEXTS else "en"
         t = TEXTS[self.language]
         super().__init__(title=t["modal_title"], timeout=300)
         self.dinosaur = discord.ui.TextInput(
@@ -2652,6 +2661,7 @@ async def wolfanalytics_command(interaction: discord.Interaction, period: app_co
 @app_commands.describe(sprache="Choose a language")
 @app_commands.choices(sprache=[
     app_commands.Choice(name="English", value="en"),
+    app_commands.Choice(name="Deutsch", value="de"),
 ])
 async def sprache(interaction: discord.Interaction, sprache: app_commands.Choice[str]):
     set_user_language(interaction.user.id, sprache.value)
