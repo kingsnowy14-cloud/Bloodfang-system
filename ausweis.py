@@ -276,19 +276,6 @@ class AusweisModal(discord.ui.Modal):
         await interaction.response.send_message(f"✅ Dein Ausweis wurde erstellt, dir per DM geschickt und in {channel.mention} veröffentlicht.", ephemeral=True)
 
 
-class OpenAusweisFormView(discord.ui.View):
-    def __init__(self, bot, guild_id, member_id, channel_id):
-        super().__init__(timeout=300)
-        self.bot, self.guild_id, self.member_id, self.channel_id = bot, guild_id, member_id, channel_id
-
-    @discord.ui.button(label="Formular öffnen", emoji="📝", style=discord.ButtonStyle.primary)
-    async def open_form(self, interaction, button):
-        if interaction.user.id != self.member_id:
-            await interaction.response.send_message("Dieser Formular-Button gehört zu einer anderen Person.", ephemeral=True)
-            return
-        await interaction.response.send_modal(AusweisModal(self.bot, self.guild_id, interaction.user.id, self.channel_id))
-
-
 class AusweisRequestButton(discord.ui.Button):
     def __init__(self, bot, guild_id, channel_id):
         super().__init__(label="Ausweis beantragen", emoji="🪪", style=discord.ButtonStyle.primary, custom_id=f"ironwolf:ausweis:request:{guild_id}:{channel_id}")
@@ -298,15 +285,9 @@ class AusweisRequestButton(discord.ui.Button):
         if interaction.guild is None or interaction.guild.id != self.guild_id:
             await interaction.response.send_message("Bitte nutze diesen Button auf dem zugehörigen Server.", ephemeral=True)
             return
-        try:
-            await interaction.user.send(
-                f"Hallo! Du beantragst einen digitalen RP-Ausweis für **{interaction.guild.name}**. Öffne das Formular über den Button.",
-                view=OpenAusweisFormView(self.bot, self.guild_id, interaction.user.id, self.channel_id),
-            )
-        except (discord.Forbidden, discord.HTTPException):
-            await interaction.response.send_message("Ich kann dir keine DM senden. Aktiviere bitte Direktnachrichten für diesen Server.", ephemeral=True)
-            return
-        await interaction.response.send_message("📩 Ich habe dir das private Ausweisformular per DM geschickt.", ephemeral=True)
+        await interaction.response.send_modal(
+            AusweisModal(self.bot, self.guild_id, interaction.user.id, self.channel_id)
+        )
 
 
 class AusweisPanelView(discord.ui.View):
@@ -343,7 +324,7 @@ class Ausweis(commands.Cog):
         self.bot.add_view(view)
         embed = discord.Embed(
             title="🪪 Digitalen RP-Ausweis beantragen",
-            description="Klicke auf **Ausweis beantragen**. Das Formular wird dir privat per DM geschickt. Dein fertiger Ausweis wird als Bild im ausgewählten Kanal und zusätzlich per DM veröffentlicht.",
+            description="Klicke auf **Ausweis beantragen** und fülle das Formular direkt hier im privaten Pop-up aus. Dein fertiger Ausweis wird als Bild im ausgewählten Kanal veröffentlicht und dir zusätzlich per DM geschickt.",
             color=discord.Color.from_rgb(44, 101, 232),
         )
         embed.set_footer(text="Bloodfang RP · Digitales Ausweissystem")
