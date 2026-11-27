@@ -2361,23 +2361,8 @@ def _public_status_panel():
 def set_dashboard_language():
     if not _csrf_ok():
         abort(400, "Security check failed. Please reload the page.")
-    language = str(request.form.get("language", "en")).lower()
-    if language not in {"de", "en"}:
-        abort(400, "Unsupported language.")
-    session["dashboard_language"] = language
-
-    # A server language choice controls the bot's default locale for that guild.
-    referrer_path = urlparse(request.referrer or "").path
-    guild_match = re.match(r"^/guild/(\d+)(?:/|$)", referrer_path)
-    if guild_match and _guild_config and _config is not None and _save_json:
-        guild_id = int(guild_match.group(1))
-        _authorized_guild(guild_id)
-        guild_cfg = _guild_config(guild_id)
-        guild_cfg["bot_language"] = language
-        _save_json(data_path("config.json"), _config)
-
+    # Compatibility endpoint: the dashboard language is fixed to English.
     return redirect(request.referrer or url_for("index"))
-
 
 @app.route("/")
 def index():
