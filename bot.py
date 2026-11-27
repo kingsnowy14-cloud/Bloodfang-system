@@ -4377,7 +4377,7 @@ async def nachricht(interaction: discord.Interaction, kanal: discord.TextChannel
 def _id_card_image(guild, member, card_number, answers=None):
     """Create a landscape citizen-style ID card inspired by the supplied reference."""
     answers = answers or []
-    image = Image.new("RGB", (1200, 760), "#edf4f7")
+    image = Image.new("RGB", (1200, 700), "#edf4f7")
     draw = ImageDraw.Draw(image)
     try:
         font_title = ImageFont.truetype("DejaVuSans.ttf", 36)
@@ -4394,9 +4394,9 @@ def _id_card_image(guild, member, card_number, answers=None):
     accent = "#2c9fa7"
 
     # Heller, leicht strukturierter Kartenhintergrund mit dunklem Kopfbereich.
-    draw.rounded_rectangle((8, 8, 1192, 752), radius=34, fill="#ffffff", outline="#8da8b5", width=4)
+    draw.rounded_rectangle((8, 8, 1192, 692), radius=34, fill="#ffffff", outline="#8da8b5", width=4)
     for x in range(18, 1180, 24):
-        draw.line((x, 170, min(x + 260, 1180), 735), fill="#edf3f6", width=2)
+        draw.line((x, 170, min(x + 260, 1180), 675), fill="#edf3f6", width=2)
     draw.rounded_rectangle((12, 12, 1188, 166), radius=28, fill="#132d40")
     draw.rectangle((12, 126, 1188, 166), fill=accent)
     # Dezentes Serverwappen als Wasserzeichen im Kartenhintergrund.
@@ -4406,10 +4406,13 @@ def _id_card_image(guild, member, card_number, answers=None):
             with urllib.request.urlopen(icon_request, timeout=4) as response:
                 icon_bytes = response.read(1_500_000)
             watermark = Image.open(io.BytesIO(icon_bytes)).convert("RGBA")
-            watermark.thumbnail((390, 390), Image.Resampling.LANCZOS)
-            alpha = watermark.getchannel("A").point(lambda value: int(value * 0.10))
+            watermark.thumbnail((560, 560), Image.Resampling.LANCZOS)
+            alpha = watermark.getchannel("A").point(lambda value: int(value * 0.14))
             watermark.putalpha(alpha)
-            image.paste(watermark, (690, 285), watermark)
+            # Large, genuinely centered server logo as a subtle watermark behind the card text.
+            logo_x = (image.width - watermark.width) // 2
+            logo_y = (image.height - watermark.height) // 2
+            image.paste(watermark, (logo_x, logo_y), watermark)
     except Exception:
         pass
     title = str(cfg.get("id_card_title", "Notruf Craftopia RP"))[:42]
