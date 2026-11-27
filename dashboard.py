@@ -3049,10 +3049,6 @@ def guild_ausweis(guild_id):
         cfg.update({
             "id_card_enabled": request.form.get("id_card_enabled") == "on",
             "id_card_title": title, "id_card_description": description, "id_card_color": color.upper(),
-            "id_card_show_id": request.form.get("show_id") == "on",
-            "id_card_show_joined": request.form.get("show_joined") == "on",
-            "id_card_show_created": request.form.get("show_created") == "on",
-            "id_card_show_roles": request.form.get("show_roles") == "on",
             "id_card_role_id": int(role_value) if role_value else None,
             "id_card_auto_approve": auto,
             "id_card_review_channel_id": int(channel_value) if channel_value else None,
@@ -3087,11 +3083,7 @@ def guild_ausweis(guild_id):
         '<small class="muted">Der Ausgabekanal ist optional und erhält den fertigen Ausweis inklusive Antworten. Bei manueller Prüfung müssen Teamrolle und Prüfkanal gesetzt sein. Admins und Server-Verwalter können ebenfalls prüfen.</small>'
         '<label for="id_card_role_id">Optionale Ausweisrolle nach Genehmigung</label><select id="id_card_role_id" name="id_card_role_id">' + role_options + '</select>'
         '<h3>Formularfragen (maximal 10)</h3><label for="questions">Eine Frage pro Zeile, maximal 45 Zeichen je Frage</label><textarea id="questions" name="questions" rows="10" maxlength="500">' + html.escape("\n".join(cfg.get("id_card_questions", defaults["id_card_questions"]))) + '</textarea>'
-        '<h3>Informationen auf dem Ausweis</h3>'
-        '<div class="check"><input type="checkbox" id="show_id" name="show_id"' + checked("id_card_show_id") + '><label for="show_id">Discord-ID anzeigen</label></div>'
-        '<div class="check"><input type="checkbox" id="show_joined" name="show_joined"' + checked("id_card_show_joined") + '><label for="show_joined">Server-Beitrittsdatum anzeigen</label></div>'
-        '<div class="check"><input type="checkbox" id="show_created" name="show_created"' + checked("id_card_show_created") + '><label for="show_created">Discord-Konto-Erstellungsdatum anzeigen</label></div>'
-        '<div class="check"><input type="checkbox" id="show_roles" name="show_roles"' + checked("id_card_show_roles") + '><label for="show_roles">Rollen anzeigen</label></div>'
+        '<p class="muted">Auf dem Ausweis erscheinen ausschließlich die Überschriften und Antworten deiner eigenen Formularfragen. Du bestimmst selbst, welche Angaben abgefragt und angezeigt werden.</p>'
         '<button type="submit">💾 Ausweissystem speichern</button></form>'
         '<p class="notice">Der Ausweis ist ein digitaler Server-Ausweis, kein amtlicher Identitätsnachweis. Der Bot benötigt passende Rollen- und Kanalrechte.</p>'
         + '<p><a class="button secondary" href="/guild/' + gid + '">← Serverübersicht</a></p></section>'

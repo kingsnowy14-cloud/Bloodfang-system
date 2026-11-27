@@ -4442,16 +4442,8 @@ def _id_card_image(guild, member, card_number, answers=None):
         answer = " ".join(str(item.get("answer", "—")).split()) or "—"
         if answer:
             fields.append((question[:28].upper(), answer[:32]))
-    defaults = [
-        ("VORNAME", display_name),
-        ("NACHNAME", server_name),
-        ("GEBURTSDATUM", "Nicht angegeben"),
-        ("ALTER", "—"),
-        ("WOHNORT", "Nicht angegeben"),
-        ("STAATSANGEHÖRIGKEIT", "—"),
-    ]
-    # Antworten aus dem Ausweisantrag zuerst anzeigen; übrige Felder sinnvoll ergänzen.
-    display_fields = (fields + defaults)[:6]
+    # Nur selbst konfigurierte Fragen werden auf dem Ausweis angezeigt.
+    display_fields = fields[:6]
     positions = [(320, 272), (730, 272), (320, 368), (730, 368), (320, 464), (730, 464)]
     for (label, value), (x, y) in zip(display_fields, positions):
         draw.text((x, y), label[:30], font=font_tiny, fill="#6b8491")
@@ -4459,10 +4451,7 @@ def _id_card_image(guild, member, card_number, answers=None):
         draw.line((x, y + 70, x + 375, y + 70), fill="#d5e0e5", width=2)
 
     draw.rounded_rectangle((320, 565, 1148, 655), radius=16, fill="#e6eff3", outline="#d3e0e5", width=2)
-    draw.text((342, 578), "DOKUMENTENNUMMER", font=font_tiny, fill="#6b8491")
-    draw.text((342, 607), str(card_number)[:32], font=font_small, fill="#203746")
-    draw.text((720, 578), "ROBLOX-NAME / DISCORD", font=font_tiny, fill="#6b8491")
-    draw.text((720, 607), display_name[:30], font=font_small, fill="#203746")
+    draw.text((342, 594), "PERSONALISIERTER RP-AUSWEIS", font=font_small, fill="#28495c")
     # Barcodeartige Sicherheitsmarkierung.
     x = 40
     for idx in range(35):
