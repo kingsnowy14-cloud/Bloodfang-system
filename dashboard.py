@@ -1860,12 +1860,36 @@ def _translate_dashboard_text(value, language):
         return value
 
 
+def _translate_dashboard_batch(values, language):
+    """Translate visible text in batches; one network request per group, not per HTML node."""
+    if language == "en" or not values:
+        return values
+    from deep_translator import GoogleTranslator
+    translator = GoogleTranslator(source="auto", target=language)
+    translated = []
+    for offset in range(0, len(values), 25):
+        chunk = values[offset:offset + 25]
+        try:
+            results = translator.translate_batch(chunk)
+            if not isinstance(results, list) or len(results) != len(chunk):
+                raise ValueError("Unexpected translation batch response")
+            translated.extend(
+                result if isinstance(result, str) and result.strip() else original
+                for original, result in zip(chunk, results)
+            )
+        except Exception as exc:
+            print(f"[I18N] Dashboard translation batch failed ({type(exc).__name__}); preserving this batch.", flush=True)
+            translated.extend(chunk)
+    return translated
+
+
 class _DashboardTextTranslator(HTMLParser):
     """Translate visible HTML text only; never alter tags, attributes, scripts or styles."""
     def __init__(self, language):
         super().__init__(convert_charrefs=False)
         self.language = language
         self.parts = []
+        self.text_indexes = []
         self.skip_depth = 0
 
     def handle_starttag(self, tag, attrs):
@@ -1882,10 +1906,22 @@ class _DashboardTextTranslator(HTMLParser):
             self.skip_depth -= 1
 
     def handle_data(self, data):
-        if self.skip_depth or not data.strip():
+        if self.skip_depth or not data.strip() or self.language == "en":
             self.parts.append(data)
         else:
-            self.parts.append(_translate_dashboard_text(data, self.language))
+            self.text_indexes.append(len(self.parts))
+            self.parts.append(data)
+
+    def translate(self):
+        if self.text_indexes:
+            values = [self.parts[index] for index in self.text_indexes]
+            try:
+                translated = _translate_dashboard_batch(values, self.language)
+                for index, value in zip(self.text_indexes, translated):
+                    self.parts[index] = value
+            except Exception as exc:
+                print(f"[I18N] Dashboard batch translator unavailable ({type(exc).__name__}); showing source text.", flush=True)
+        return "".join(self.parts)
 
     def handle_entityref(self, name):
         self.parts.append(f"&{name};")
@@ -1895,18 +1931,21 @@ class _DashboardTextTranslator(HTMLParser):
 
 
 def _translate_dashboard(value, language):
+    if not value or language not in {"de", "en"}:
+        return value
     translations = DASHBOARD_TRANSLATIONS.get(language, {})
     for source in sorted(translations, key=len, reverse=True):
         value = value.replace(source, translations[source])
-    if language in {"de", "en"} or not value:
-        parser = _DashboardTextTranslator(language)
-        try:
-            parser.feed(value)
-            parser.close()
-            return "".join(parser.parts)
-        except Exception as exc:
-            print(f"[I18N] Dashboard HTML translation skipped ({type(exc).__name__}).", flush=True)
-    return value
+    if language == "en":
+        return value
+    parser = _DashboardTextTranslator(language)
+    try:
+        parser.feed(value)
+        parser.close()
+        return parser.translate()
+    except Exception as exc:
+        print(f"[I18N] Dashboard HTML translation skipped ({type(exc).__name__}); showing source HTML.", flush=True)
+        return value
 
 def _dashboard_language():
     """Guild dashboard pages always follow that server's bot language."""
@@ -1938,11 +1977,11 @@ def _dashboard_language():
 def _render(title, body, status=200):
     language = _dashboard_language()
     team_only_page = request.path.startswith("/team-management/") or request.path.endswith("/team-management")
-    body = _translate_dashboard(("" if team_only_page else _module_navigation()) + body, language)
-    title = _translate_dashboard(title, language)
+    body = ("" if team_only_page else _module_navigation()) + body
     current_path = html.escape(request.path + (("?" + request.query_string.decode("utf-8", "ignore")) if request.query_string else ""), quote=True)
-    rendered_page = _page(title, body)
-    rendered_page = _translate_dashboard(rendered_page, language)
+    # Translate the completed page once. Translating body, title and then the
+    # completed HTML caused duplicate API requests and sometimes re-translated text.
+    rendered_page = _translate_dashboard(_page(title, body), language)
     rendered_page = re.sub(r'<html lang="[^"]*">', f'<html lang="{language}">', rendered_page, count=1)
     response = make_response(rendered_page, status)
     response.headers["Content-Language"] = language

@@ -67,16 +67,16 @@ def _font(size, bold=False):
     # der Grund, warum die Schrift auf Railway trotz großer Werte kaum lesbar war.
     candidates = (
         [
-            "DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
             "/usr/share/fonts/truetype/lato/Lato-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "DejaVuSans-Bold.ttf",
         ]
         if bold else [
-            "DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
             "/usr/share/fonts/truetype/lato/Lato-Regular.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "DejaVuSans.ttf",
         ]
     )
     for candidate in candidates:
@@ -123,12 +123,14 @@ def _make_id_card(guild, member, answers, questions, card_id, issue_date):
         radius=34, fill="#ffffff", outline="#cbd5e1", width=4
     )
 
-    title_font = _font(39, True)
-    id_font = _font(25, True)
-    status_font = _font(24, True)
-    label_font = _font(27, True)
-    value_font = _font(43, True)
-    small_font = _font(21)
+    # Zurückhaltende Lato-Typografie statt der schweren Standard-/DejaVu-Anmutung.
+    # Lato wirkt auf Ausweisen ruhiger und näher an einer professionell gesetzten Karte.
+    title_font = _font(36, True)
+    id_font = _font(22, True)
+    status_font = _font(20, True)
+    label_font = _font(23, True)
+    value_font = _font(39, True)
+    small_font = _font(18)
 
     # Serverlogo als deutlich sichtbares Wasserzeichen über die gesamte Ausweisfläche.
     # Es wird VOR Text, Feldern und Porträt eingefügt, damit alle Angaben klar lesbar bleiben.
@@ -157,8 +159,8 @@ def _make_id_card(guild, member, answers, questions, card_id, issue_date):
         pass
 
     # Kopfbereich und alle Ausweisdaten werden nach dem Wasserzeichen gezeichnet.
-    draw.text((margin, 58), "DIGITALER RP-AUSWEIS", font=title_font, fill="#172033")
-    draw.text((margin, 124), f"AUSWEIS-ID  {card_id}", font=id_font, fill="#2865e8")
+    draw.text((margin, 62), "DIGITALER RP-AUSWEIS", font=title_font, fill="#172033", stroke_width=0)
+    draw.text((margin, 125), f"AUSWEIS-ID  {card_id}", font=id_font, fill="#2865e8")
     draw.ellipse((margin, 178, margin + 18, 196), fill="#20bd70")
     draw.text((margin + 32, 173), "AKTIVER RP-AUSWEIS", font=status_font, fill="#172033")
 
