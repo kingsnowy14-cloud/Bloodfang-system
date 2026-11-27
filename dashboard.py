@@ -2386,13 +2386,10 @@ def _public_status_panel():
 def set_dashboard_language():
     if not _csrf_ok():
         abort(400, "Security check failed. Please reload the page.")
-    language = str(request.form.get("language", "auto")).lower()
-    if language not in {"de", "en", "auto"}:
+    language = str(request.form.get("language", "en")).lower()
+    if language not in {"de", "en"}:
         abort(400, "Unsupported language.")
-    if language == "auto":
-        session.pop("dashboard_language", None)
-    else:
-        session["dashboard_language"] = language
+    session["dashboard_language"] = language
 
     # A server language choice controls the bot's default locale for that guild.
     referrer_path = urlparse(request.referrer or "").path
@@ -5057,7 +5054,7 @@ def guild_page(guild_id):
                     ZoneInfo(selected_timezone)
                     cfg["bot_timezone"] = selected_timezone
                     selected_language = request.form.get("bot_language", cfg.get("bot_language", "auto")).lower()
-                    if selected_language not in {"auto", "de", "en"}:
+                    if selected_language not in {"de", "en"}:
                         abort(400, "Unsupported bot language.")
                     cfg["bot_language"] = selected_language
                 if settings_section == "channels":
