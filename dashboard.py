@@ -1862,7 +1862,7 @@ def _translate_dashboard_text(value, language):
 
 def _translate_dashboard_batch(values, language):
     """Translate visible text in batches; one network request per group, not per HTML node."""
-    if language == "en" or not values:
+    if not values:
         return values
     from deep_translator import GoogleTranslator
     translator = GoogleTranslator(source="auto", target=language)
@@ -1956,7 +1956,7 @@ def _render(title, body, status=200):
     body = ("" if team_only_page else _module_navigation()) + body
     current_path = html.escape(request.path + (("?" + request.query_string.decode("utf-8", "ignore")) if request.query_string else ""), quote=True)
     # The dashboard is always rendered in English, independent of bot language.
-    rendered_page = _page(title, body)
+    rendered_page = _translate_dashboard(_page(title, body), "en")
     rendered_page = re.sub(r'<html lang="[^"]*">', f'<html lang="{language}">', rendered_page, count=1)
     response = make_response(rendered_page, status)
     response.headers["Content-Language"] = language
