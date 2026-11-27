@@ -11193,8 +11193,13 @@ async def language_command(ctx, language: str = "auto"):
         await ctx.reply("🌐 Usage: `!language de`, `!language en` or `!language auto`.", mention_author=False)
         return
     set_user_language(ctx.author.id, language)
-    label = {"de": "Deutsch", "en": "English", "auto": "automatically detected"}[language]
-    await ctx.reply(f"✅ Your personal IronWolf language is now **{label}**.", mention_author=False)
+    label = {"de": "Deutsch", "en": "English", "auto": "automatisch erkannt"}[language]
+    message = (
+        f"✅ Deine persönliche IronWolf-Sprache ist jetzt **{label}**."
+        if language == "de"
+        else f"✅ Your personal IronWolf language is now **{label}**."
+    )
+    await ctx.reply(message, mention_author=False)
 
 
 @bot.command(name="serverlanguage", aliases=["serverlang"])
@@ -11209,8 +11214,13 @@ async def server_language_command(ctx, language: str = "auto"):
     cfg = guild_config(ctx.guild.id)
     cfg["bot_language"] = language
     save_json(CONFIG_FILE, config)
-    label = {"de": "Deutsch", "en": "English", "auto": "Discord server language"}[language]
-    await ctx.reply(f"✅ IronWolf's default language for this server is now **{label}**.", mention_author=False)
+    label = {"de": "Deutsch", "en": "English", "auto": "Discord-Serversprache"}[language]
+    message = (
+        f"✅ Die Standardsprache von IronWolf für diesen Server ist jetzt **{label}**."
+        if language == "de"
+        else f"✅ IronWolf's default language for this server is now **{label}**."
+    )
+    await ctx.reply(message, mention_author=False)
 
 
 @bot.command(name="emoji", aliases=["emojis", "kanalemojis"])
