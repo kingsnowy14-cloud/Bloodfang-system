@@ -871,7 +871,8 @@ class IronWolfCommandTranslator(app_commands.Translator):
         elif locale_code.startswith("en"):
             target = "en"
         else:
-            return None
+            # Discord requires a concrete localized command name during sync.
+            return message
 
         # Reuse the curated local catalogues; command sync must never depend on
         # rate-limited external translation providers.
@@ -908,7 +909,7 @@ class IronWolfCommandTranslator(app_commands.Translator):
                 "verification": "verifizierung", "server-info": "serverinfo",
                 "user-info": "benutzerinfo", "warn": "warnen", "shift": "schicht",
             }
-            return bot_german.get(message) or dashboard_german.get(message) or slash_text_german.get(message) or command_names.get(message)
+            return bot_german.get(message) or dashboard_german.get(message) or slash_text_german.get(message) or command_names.get(message) or message
         dashboard_german_to_english = dashboard_english
         bot_english = {german: english for english, german in bot_german.items()}
         slash_text_english = slash_text
@@ -918,7 +919,7 @@ class IronWolfCommandTranslator(app_commands.Translator):
             "verifizierung": "verification", "serverinfo": "server-info",
             "benutzerinfo": "user-info", "warnen": "warn", "schicht": "shift",
         }
-        return dashboard_german_to_english.get(message) or bot_english.get(message) or slash_text_english.get(message) or command_names.get(message)
+        return dashboard_german_to_english.get(message) or bot_english.get(message) or slash_text_english.get(message) or command_names.get(message) or message
 
 
 # Apply localization at Discord's outgoing-message boundary so slash commands,
