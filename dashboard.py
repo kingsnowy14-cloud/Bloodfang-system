@@ -89,7 +89,7 @@ TEXT_SETTINGS = {
 BOOL_SETTINGS = {
     "welcome_bots_enabled": "Send welcome messages to bot accounts",
     "welcome_dm_enabled": "Send a private welcome DM to new members",
-    "invite_tracker_enabled": "Invite-Tracker aktivieren",
+    "invite_tracker_enabled": "Enable the invite tracker",
     "automod_enabled": "AutoMod",
     "anti_nuke_enabled": "Anti-Nuke-Schutz",
     "anti_raid_enabled": "Anti-Raid-Schutz",
@@ -97,36 +97,36 @@ BOOL_SETTINGS = {
 CHANNEL_SETTINGS = {
     "welcome_channel": "Public welcome channel",
     "goodbye_channel": "Goodbye channel",
-    "birthday_channel": "Geburtstagskanal",
-    "invite_log_channel": "Invite-Tracker-Logkanal",
+    "birthday_channel": "Birthday channel",
+    "invite_log_channel": "Invite tracker log channel",
     "security_log_channel": "Security log channel",
     "analytics_log_channel": "WolfAnalytics report channel",
-    "verify_channel": "Verifizierungskanal",
-    "registration_channel": "Anmeldekanal",
-    "ticket_log_channel": "Ticket-Logkanal",
-    "activity_log_channel": "Enableditäts-Logkanal",
-    "suggestion_channel": "Vorschlagskanal",
-    "ticket_category": "Ticket-Kategorie",
-    "log_channel_id": "Moderations-Logkanal",
+    "verify_channel": "Verification channel",
+    "registration_channel": "Registration channel",
+    "ticket_log_channel": "Ticket log channel",
+    "activity_log_channel": "Activity log channel",
+    "suggestion_channel": "Suggestion channel",
+    "ticket_category": "Ticket category",
+    "log_channel_id": "Moderation log channel",
 }
 ROLE_SETTINGS = {
     "support_role": "Support role",
     "verified_role": "Verified role",
     "unverified_role": "Unverified role",
-    "trusted_security_role": "Vertrauenswürdige Sicherheitsrolle",
+    "trusted_security_role": "Trusted security role",
 }
 
 NUMBER_SETTINGS = {
-    "anti_nuke_threshold": {"label": "Anti-Nuke-Schwelle", "help": "Verdächtige Aktionen pro 60 Sekunden (2–10).", "min": 2, "max": 10, "default": 4},
-    "raid_threshold": {"label": "Anti-Raid-Schwelle", "help": "Beitritte innerhalb des Schutzzeitfensters (3–30).", "min": 3, "max": 30, "default": 8},
+    "anti_nuke_threshold": {"label": "Anti-nuke threshold", "help": "Suspicious actions per 60 seconds (2–10).", "min": 2, "max": 10, "default": 4},
+    "raid_threshold": {"label": "Anti-raid threshold", "help": "Joins within the protection window (3–30).", "min": 3, "max": 30, "default": 8},
 }
 
 VOICE_CHANNEL_SETTINGS = {
-    "tempvoice_trigger": "Temporärer Voice-Trigger",
+    "tempvoice_trigger": "Temporary voice trigger",
 }
 
 CATEGORY_SETTINGS = {
-    "tempvoice_category": "Kategorie für temporäre Voice-Kanäle",
+    "tempvoice_category": "Temporary voice channel category",
 }
 
 
@@ -1438,13 +1438,13 @@ def _module_navigation():
     if active == "overview":
         active = "starter"
     modules = (
-        ("__ai_category__", "🏠 ÜBERSICHT", ""),
-        ("starter", "🏠 Dashboard-Übersicht", "?section=overview"),
+        ("__ai_category__", "🏠 OVERVIEW", ""),
+        ("starter", "🏠 Dashboard overview", "?section=overview"),
         ("timezone", "🌐 Bot-Zeitzone", "?section=timezone"),
 
         ("__ai_category__", "👥 COMMUNITY & KOMMUNIKATION", ""),
-        ("welcome", "👋 Willkommen & Abschied", "/welcome"),
-        ("birthdays", "🎂 Geburtstagskalender", "/birthdays"),
+        ("welcome", "👋 Welcome & goodbye", "/welcome"),
+        ("birthdays", "🎂 Birthday calendar", "/birthdays"),
         ("feedback", "💬 Anonymes Feedback", "/feedback"),
         ("applications", "📝 Bewerbungen", "/applications"),
         ("tickets", "🎟️ Support-Tickets", "/tickets"),
@@ -1454,29 +1454,29 @@ def _module_navigation():
         ("__ai_category__", "🧑‍🤝‍🧑 TEAM & VERWALTUNG", ""),
         ("team-management", "👥 Teamverwaltung", "/team-management"),
         ("teamlist", "📋 Teamliste", "/teamlist"),
-        ("absence-management", "📅 Abwesenheiten", "/absence-management"),
-        ("commands", "🎛️ Befehle verwalten", "/commands"),
+        ("absence-management", "📅 Absences", "/absence-management"),
+        ("commands", "🎛️ Manage commands", "/commands"),
 
-        ("__ai_category__", "🎭 ROLLEN & VERIFIZIERUNG", ""),
-        ("auto-role", "🎭 Automatische Rollen", "/auto-role"),
+        ("__ai_category__", "🎭 ROLES & VERIFICATION", ""),
+        ("auto-role", "🎭 Auto roles", "/auto-role"),
         ("auto-nickname", "🏷️ AutoNickname", "/auto-nickname"),
-        ("reaction-roles", "🔁 Reaktionsrollen", "/reaction-roles"),
-        ("roles", "🎖️ Rollen & Belohnungen", "?section=roles#settings-panel"),
-        ("verification", "🔐 Mitglieder-Verifizierung", "/verification"),
-        ("verified-accounts", "🎮 Gaming-Kontoverifizierung", "/verified-accounts"),
+        ("reaction-roles", "🔁 Reaction roles", "/reaction-roles"),
+        ("roles", "🎖️ Roles & rewards", "?section=roles#settings-panel"),
+        ("verification", "🔐 Member verification", "/verification"),
+        ("verified-accounts", "🎮 Gaming account verification", "/verified-accounts"),
 
         ("__ai_category__", "⚙️ SERVER & ROLEPLAY", ""),
-        ("channels", "📡 Kanäle & Protokolle", "?section=channels#settings-panel"),
+        ("channels", "📡 Channels & logs", "?section=channels#settings-panel"),
         ("rp-control", "🎭 RP Start / Stopp", "/rp-control"),
-        ("ausweis", "🪪 RP-Ausweis", "/ausweis"),
+        ("ausweis", "🪪 RP ID card", "/ausweis"),
         ("property-sales", "🏡 Anwesenverkauf", "/property-sales"),
-        ("temporary-voice", "🔊 Temporäre Sprachkanäle", "/temporary-voice"),
+        ("temporary-voice", "🔊 Temporary voice channels", "/temporary-voice"),
         ("branding", "🎨 Server-Design", "/branding"),
         ("custom-bot", "🤖 Bot-Profil anpassen", "/custom-bot"),
 
         ("__ai_category__", "🛡️ SICHERHEIT & MODERATION", ""),
         ("security-lab", "🛡️ Security Center", "/security-lab"),
-        ("wolfshield", "🧱 Schutz-Einstellungen", "/wolfshield"),
+        ("wolfshield", "🧱 Protection settings", "/wolfshield"),
         ("honeypot", "🍯 Honeypot", "/honeypot"),
         ("ping-protection", "📡 Ping-Schutz", "/ping-protection"),
         ("actions", "⚔️ Aktionszentrale", "/actions"),
@@ -1541,7 +1541,7 @@ def _module_navigation():
         '<aside class="module-nav" aria-label="Server modules">'
         '<div class="module-nav-title">SERVER MODULES</div>' +
         '<label class="module-search-label" for="module-nav-search">🔎 Module suchen</label>' +
-        '<input id="module-nav-search" class="module-nav-search" type="search" placeholder="Modul suchen …" autocomplete="off" aria-label="Module durchsuchen">' +
+        '<input id="module-nav-search" class="module-nav-search" type="search" placeholder="Search modules …" autocomplete="off" aria-label="Module durchsuchen">' +
         '<div class="module-nav-list">' + ''.join(links) + '</div>' +
         '<script>(function(){var input=document.getElementById("module-nav-search");if(!input)return;var items=Array.prototype.slice.call(document.querySelectorAll(".module-nav-list .module-nav-link"));input.addEventListener("input",function(){var q=input.value.trim().toLocaleLowerCase();items.forEach(function(item){item.hidden=q!==""&&item.textContent.toLocaleLowerCase().indexOf(q)===-1;});});})();</script></aside>'
     )
@@ -3211,7 +3211,7 @@ def birthday_dashboard(guild_id):
                 panel_message = await panel_channel.send(embed=embed, view=_bot.BirthdayRegisterView(), allowed_mentions=discord.AllowedMentions.none())
                 cfg["birthday_signup_message_id"] = panel_message.id
                 calendar_message = await panel_channel.send(
-                    embed=discord.Embed(title="🎂 Geburtstagskalender", description="Die Liste wird automatisch aktualisiert, sobald Mitglieder ihren Geburtstag eintragen.", color=discord.Color.from_rgb(83, 160, 255)),
+                    embed=discord.Embed(title="🎂 Birthday calendar", description="Die Liste wird automatisch aktualisiert, sobald Mitglieder ihren Geburtstag eintragen.", color=discord.Color.from_rgb(83, 160, 255)),
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
                 cfg["birthday_calendar_message_id"] = calendar_message.id
@@ -5114,8 +5114,8 @@ def guild_page(guild_id):
             settings_html += '<p class="muted">Lege fest, in welcher Zeitzone der Bot Zeiten für diesen Server anzeigen und verwenden soll. Diese Einstellung betrifft nur die Bot-Konfiguration.</p><label for="bot_timezone">Zeitzone</label><select id="bot_timezone" name="bot_timezone">'
             settings_html += ''.join('<option value="' + zone + '"' + (' selected' if selected_timezone == zone else '') + '>' + zone.replace("_", " ") + '</option>' for zone in timezone_choices)
             settings_html += '</select><div class="notice">Aktuelle Bot-Zeit: <strong>' + html.escape(datetime.now(ZoneInfo(selected_timezone if selected_timezone in timezone_choices else "UTC")).strftime("%d.%m.%Y · %H:%M")) + '</strong></div>'
-            selected_language_ui = str(cfg.get("bot_language", "en"))
-            language_choices = (("en", "English"), ("de", "Deutsch"))
+            selected_language_ui = "en"
+            language_choices = (("en", "English"))
             settings_html += '<h3>🌐 Bot Language</h3><p class="muted">Choose the language IronWolf uses on this Discord server. The website dashboard always stays in English.</p><label for="bot_language">Bot language</label><select id="bot_language" name="bot_language">' + ''.join('<option value="' + lang + '"' + (' selected' if selected_language_ui == lang else '') + '>' + label + '</option>' for lang, label in language_choices) + '</select>'
         elif section == "general":
             bot_enabled_checked = " checked" if cfg.get("bot_enabled", True) else ""
