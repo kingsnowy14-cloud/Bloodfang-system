@@ -13,6 +13,22 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from storage import data_path
 
 
+def _translate(bot, guild_id, text):
+    """Use IronWolf's configured per-server language for Ausweis UI and artwork."""
+    translator = getattr(bot, "bot_text", None)
+    if not callable(translator):
+        try:
+            from bot import bot_text as translator
+        except Exception:
+            translator = None
+    if callable(translator):
+        try:
+            return translator(guild_id, text)
+        except Exception:
+            pass
+    return text
+
+
 PANEL_CONFIG_FILE = data_path("ausweis_panels.json")
 CONFIG_FILE = data_path("config.json")
 DEFAULT_QUESTIONS = [
@@ -97,7 +113,7 @@ def _fit_text(draw, text, font, max_width):
     return value or "—"
 
 
-def _make_id_card(guild, member, answers, questions, card_id, issue_date):
+def _make_id_card(guild, member, answers, questions, card_id, issue_date, translate):
     questions = questions[:5]
     width = 1200
     margin = 58
@@ -138,7 +154,7 @@ def _make_id_card(guild, member, answers, questions, card_id, issue_date):
         if guild and guild.icon:
             icon_request = urllib.request.Request(
                 str(guild.icon.with_size(512).url),
-                headers={"User-Agent": "Bloodfang-RP-ID/1.0"}
+                headers={"User-Agent": "IronWolf-ID/1.0"}
             )
             with urllib.request.urlopen(icon_request, timeout=8) as response:
                 icon_bytes = response.read(2_000_000)
@@ -159,15 +175,15 @@ def _make_id_card(guild, member, answers, questions, card_id, issue_date):
         pass
 
     # Kopfbereich und alle Ausweisdaten werden nach dem Wasserzeichen gezeichnet.
-    draw.text((margin, 62), "DIGITALER RP-AUSWEIS", font=title_font, fill="#172033", stroke_width=0)
-    draw.text((margin, 125), f"AUSWEIS-ID  {card_id}", font=id_font, fill="#2865e8")
+    draw.text((margin, 62), translate("DIGITAL RP ID CARD"), font=title_font, fill="#172033", stroke_width=0)
+    draw.text((margin, 125), f'{translate("ID CARD")}  {card_id}', font=id_font, fill="#2865e8")
     draw.ellipse((margin, 178, margin + 18, 196), fill="#20bd70")
-    draw.text((margin + 32, 173), "AKTIVER RP-AUSWEIS", font=status_font, fill="#172033")
+    draw.text((margin + 32, 173), translate("ACTIVE RP ID CARD"), font=status_font, fill="#172033")
 
     try:
         request = urllib.request.Request(
             str(member.display_avatar.with_size(256).url),
-            headers={"User-Agent": "Bloodfang-RP-ID/1.0"}
+            headers={"User-Agent": "IronWolf-ID/1.0"}
         )
         with urllib.request.urlopen(request, timeout=4) as response:
             avatar_bytes = response.read(1_500_000)
@@ -196,7 +212,7 @@ def _make_id_card(guild, member, answers, questions, card_id, issue_date):
             (x, y, x + field_width, y + field_height),
             radius=18, fill="#f3f6fa", outline="#d5deea", width=2
         )
-        label = _fit_text(draw, question["label"], label_font, field_width - 44)
+        label = _fit_text(draw, translate(question["label"]), label_font, field_width - 44)
         draw.text((x + 22, y + 20), label, font=label_font, fill="#526078")
         value = _fit_text(draw, answers.get(question["key"], ""), value_font, field_width - 44)
         draw.text((x + 22, y + 70), value, font=value_font, fill="#141b2a")
@@ -206,12 +222,12 @@ def _make_id_card(guild, member, answers, questions, card_id, issue_date):
         (margin, status_y, width - margin, status_y + 104),
         radius=18, fill="#edf8f2", outline="#b9e5cc", width=2
     )
-    draw.text((margin + 24, status_y + 15), "AUSWEISSTATUS", font=label_font, fill="#526078")
-    draw.text((margin + 24, status_y + 57), "AKTIV", font=value_font, fill="#147a46")
+    draw.text((margin + 24, status_y + 15), translate("ID CARD STATUS"), font=label_font, fill="#526078")
+    draw.text((margin + 24, status_y + 57), translate("ACTIVE"), font=value_font, fill="#147a46")
 
     draw.line((margin, footer_y, width - margin, footer_y), fill="#d9e1ec", width=2)
     draw.text((margin, footer_y + 28), f"AUSGESTELLT AM  {issue_date}", font=small_font, fill="#68758b")
-    footer = "DIGITALES RP-AUSWEISSYSTEM"
+    footer = "Power by IronWolf"
     footer_box = draw.textbbox((0, 0), footer, font=small_font)
     draw.text((width - margin - (footer_box[2] - footer_box[0]), footer_y + 28), footer, font=small_font, fill="#68758b")
 
@@ -222,9 +238,13 @@ def _make_id_card(guild, member, answers, questions, card_id, issue_date):
 
 class AusweisModal(discord.ui.Modal):
     def __init__(self, bot, guild_id, member_id, channel_id):
-        super().__init__(title="Digitalen RP-Ausweis beantragen", timeout=300)
+        super().__init__(title=_translate(bot, guild_id, "Apply for a digital RP ID card"), timeout=300)
         self.bot, self.guild_id, self.member_id, self.channel_id = bot, guild_id, member_id, channel_id
         self.questions = get_questions(guild_id)
+        for question in self.questions:
+            question["label"] = _translate(bot, guild_id, question["label"])
+            if question.get("placeholder"):
+                question["placeholder"] = _translate(bot, guild_id, question["placeholder"])
         self.inputs = {}
         for question in self.questions:
             field = discord.ui.TextInput(
@@ -240,21 +260,21 @@ class AusweisModal(discord.ui.Modal):
 
     async def on_submit(self, interaction):
         if interaction.user.id != self.member_id:
-            await interaction.response.send_message("Dieses Formular gehört zu einem anderen Mitglied.", ephemeral=True)
+            await interaction.response.send_message(_translate(self.bot, self.guild_id, "This form belongs to another member."), ephemeral=True)
             return
         guild = self.bot.get_guild(self.guild_id)
         member = guild.get_member(self.member_id) if guild else None
         if member is None:
-            await interaction.response.send_message("Der ursprüngliche Server oder dein Mitgliedsprofil ist nicht verfügbar.", ephemeral=True)
+            await interaction.response.send_message(_translate(self.bot, self.guild_id, "The original server or your member profile is no longer available."), ephemeral=True)
             return
         answers = {key: str(field.value).strip() for key, field in self.inputs.items()}
         for question in self.questions:
             value = answers.get(question["key"], "")
             if question["required"] and not value:
-                await interaction.response.send_message(f"Bitte fülle das Feld **{question['label']}** aus.", ephemeral=True)
+                await interaction.response.send_message(_translate(self.bot, self.guild_id, f"Please complete the **{question['label']}** field."), ephemeral=True)
                 return
             if "roblox" in question["label"].casefold() and "id" in question["label"].casefold() and value and not value.isdigit():
-                await interaction.response.send_message(f"**{question['label']}** muss eine numerische ID sein.", ephemeral=True)
+                await interaction.response.send_message(_translate(self.bot, self.guild_id, f"**{question['label']}** must be a numeric ID."), ephemeral=True)
                 return
 
         channel = guild.get_channel(self.channel_id)
@@ -264,33 +284,33 @@ class AusweisModal(discord.ui.Modal):
             except (discord.NotFound, discord.Forbidden, discord.HTTPException):
                 channel = None
         if not isinstance(channel, discord.TextChannel):
-            await interaction.response.send_message("Der konfigurierte Ausweiskanal wurde nicht gefunden.", ephemeral=True)
+            await interaction.response.send_message(_translate(self.bot, self.guild_id, "The configured ID card channel could not be found."), ephemeral=True)
             return
 
         card_id = "BA-" + secrets.token_hex(3).upper()
         issue_date = datetime.datetime.now(datetime.timezone.utc).astimezone().strftime("%d.%m.%Y")
-        card_image = _make_id_card(self.bot.get_guild(self.guild_id), member, answers, self.questions, card_id, issue_date)
+        card_image = _make_id_card(self.bot.get_guild(self.guild_id), member, answers, self.questions, card_id, issue_date, lambda text: _translate(self.bot, self.guild_id, text))
         try:
             await channel.send(file=discord.File(io.BytesIO(card_image.getvalue()), filename="digitaler-rp-ausweis.png"), allowed_mentions=discord.AllowedMentions.none())
         except (discord.Forbidden, discord.HTTPException):
-            await interaction.response.send_message("Der Ausweis konnte im ausgewählten Kanal nicht veröffentlicht werden. Prüfe meine Rechte für Nachrichten und Dateien.", ephemeral=True)
+            await interaction.response.send_message(_translate(self.bot, self.guild_id, "The ID card could not be published in the selected channel. Check my permissions to send messages and files."), ephemeral=True)
             return
         try:
-            await interaction.user.send("🪪 Dein digitaler RP-Ausweis wurde erstellt. Hier ist deine persönliche Kopie:", file=discord.File(io.BytesIO(card_image.getvalue()), filename="dein-digitaler-rp-ausweis.png"))
+            await interaction.user.send(_translate(self.bot, self.guild_id, "🪪 Your digital RP ID card has been created. Here is your personal copy:"), file=discord.File(io.BytesIO(card_image.getvalue()), filename="dein-digitaler-rp-ausweis.png"))
         except (discord.Forbidden, discord.HTTPException):
-            await interaction.response.send_message(f"✅ Dein Ausweis wurde in {channel.mention} veröffentlicht. Ich konnte dir keine DM senden.", ephemeral=True)
+            await interaction.response.send_message(_translate(self.bot, self.guild_id, f"✅ Your ID card was published in {channel.mention}. I could not send you a DM."), ephemeral=True)
             return
-        await interaction.response.send_message(f"✅ Dein Ausweis wurde erstellt, dir per DM geschickt und in {channel.mention} veröffentlicht.", ephemeral=True)
+        await interaction.response.send_message(_translate(self.bot, self.guild_id, f"✅ Your ID card was created, sent to you by DM, and published in {channel.mention}."), ephemeral=True)
 
 
 class AusweisRequestButton(discord.ui.Button):
     def __init__(self, bot, guild_id, channel_id):
-        super().__init__(label="Ausweis beantragen", emoji="🪪", style=discord.ButtonStyle.primary, custom_id=f"ironwolf:ausweis:request:{guild_id}:{channel_id}")
+        super().__init__(label="Apply for ID card", emoji="🪪", style=discord.ButtonStyle.primary, custom_id=f"ironwolf:ausweis:request:{guild_id}:{channel_id}")
         self.bot, self.guild_id, self.channel_id = bot, guild_id, channel_id
 
     async def callback(self, interaction):
         if interaction.guild is None or interaction.guild.id != self.guild_id:
-            await interaction.response.send_message("Bitte nutze diesen Button auf dem zugehörigen Server.", ephemeral=True)
+            await interaction.response.send_message(_translate(self.bot, self.guild_id, "Please use this button in the associated server."), ephemeral=True)
             return
         await interaction.response.send_modal(
             AusweisModal(self.bot, self.guild_id, interaction.user.id, self.channel_id)
@@ -314,13 +334,13 @@ class Ausweis(commands.Cog):
             except (KeyError, TypeError, ValueError):
                 continue
 
-    @app_commands.command(name="ausweis", description="Erstellt ein RP-Ausweis-Panel")
+    @app_commands.command(name="ausweis", description="Creates an RP ID card panel")
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(channel="Kanal, in dem fertige Ausweise veröffentlicht werden")
+    @app_commands.describe(channel="Channel where completed ID cards will be published")
     async def id_card(self, interaction, channel: discord.TextChannel):
         if interaction.guild is None:
-            await interaction.response.send_message("Dieser Befehl kann nur auf einem Server verwendet werden.", ephemeral=True)
+            await interaction.response.send_message(_translate(self.bot, interaction.guild.id if interaction.guild else None, "This command can only be used in a server."), ephemeral=True)
             return
         panels = load_panels()
         record = {"guild_id": interaction.guild.id, "channel_id": channel.id}
@@ -330,11 +350,11 @@ class Ausweis(commands.Cog):
         view = AusweisPanelView(self.bot, interaction.guild.id, channel.id)
         self.bot.add_view(view)
         embed = discord.Embed(
-            title="🪪 Digitalen RP-Ausweis beantragen",
-            description="Klicke auf **Ausweis beantragen** und fülle das Formular direkt hier im privaten Pop-up aus. Dein fertiger Ausweis wird als Bild im ausgewählten Kanal veröffentlicht und dir zusätzlich per DM geschickt.",
+            title="🪪 Apply for a digital RP ID card",
+            description="Click **Apply for ID card** and complete the form in the private pop-up. Your finished ID card will be published as an image in the selected channel and sent to you by DM.",
             color=discord.Color.from_rgb(44, 101, 232),
         )
-        embed.set_footer(text="Bloodfang RP · Digitales Ausweissystem")
+        embed.set_footer(text="Power by IronWolf")
         await interaction.response.send_message(embed=embed, view=view)
 
 

@@ -29,13 +29,8 @@ def _guild_id(owner, bot):
 
 
 async def _server_footer(bot, guild_id, translate):
-    if guild_id is None:
-        return None
-    guild = bot.get_guild(int(guild_id))
-    if guild is None:
-        return None
-    label = await asyncio.to_thread(translate, guild_id, "Server:")
-    return f"{label} {guild.name}"
+    # Brand attribution is language-independent and identical on every server.
+    return "Power by IronWolf"
 
 
 def _add_embed_server_footer(embed, footer_text):
@@ -45,7 +40,7 @@ def _add_embed_server_footer(embed, footer_text):
     existing = result.footer.text if result.footer else None
     icon_url = result.footer.icon_url if result.footer else None
     if footer_text not in (existing or ""):
-        combined = f"{existing} • {footer_text}" if existing else footer_text
+        combined = f"{existing} • {footer_text}" if existing and footer_text not in existing else (existing or footer_text)
         result.set_footer(text=combined[:2048], icon_url=icon_url)
     return result
 
