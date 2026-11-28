@@ -2609,9 +2609,9 @@ def _server_promotion_discord_profile(guild_id, guild, oauth_profile=None, invit
                 if isinstance(payload, dict):
                     api_profile = payload
             else:
-                logger.warning("[SERVER PROMOTION] Discord guild profile returned HTTP %s for %s", response.status_code, guild_id)
+                print("[SERVER PROMOTION] Discord guild profile returned HTTP %s for %s" % (response.status_code, guild_id), flush=True)
         except (requests.RequestException, ValueError) as exc:
-            logger.warning("[SERVER PROMOTION] Discord guild profile request failed for %s: %s", guild_id, exc)
+            print("[SERVER PROMOTION] Discord guild profile request failed for %s: %s" % (guild_id, exc), flush=True)
 
     # The invite preview endpoint also exposes the public guild profile and works
     # without bot authorization. This is especially useful for older listings.
@@ -2632,9 +2632,9 @@ def _server_promotion_discord_profile(guild_id, guild, oauth_profile=None, invit
                             if value not in (None, "", [], 0) and not api_profile.get(key):
                                 api_profile[key] = value
                 else:
-                    logger.warning("[SERVER PROMOTION] Discord invite profile returned HTTP %s for %s", response.status_code, guild_id)
+                    print("[SERVER PROMOTION] Discord invite profile returned HTTP %s for %s" % (response.status_code, guild_id), flush=True)
         except (requests.RequestException, ValueError) as exc:
-            logger.warning("[SERVER PROMOTION] Discord invite profile request failed for %s: %s", guild_id, exc)
+            print("[SERVER PROMOTION] Discord invite profile request failed for %s: %s" % (guild_id, exc), flush=True)
 
     icon_hash = str(api_profile.get("icon") or oauth_profile.get("icon") or "")
     banner_hash = str(api_profile.get("banner") or oauth_profile.get("banner") or "")
