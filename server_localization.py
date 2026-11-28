@@ -78,15 +78,16 @@ def install_discord_localization(bot, translate, language):
         @wraps(original)
         async def localized(self, *args, **kwargs):
             guild_id = _guild_id(self, bot)
-            if guild_id and language(guild_id) == "de":
-                args = list(args)
-                if args and isinstance(args[0], str):
-                    args[0] = translate(guild_id, args[0])
-                else:
-                    _localize_kwargs(kwargs, guild_id, translate)
-                if args:
-                    kwargs = _localize_kwargs(kwargs, guild_id, translate)
-                args = tuple(args)
+            # Always normalize outgoing text to the selected language.
+            # English is the default (including DMs); a guild configured as
+            # German receives German. This also converts legacy hard-coded
+            # German literals back to English on English servers.
+            target_guild_id = guild_id
+            args = list(args)
+            if args and isinstance(args[0], str):
+                args[0] = translate(target_guild_id, args[0])
+            kwargs = _localize_kwargs(kwargs, target_guild_id, translate)
+            args = tuple(args)
             return await original(self, *args, **kwargs)
 
         localized._ironwolf_localized = True
