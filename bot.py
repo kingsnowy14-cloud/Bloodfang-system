@@ -33,6 +33,7 @@ from wolfanalytics import record as wolfanalytics_record, get_stats as wolfanaly
 from isle_registration import get_registration as _get_isle_registration, set_registration as _set_isle_registration, remove_registration as _remove_isle_registration
 from github_backup import github_backup_worker
 from wolfguard import setup_wolfguard
+from server_localization import install_discord_localization
 
 
 # Install:
@@ -54,12 +55,8 @@ intents.auto_moderation_configuration = True
 intents.auto_moderation_execution = True
 
 class LocalizedContext(commands.Context):
-    """Translate ordinary prefix-command replies using the current server language."""
-
-    async def send(self, content=None, **kwargs):
-        if isinstance(content, str) and self.guild is not None:
-            content = bot_text(self.guild.id, content)
-        return await super().send(content=content, **kwargs)
+    """Context class retained for compatibility; send localization is installed globally."""
+    pass
 
 
 class GuildGateBot(commands.Bot):
@@ -821,6 +818,13 @@ def bot_text(guild_id, text):
     for key, value in placeholders.items():
         translated = translated.replace(key, value)
     return translated
+
+
+# Apply localization at Discord's outgoing-message boundary so slash commands,
+# prefix commands, embeds, follow-ups, alerts, and automation messages all use
+# the language configured for the message's own server.
+install_discord_localization(bot, bot_text, server_language)
+
 
 def migrate_all_guild_configs():
     """Apply new defaults to every known server while preserving existing settings."""
