@@ -20,7 +20,7 @@ import urllib.error
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from storage import data_path
 from guild_announcement import cleanup_mainserver_announcements
-from premium import guild_has_feature, account_plan, expired_grants, mark_expiry_dm_sent, grant_server_boost_premium
+from premium import PREMIUM_ADMIN_ID, guild_has_feature, account_plan, expired_grants, mark_expiry_dm_sent, grant_server_boost_premium
 from collections import defaultdict, deque
 import discord
 from discord import app_commands
@@ -112,7 +112,7 @@ async def dashboard_prefix_command_check(ctx):
     invoked_name = (getattr(ctx, "invoked_with", "") or "").casefold()
     if (
         command_name.casefold() in protected_names or invoked_name in protected_names
-    ) and ctx.author.id != 1493110334280564807:
+    ) and str(ctx.author.id) != PREMIUM_ADMIN_ID:
         await ctx.send("⛔ This command is reserved for the website administrator.")
         return False
 
@@ -140,7 +140,7 @@ async def dashboard_slash_command_check(interaction):
     website_admin_slash_commands = {"developerbuild"}
     if (
         command.name.casefold() in website_admin_slash_commands
-        and interaction.user.id != 1493110334280564807
+        and str(interaction.user.id) != PREMIUM_ADMIN_ID
     ):
         message = "⛔ Dieser Befehl ist ausschließlich dem Website-Administrator vorbehalten."
         if interaction.response.is_done():
