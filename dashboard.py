@@ -2599,7 +2599,31 @@ def server_promotion_directory():
     if request.method == "POST":
         if not _csrf_ok():
             abort(400, "Security check failed. Please reload the page.")
+        action = str(request.form.get("action", "add")).strip().lower()
         guild_id = str(request.form.get("guild_id", "")).strip()
+        if action == "delete":
+            if not re.fullmatch(r"\\d{17,20}", guild_id):
+                abort(400, "Please select a valid Discord server.")
+            try:
+                permitted = any(
+                    str(item.get("id")) == guild_id
+                    and (int(item.get("permissions", "0")) & (MANAGE_GUILD | ADMINISTRATOR))
+                    for item in _user_guilds()
+                )
+            except (requests.RequestException, TypeError, ValueError, KeyError):
+                permitted = False
+            guild = _bot.get_guild(int(guild_id)) if permitted and _bot else None
+            if not permitted or guild is None:
+                abort(403, "You need Manage Server permission to remove this server.")
+            with _SERVER_PROMOTION_LOCK:
+                records = _server_promotion_read()
+                if guild_id not in records:
+                    abort(404, "This server is not registered in the directory.")
+                records.pop(guild_id, None)
+                _server_promotion_write(records)
+            return redirect(url_for("server_promotion_directory", deleted="1"))
+        if action != "add":
+            abort(400, "Invalid action.")
         invite_url = str(request.form.get("invite_url", "")).strip()
         advert_text = str(request.form.get("advert_text", "")).strip()[:1200]
         if not re.fullmatch(r"\d{17,20}", guild_id):
@@ -2686,13 +2710,15 @@ def server_promotion_directory():
             + '<h2>' + html.escape(guild.name) + '</h2><p class="muted">' + member_count + ' members</p></div></div>'
             + '<p class="promotion-description">' + description + '</p>'
             + profile
-            + '<a class="button promotion-join" href="' + html.escape(record.get("invite_url", ""), quote=True) + '" target="_blank" rel="noopener noreferrer">Join Discord ↗</a></article>'
+            + '<div class="promotion-card-actions"><a class="button promotion-join" href="' + html.escape(record.get("invite_url", ""), quote=True) + '" target="_blank" rel="noopener noreferrer">Join Discord ↗</a>'
+            + ('<form method="post" onsubmit="return confirm(\\'Remove this server from the directory?\\')">' + _csrf_field() + '<input type="hidden" name="action" value="delete"><input type="hidden" name="guild_id" value="' + html.escape(guild_id, quote=True) + '"><button class="promotion-delete" type="submit">Delete server</button></form>' if any(str(item.get("id")) == guild_id and (int(item.get("permissions", "0")) & (MANAGE_GUILD | ADMINISTRATOR)) for item in user_guilds if str(item.get("permissions", "0")).isdigit()) else '')
+            + '</div></article>'
         )
 
     options = ['<option value="">Choose a server…</option>']
     for guild_id, guild_name in sorted(manageable, key=lambda item: item[1].casefold()):
         options.append('<option value="' + html.escape(guild_id, quote=True) + '">' + html.escape(guild_name) + '</option>')
-    notice = '<div class="notice">Your server has been added to the directory.</div>' if request.args.get("saved") == "1" else ""
+    notice = '<div class="notice">Your server has been added to the directory.</div>' if request.args.get("saved") == "1" else ('<div class="notice">Your server has been removed from the directory.</div>' if request.args.get("deleted") == "1" else "")
     if manageable:
         add_form = (
             '<section class="card promotion-add"><h2>Add your server</h2><p class="muted">Only servers where IronWolf is already installed and you have Manage Server or Administrator permission can be added. Your server appears only after you submit this form.</p>'
@@ -2714,7 +2740,8 @@ def server_promotion_directory():
         '.promotion-badges{display:flex;flex-wrap:wrap;gap:6px}.promotion-description{color:var(--muted,#aab4c3);margin:0;line-height:1.55}'
         '.promotion-details{border-top:1px solid var(--border,#334155);padding-top:12px}.promotion-details summary{cursor:pointer;font-weight:650;list-style:none}.promotion-details summary:after{content:"＋";float:right}.promotion-details[open] summary:after{content:"−"}'
         '.promotion-profile{padding:10px 0 0;line-height:1.55}.promotion-ad{margin:12px 0;padding:14px;border-radius:12px;background:rgba(90,130,190,.12);border:1px solid rgba(120,160,220,.2)}'
-        '.promotion-join{align-self:flex-start;margin-top:auto}.promotion-add textarea{min-height:110px}'
+        '.promotion-card-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:auto}.promotion-join{align-self:flex-start;margin-top:0}.promotion-add textarea{min-height:110px}'
+        '.promotion-delete{background:transparent!important;color:#ef7777!important;border:1px solid rgba(239,119,119,.45)!important;padding:9px 13px;border-radius:10px;cursor:pointer}.promotion-delete:hover{background:rgba(239,119,119,.12)!important}'
         '</style>'
         '<section><div style="display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap"><div><h2>Community directory</h2><p class="muted">Discover Discord communities powered by IronWolf.</p></div><span class="pill">' + str(len(cards)) + ' REGISTERED SERVERS</span></div>'
         + ('<div class="promotion-grid">' + "".join(cards) + '</div>' if cards else '<div class="card">No servers have registered yet. Be the first to add yours.</div>')
