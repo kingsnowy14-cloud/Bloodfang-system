@@ -901,13 +901,14 @@ class IronWolfCommandTranslator(app_commands.Translator):
         }
         if target == "de":
             dashboard_german = {english: german for german, english in dashboard_english.items()}
+            slash_text_german = {english: german for german, english in slash_text.items()}
             command_names = {
                 "birthday": "geburtstag", "id-card": "ausweis",
                 "application": "bewerbung", "absence": "abwesenheit",
                 "verification": "verifizierung", "server-info": "serverinfo",
                 "user-info": "benutzerinfo", "warn": "warnen", "shift": "schicht",
             }
-            return bot_german.get(message) or dashboard_german.get(message) or slash_text.get(message) or command_names.get(message)
+            return bot_german.get(message) or dashboard_german.get(message) or slash_text_german.get(message) or command_names.get(message)
         dashboard_german_to_english = dashboard_english
         bot_english = {german: english for english, german in bot_german.items()}
         slash_text_english = slash_text
