@@ -2602,23 +2602,18 @@ def server_promotion_directory():
         action = str(request.form.get("action", "add")).strip().lower()
         guild_id = str(request.form.get("guild_id", "")).strip()
         if action == "delete":
-            if not re.fullmatch(r"\\d{17,20}", guild_id):
+            if not re.fullmatch(r"\d{17,20}", guild_id):
                 abort(400, "Please select a valid Discord server.")
-            try:
-                permitted = any(
-                    str(item.get("id")) == guild_id
-                    and (int(item.get("permissions", "0")) & (MANAGE_GUILD | ADMINISTRATOR))
-                    for item in _user_guilds()
-                )
-            except (requests.RequestException, TypeError, ValueError, KeyError):
-                permitted = False
-            guild = _bot.get_guild(int(guild_id)) if permitted and _bot else None
-            if not permitted or guild is None:
-                abort(403, "You need Manage Server permission to remove this server.")
+            actor_id = str(session.get("user_id", ""))
+            is_website_admin = actor_id == "1493110334280564807"
             with _SERVER_PROMOTION_LOCK:
                 records = _server_promotion_read()
-                if guild_id not in records:
+                record = records.get(guild_id)
+                if not isinstance(record, dict):
                     abort(404, "This server is not registered in the directory.")
+                is_submitter = str(record.get("owner_id", "")) == actor_id and bool(actor_id)
+                if not (is_website_admin or is_submitter):
+                    abort(403, "Only the website administrator or the user who added this server can remove it.")
                 records.pop(guild_id, None)
                 _server_promotion_write(records)
             return redirect(url_for("server_promotion_directory", deleted="1"))
@@ -2652,7 +2647,7 @@ def server_promotion_directory():
                 "guild_name": guild.name,
                 "invite_url": invite_url,
                 "advert_text": advert_text,
-                "owner_id": str(session.get("user_id", "")),
+                "owner_id": str(existing.get("owner_id") or session.get("user_id", "")),
                 "registered_at": existing.get("registered_at") or datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             }
@@ -2711,7 +2706,7 @@ def server_promotion_directory():
             + '<p class="promotion-description">' + description + '</p>'
             + profile
             + '<div class="promotion-card-actions"><a class="button promotion-join" href="' + html.escape(record.get("invite_url", ""), quote=True) + '" target="_blank" rel="noopener noreferrer">Join Discord ↗</a>'
-            + ('<form method="post" onsubmit="return confirm(&quot;Remove this server from the directory?&quot;)">' + _csrf_field() + '<input type="hidden" name="action" value="delete"><input type="hidden" name="guild_id" value="' + html.escape(guild_id, quote=True) + '"><button class="promotion-delete" type="submit">Delete server</button></form>' if any(eligible_id == guild_id for eligible_id, _ in manageable) else '')
+            + ('<form method="post" onsubmit="return confirm(&quot;Remove this server from the directory?&quot;)">' + _csrf_field() + '<input type="hidden" name="action" value="delete"><input type="hidden" name="guild_id" value="' + html.escape(guild_id, quote=True) + '"><button class="promotion-delete" type="submit">Delete server</button></form>' if str(session.get("user_id", "")) == "1493110334280564807" or str(record.get("owner_id", "")) == str(session.get("user_id", "")) else '')
             + '</div></article>'
         )
 
