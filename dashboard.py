@@ -2171,6 +2171,53 @@ def dashboard_auth_expired(error):
     )
     return make_response(_page("Erneut anmelden", body), 401)
 
+def _website_error_response(status, title, message, action_label="Back to IronWolf", action_url="/"):
+    """Render a friendly public error page without exposing infrastructure details."""
+    body = (
+        '<section class="card" style="max-width:760px;margin:8vh auto;text-align:center">'
+        '<div style="font-size:52px;line-height:1.2;margin-bottom:16px" aria-hidden="true">🐺</div>'
+        '<p style="letter-spacing:2px;text-transform:uppercase;font-weight:800;color:var(--accent)">IRONWOLF · WEBSITE</p>'
+        '<h1>' + html.escape(title) + '</h1>'
+        '<p>' + html.escape(message) + '</p>'
+        '<a class="button" href="' + html.escape(action_url, quote=True) + '">' + html.escape(action_label) + '</a>'
+        '<p style="font-size:12px;margin-top:24px">Please try again in a moment.</p>'
+        '</section>'
+    )
+    response = make_response(_page(title, body), status)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
+
+
+@app.errorhandler(404)
+def website_page_not_found(error):
+    return _website_error_response(
+        404,
+        "Page not found",
+        "This page does not exist or may have moved. You can return to the IronWolf homepage.",
+    )
+
+
+@app.errorhandler(500)
+def website_internal_error(error):
+    return _website_error_response(
+        500,
+        "Something went wrong",
+        "IronWolf is having a temporary technical problem. Please try again shortly.",
+        "Try again",
+        request.path or "/",
+    )
+
+
+@app.errorhandler(503)
+def website_unavailable(error):
+    return _website_error_response(
+        503,
+        "Temporarily unavailable",
+        "IronWolf is temporarily unavailable, for example because of maintenance. Please try again shortly.",
+        "Try again",
+        request.path or "/",
+    )
+
 
 def _require_login():
     if not session.get("access_token"):
