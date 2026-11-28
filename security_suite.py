@@ -449,10 +449,9 @@ class SecuritySuite(commands.Cog):
 
 async def setup(bot):
     cog = SecuritySuite(bot)
-    # These commands are server-only; register them per guild so they do not
-    # consume Discord's shared 100-command global application-command limit.
-    guild_ids = [guild.id for guild in bot.guilds]
-    for command in cog.get_app_commands():
-        command.guild_ids = guild_ids
-    await bot.add_cog(cog)
+    # Register this opt-in suite directly as guild commands. Setting guild_ids
+    # after command construction is not sufficient for Cog registration in every
+    # discord.py version and can accidentally consume the 100-command global cap.
+    guilds = [discord.Object(id=guild.id) for guild in bot.guilds]
+    await bot.add_cog(cog, guilds=guilds)
     bot.add_view(VerifyButton())
