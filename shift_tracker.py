@@ -4,6 +4,8 @@ import json
 from datetime import datetime, timedelta, timezone
 
 import discord
+import secrets
+from discord import app_commands
 from discord.ext import commands, tasks
 from storage import data_path
 from premium import guild_has_feature
