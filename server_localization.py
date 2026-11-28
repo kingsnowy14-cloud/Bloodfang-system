@@ -1,4 +1,5 @@
 """Guild-aware localization for all Discord message delivery paths."""
+import asyncio
 from functools import wraps
 
 
@@ -27,38 +28,39 @@ def _guild_id(owner, bot):
     return None
 
 
-def _localized_embed(embed, guild_id, translate):
+async def _localized_embed(embed, guild_id, translate):
     if embed is None or not guild_id:
         return embed
     result = embed.copy()
     if result.title:
-        result.title = translate(guild_id, result.title)
+        result.title = await asyncio.to_thread(translate, guild_id, result.title)
     if result.description:
-        result.description = translate(guild_id, result.description)
+        result.description = await asyncio.to_thread(translate, guild_id, result.description)
     if result.author and result.author.name:
-        result.set_author(name=translate(guild_id, result.author.name),
+        result.set_author(name=await asyncio.to_thread(translate, guild_id, result.author.name),
                           url=result.author.url, icon_url=result.author.icon_url)
     if result.footer and result.footer.text:
-        result.set_footer(text=translate(guild_id, result.footer.text),
+        result.set_footer(text=await asyncio.to_thread(translate, guild_id, result.footer.text),
                           icon_url=result.footer.icon_url)
     for index, field in enumerate(result.fields):
-        result.set_field_at(index, name=translate(guild_id, field.name),
-                            value=translate(guild_id, field.value), inline=field.inline)
+        name = await asyncio.to_thread(translate, guild_id, field.name)
+        value = await asyncio.to_thread(translate, guild_id, field.value)
+        result.set_field_at(index, name=name, value=value, inline=field.inline)
     return result
 
 
-def _localize_kwargs(kwargs, guild_id, translate):
+async def _localize_kwargs(kwargs, guild_id, translate):
     if not guild_id:
         return kwargs
     content = kwargs.get("content")
     if isinstance(content, str) and content:
-        kwargs["content"] = translate(guild_id, content)
+        kwargs["content"] = await asyncio.to_thread(translate, guild_id, content)
     embed = kwargs.get("embed")
     if embed is not None:
-        kwargs["embed"] = _localized_embed(embed, guild_id, translate)
+        kwargs["embed"] = await _localized_embed(embed, guild_id, translate)
     embeds = kwargs.get("embeds")
     if embeds is not None:
-        kwargs["embeds"] = [_localized_embed(item, guild_id, translate) for item in embeds]
+        kwargs["embeds"] = [await _localized_embed(item, guild_id, translate) for item in embeds]
     return kwargs
 
 
@@ -85,8 +87,8 @@ def install_discord_localization(bot, translate, language):
             target_guild_id = guild_id
             args = list(args)
             if args and isinstance(args[0], str):
-                args[0] = translate(target_guild_id, args[0])
-            kwargs = _localize_kwargs(kwargs, target_guild_id, translate)
+                args[0] = await asyncio.to_thread(translate, target_guild_id, args[0])
+            kwargs = await _localize_kwargs(kwargs, target_guild_id, translate)
             args = tuple(args)
             return await original(self, *args, **kwargs)
 
