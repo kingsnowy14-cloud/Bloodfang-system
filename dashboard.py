@@ -2665,7 +2665,7 @@ def _server_promotion_discord_profile(guild_id, guild, oauth_profile=None, invit
         except (requests.RequestException, ValueError) as exc:
             print("[SERVER PROMOTION] Discord invite profile request failed for %s: %s" % (guild_id, exc), flush=True)
 
-    icon_hash = str(api_profile.get("icon") or oauth_profile.get("icon") or "")
+    icon_hash = str(api_profile.get("icon") or oauth_profile.get("icon") or getattr(getattr(guild, "icon", None), "key", "") or "")
     banner_hash = str(api_profile.get("banner") or oauth_profile.get("banner") or "")
     icon_ext = "gif" if icon_hash.startswith("a_") else "png"
     banner_ext = "gif" if banner_hash.startswith("a_") else "png"
@@ -2680,6 +2680,7 @@ def _server_promotion_discord_profile(guild_id, guild, oauth_profile=None, invit
     member_count = api_profile.get("approximate_member_count") or oauth_profile.get("approximate_member_count") or getattr(guild, "member_count", 0) or 0
     return {
         "icon_url": icon_url,
+        "icon_hash": icon_hash,
         "banner_url": banner_url,
         "description": str(api_profile.get("description") or oauth_profile.get("description") or getattr(guild, "description", "") or "")[:4096],
         "features": list(features)[:50],
@@ -2790,7 +2791,7 @@ def server_promotion_directory():
         # Force one refresh after profile-source changes, then keep the ten-minute cache.
         saved_profile = existing_record.get("profile") if isinstance(existing_record.get("profile"), dict) else {}
         # Keep retrying older listings that still have no imported Discord icon.
-        needs_source_refresh = existing_record.get("profile_source_version") != 2 or not saved_profile.get("icon_url")
+        needs_source_refresh = existing_record.get("profile_source_version") != 3 or not saved_profile.get("icon_hash") or not saved_profile.get("icon_url")
         try:
             last_sync = datetime.fromisoformat(synced_at.replace("Z", "+00:00"))
             is_stale = (now - last_sync).total_seconds() >= 600
@@ -2802,7 +2803,7 @@ def server_promotion_directory():
             existing_id, existing_guild, oauth_by_id.get(existing_id, {}), existing_record.get("invite_url", "")
         )
         existing_record["profile_synced_at"] = now.isoformat(timespec="seconds")
-        existing_record["profile_source_version"] = 2
+        existing_record["profile_source_version"] = 3
         profiles_changed = True
     if profiles_changed:
         with _SERVER_PROMOTION_LOCK:
@@ -2811,21 +2812,27 @@ def server_promotion_directory():
     cards = []
     for guild_id, record, guild in listed:
         profile = record.get("profile") if isinstance(record.get("profile"), dict) else {}
-        # Always prefer the current discord.py guild asset over an older OAuth snapshot.
+        # Prefer the refreshed canonical profile; use gateway and OAuth data as fallbacks.
         live_icon = guild.icon.url if getattr(guild, "icon", None) else ""
         oauth_profile = oauth_by_id.get(guild_id, {})
         oauth_icon_hash = str(oauth_profile.get("icon") or "").strip()
-        oauth_icon_ext = "gif" if oauth_icon_hash.startswith("a_") else "png"
-        oauth_icon_url = (
-            "https://cdn.discordapp.com/icons/" + guild_id + "/" + oauth_icon_hash + "." + oauth_icon_ext + "?size=256"
-            if re.fullmatch(r"[A-Za-z0-9_]+", oauth_icon_hash) else ""
+        profile_icon_hash = str(profile.get("icon_hash") or "").strip()
+        icon_hash = profile_icon_hash or oauth_icon_hash
+        icon_ext = "gif" if icon_hash.startswith("a_") else "png"
+        hash_icon_url = (
+            "https://cdn.discordapp.com/icons/" + guild_id + "/" + icon_hash + "." + icon_ext + "?size=256"
+            if re.fullmatch(r"[A-Za-z0-9_]+", icon_hash) else ""
         )
-        icon = str(live_icon or profile.get("icon_url") or oauth_icon_url or "")
+        icon = str(profile.get("icon_url") or hash_icon_url or live_icon or "")
+        icon_fallback = (
+            "https://media.discordapp.net/icons/" + guild_id + "/" + icon_hash + "." + icon_ext + "?size=256"
+            if re.fullmatch(r"[A-Za-z0-9_]+", icon_hash) else ""
+        )
         banner_asset = getattr(guild, "banner", None) or getattr(guild, "splash", None)
         banner = str(profile.get("banner_url") or (banner_asset.url if banner_asset else ""))
         icon_html = (
             '<img class="promotion-avatar" src="' + html.escape(icon, quote=True) +
-            '" alt="' + html.escape(guild.name, quote=True) + ' icon" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=&quot;promotion-avatar promotion-avatar-fallback&quot;>🐺</div>\'">'
+            '" data-fallback-src="' + html.escape(icon_fallback, quote=True) + '" alt="' + html.escape(guild.name, quote=True) + ' icon" loading="eager" decoding="async" onerror="if(this.dataset.fallbackSrc&&this.src!==this.dataset.fallbackSrc){this.src=this.dataset.fallbackSrc;this.dataset.fallbackSrc=\'\';}else{this.outerHTML=\'<div class=&quot;promotion-avatar promotion-avatar-fallback&quot;>🐺</div>\'}">'
             if icon else '<div class="promotion-avatar promotion-avatar-fallback">🐺</div>'
         )
         banner_html = (
@@ -2833,7 +2840,7 @@ def server_promotion_directory():
             if banner else '<div class="promotion-banner promotion-banner-fallback"></div>'
         )
         profile_icon_html = (
-            '<img class="promotion-profile-avatar" src="' + html.escape(icon, quote=True) + '" alt="' + html.escape(guild.name, quote=True) + ' server icon" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<div class=&quot;promotion-profile-avatar promotion-avatar-fallback&quot;>🐺</div>\'">'
+            '<img class="promotion-profile-avatar" src="' + html.escape(icon, quote=True) + '" data-fallback-src="' + html.escape(icon_fallback, quote=True) + '" alt="' + html.escape(guild.name, quote=True) + ' server icon" loading="eager" decoding="async" onerror="if(this.dataset.fallbackSrc&&this.src!==this.dataset.fallbackSrc){this.src=this.dataset.fallbackSrc;this.dataset.fallbackSrc=\'\';}else{this.outerHTML=\'<div class=&quot;promotion-profile-avatar promotion-avatar-fallback&quot;>🐺</div>\'}">'
             if icon else '<div class="promotion-profile-avatar promotion-avatar-fallback" aria-hidden="true">🐺</div>'
         )
         profile_banner_html = (
