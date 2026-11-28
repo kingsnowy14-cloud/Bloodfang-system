@@ -5024,7 +5024,10 @@ def guild_page(guild_id):
                 if settings_section == "general":
                     # Missing flag is treated as enabled for legacy servers; new servers explicitly start disabled.
                     cfg["bot_enabled"] = request.form.get("bot_enabled") == "on"
-                    cfg["bot_language"] = "en"
+                    selected_bot_language = request.form.get("bot_language", "auto").strip().lower()
+                    if selected_bot_language not in {"auto", "en", "de"}:
+                        abort(400, "Please select a supported bot language.")
+                    cfg["bot_language"] = selected_bot_language
                     # Welcome and goodbye destinations are configured in the Welcome module.
                     text_channel_ids = {str(item.id) for item in guild.text_channels}
                     for key, label in (("welcome_channel", "Welcome channel"), ("goodbye_channel", "Goodbye channel")):
@@ -5170,10 +5173,17 @@ def guild_page(guild_id):
             settings_html += '<p class="muted">Lege fest, in welcher Zeitzone der Bot Zeiten für diesen Server anzeigen und verwenden soll. Diese Einstellung betrifft nur die Bot-Konfiguration.</p><label for="bot_timezone">Zeitzone</label><select id="bot_timezone" name="bot_timezone">'
             settings_html += ''.join('<option value="' + zone + '"' + (' selected' if selected_timezone == zone else '') + '>' + zone.replace("_", " ") + '</option>' for zone in timezone_choices)
             settings_html += '</select><div class="notice">Aktuelle Bot-Zeit: <strong>' + html.escape(datetime.now(ZoneInfo(selected_timezone if selected_timezone in timezone_choices else "UTC")).strftime("%d.%m.%Y · %H:%M")) + '</strong></div>'
-            settings_html += '<h3>🌐 Language</h3><p class="muted">IronWolf and the dashboard are available in English only.</p>'
         elif section == "general":
             bot_enabled_checked = " checked" if cfg.get("bot_enabled", True) else ""
             settings_html += '<div class="check"><input type="checkbox" id="bot_enabled" name="bot_enabled"' + bot_enabled_checked + '><label for="bot_enabled">🐺 Enable IronWolf on this server</label></div><p class="muted">When disabled, the bot will not respond on this server. New servers start disabled; existing servers keep their current behavior.</p>'
+            selected_bot_language = str(cfg.get("bot_language", "auto")).lower()
+            if selected_bot_language not in {"auto", "en", "de"}:
+                selected_bot_language = "auto"
+            settings_html += '<h3>🌐 Bot language</h3><p class="muted">Choose the language used for bot replies, embeds, buttons, menus, and other bot-generated text. Automatic follows this Discord server preferred language (English fallback).</p><label for="bot_language">Language</label><select id="bot_language" name="bot_language">'
+            for language_value, language_label in (("auto", "Automatic (Discord server language)"), ("en", "English"), ("de", "Deutsch")):
+                selected = " selected" if selected_bot_language == language_value else ""
+                settings_html += f'<option value="{language_value}"{selected}>{language_label}</option>'
+            settings_html += '</select>'
             settings_html += '<h3>👋 Welcome module · Channels</h3><p class="muted">Choose where IronWolf welcomes new members and where goodbye messages are posted.</p>'
             settings_html += '<label for="welcome_channel">Public welcome channel</label><select id="welcome_channel" name="welcome_channel">' + options(channels, cfg.get("welcome_channel")) + '</select>'
             settings_html += '<label for="goodbye_channel">Goodbye channel</label><select id="goodbye_channel" name="goodbye_channel">' + options(channels, cfg.get("goodbye_channel")) + '</select>'
