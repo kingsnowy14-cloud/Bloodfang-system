@@ -2294,7 +2294,7 @@ def _user_guilds():
             return cached["guilds"]
 
     try:
-        guilds = _api_get("/users/@me/guilds")
+        guilds = _api_get("/users/@me/guilds?with_counts=true")
     except requests.HTTPError as exc:
         response = exc.response
         if response is not None and response.status_code == 429:
@@ -2633,25 +2633,39 @@ def server_promotion_directory():
         if parsed.scheme != "https" or not valid_host or not valid_path or parsed.username or parsed.password:
             abort(400, "Enter a valid HTTPS Discord invite link.")
         try:
-            permitted = any(
-                str(item.get("id")) == guild_id
-                and (int(item.get("permissions", "0")) & (MANAGE_GUILD | ADMINISTRATOR))
-                for item in _user_guilds()
-            )
+            oauth_guild = next((item for item in _user_guilds() if str(item.get("id")) == guild_id), {})
+            permitted = bool(int(oauth_guild.get("permissions", "0")) & (MANAGE_GUILD | ADMINISTRATOR))
         except (TypeError, ValueError):
+            oauth_guild = {}
             permitted = False
         guild = _bot.get_guild(int(guild_id)) if permitted and _bot else None
         if not permitted or guild is None:
             abort(403, "You need Manage Server permission, and IronWolf must already be on that server.")
+        # Save a profile snapshot from Discord OAuth so every visitor sees the
+        # server's real icon, banner and description even without bot cache data.
+        icon_hash = str(oauth_guild.get("icon") or "")
+        banner_hash = str(oauth_guild.get("banner") or "")
+        icon_ext = "gif" if icon_hash.startswith("a_") else "png"
+        banner_ext = "gif" if banner_hash.startswith("a_") else "png"
+        icon_url = ("https://cdn.discordapp.com/icons/" + guild_id + "/" + icon_hash + "." + icon_ext + "?size=256") if re.fullmatch(r"[A-Za-z0-9_]+", icon_hash) else ""
+        banner_url = ("https://cdn.discordapp.com/banners/" + guild_id + "/" + banner_hash + "." + banner_ext + "?size=1024") if re.fullmatch(r"[A-Za-z0-9_]+", banner_hash) else ""
+        if not icon_url and guild.icon:
+            icon_url = guild.icon.url
+        if not banner_url:
+            fallback_banner = getattr(guild, "banner", None) or getattr(guild, "splash", None)
+            banner_url = fallback_banner.url if fallback_banner else ""
+        profile_snapshot = {
+            "icon_url": icon_url, "banner_url": banner_url,
+            "description": str(oauth_guild.get("description") or getattr(guild, "description", "") or "")[:4096],
+            "features": list(oauth_guild.get("features") or getattr(guild, "features", []) or [])[:50],
+            "member_count": int(oauth_guild.get("approximate_member_count") or getattr(guild, "member_count", 0) or 0),
+        }
         with _SERVER_PROMOTION_LOCK:
             records = _server_promotion_read()
             existing = records.get(guild_id, {})
             records[guild_id] = {
-                "guild_id": guild_id,
-                "guild_name": guild.name,
-                "invite_url": invite_url,
-                "advert_text": advert_text,
-                "category": category,
+                "guild_id": guild_id, "guild_name": guild.name, "invite_url": invite_url,
+                "advert_text": advert_text, "category": category, "profile": profile_snapshot,
                 "owner_id": str(existing.get("owner_id") or session.get("user_id", "")),
                 "registered_at": existing.get("registered_at") or datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -2676,6 +2690,41 @@ def server_promotion_directory():
 
     with _SERVER_PROMOTION_LOCK:
         records = _server_promotion_read()
+    # Refresh legacy listings from the current owner's Discord OAuth profile.
+    # Older records predate profile snapshots and otherwise keep showing fallbacks.
+    oauth_by_id = {str(item.get("id")): item for item in user_guilds if isinstance(item, dict)}
+    actor_id = str(session.get("user_id", ""))
+    profile_changed = False
+    for existing_id, existing_record in records.items():
+        if not isinstance(existing_record, dict):
+            continue
+        can_refresh = actor_id == "1493110334280564807" or str(existing_record.get("owner_id", "")) == actor_id
+        oauth_profile = oauth_by_id.get(str(existing_id))
+        existing_guild = _bot.get_guild(int(existing_id)) if _bot and str(existing_id).isdigit() else None
+        if not can_refresh or not oauth_profile or existing_guild is None:
+            continue
+        old_profile = existing_record.get("profile") if isinstance(existing_record.get("profile"), dict) else {}
+        icon_hash = str(oauth_profile.get("icon") or "")
+        banner_hash = str(oauth_profile.get("banner") or "")
+        icon_ext = "gif" if icon_hash.startswith("a_") else "png"
+        banner_ext = "gif" if banner_hash.startswith("a_") else "png"
+        icon_url = ("https://cdn.discordapp.com/icons/" + str(existing_id) + "/" + icon_hash + "." + icon_ext + "?size=256") if re.fullmatch(r"[A-Za-z0-9_]+", icon_hash) else ""
+        banner_url = ("https://cdn.discordapp.com/banners/" + str(existing_id) + "/" + banner_hash + "." + banner_ext + "?size=1024") if re.fullmatch(r"[A-Za-z0-9_]+", banner_hash) else ""
+        if not icon_url and existing_guild.icon:
+            icon_url = existing_guild.icon.url
+        if not banner_url:
+            fallback_banner = getattr(existing_guild, "banner", None) or getattr(existing_guild, "splash", None)
+            banner_url = fallback_banner.url if fallback_banner else ""
+        existing_record["profile"] = {
+            "icon_url": icon_url, "banner_url": banner_url,
+            "description": str(oauth_profile.get("description") or getattr(existing_guild, "description", "") or "")[:4096],
+            "features": list(oauth_profile.get("features") or getattr(existing_guild, "features", []) or [])[:50],
+            "member_count": int(oauth_profile.get("approximate_member_count") or getattr(existing_guild, "member_count", 0) or 0),
+        }
+        profile_changed = True
+    if profile_changed:
+        with _SERVER_PROMOTION_LOCK:
+            _server_promotion_write(records)
     listed = []
     for guild_id, record in records.items():
         guild = _bot.get_guild(int(guild_id)) if _bot and str(guild_id).isdigit() else None
@@ -2686,9 +2735,10 @@ def server_promotion_directory():
 
     cards = []
     for guild_id, record, guild in listed:
-        icon = guild.icon.url if guild.icon else ""
+        profile = record.get("profile") if isinstance(record.get("profile"), dict) else {}
+        icon = str(profile.get("icon_url") or (guild.icon.url if guild.icon else ""))
         banner_asset = getattr(guild, "banner", None) or getattr(guild, "splash", None)
-        banner = banner_asset.url if banner_asset else ""
+        banner = str(profile.get("banner_url") or (banner_asset.url if banner_asset else ""))
         icon_html = (
             '<img class="promotion-avatar" src="' + html.escape(icon, quote=True) +
             '" alt="' + html.escape(guild.name, quote=True) + ' icon" loading="lazy" decoding="async">'
@@ -2707,16 +2757,18 @@ def server_promotion_directory():
             if banner else '<div class="promotion-profile-banner promotion-banner-fallback" aria-hidden="true"></div>'
         )
         pinned = '<span class="promotion-featured">⭐ FEATURED</span>' if guild_id == _SERVER_PROMOTION_PINNED_GUILD else ""
-        description = html.escape(str(getattr(guild, "description", "") or "No server description has been set."))
+        profile_description = str(profile.get("description") or getattr(guild, "description", "") or "")
+        description = html.escape(profile_description or "This server has not added a public Discord description yet.")
         advert = html.escape(str(record.get("advert_text", "") or ""))
         category = str(record.get("category", "Other"))
         if category not in {"Gaming", "Community", "Roleplay", "Social", "Support", "Other"}:
             category = "Other"
         searchable = html.escape(" ".join((guild.name, str(getattr(guild, "description", "") or ""), str(record.get("advert_text", "") or ""), category)).casefold(), quote=True)
-        features = ", ".join(str(value).replace("_", " ").title() for value in (getattr(guild, "features", []) or [])[:8]) or "No public server features"
+        profile_features = profile.get("features") or getattr(guild, "features", []) or []
+        features = ", ".join(str(value).replace("_", " ").title() for value in profile_features[:8]) or "No public server features"
         created = getattr(guild, "created_at", None)
         created_label = created.strftime("%B %d, %Y") if created else "Not available"
-        member_count = str(int(getattr(guild, "member_count", 0) or 0))
+        member_count = str(int(profile.get("member_count") or getattr(guild, "member_count", 0) or 0))
         is_owner = str(session.get("user_id", "")) == "1493110334280564807" or str(record.get("owner_id", "")) == str(session.get("user_id", ""))
         delete_form = (
             '<form class="promotion-delete-form" method="post" onsubmit="return confirm(&quot;Remove this server from the directory?&quot;)">' +
@@ -2753,21 +2805,20 @@ def server_promotion_directory():
     notice = '<div class="notice">Your server has been added to the directory.</div>' if request.args.get("saved") == "1" else ('<div class="notice">Your server has been removed from the directory.</div>' if request.args.get("deleted") == "1" else "")
     if manageable:
         add_form = (
-            '<section class="card promotion-add"><h2>Add your server</h2><p class="muted">Only servers where IronWolf is already installed and you have Manage Server or Administrator permission can be added. Your server appears only after you submit this form.</p>'
-            + '<form method="post">' + _csrf_field()
-            + '<label for="promotion-guild">Discord server</label><select id="promotion-guild" name="guild_id" required>'
-            + "".join(options) + '</select><label for="promotion-invite">Discord invite link</label>'
-            + '<input id="promotion-invite" name="invite_url" type="url" placeholder="https://discord.gg/your-invite" required maxlength="300">'
-            + '<label for="promotion-advert">Advertisement text <span class="muted">(optional, max. 1,200 characters)</span></label>'
-            + '<label for="promotion-category">Category</label><select id="promotion-category" name="category"><option>Gaming</option><option>Community</option><option>Roleplay</option><option>Social</option><option>Support</option><option selected>Other</option></select>'
-            + '<textarea id="promotion-advert" name="advert_text" rows="4" maxlength="1200" placeholder="Tell people what makes your community special…"></textarea>'
-            + '<button type="submit">Add Server</button></form></section>'
+            '<section class="card promotion-add"><div class="promotion-form-heading"><span class="promotion-form-icon">✦</span><div><span class="promotion-kicker">SERVER SUBMISSION</span><h2>List your community</h2><p class="muted">Your real Discord profile, icon and banner are imported automatically.</p></div></div>'
+            + '<form method="post" class="promotion-submit-form">' + _csrf_field()
+            + '<div class="promotion-form-section"><h3>01 · Server details</h3><div class="promotion-form-grid"><div class="promotion-field promotion-field-wide"><label for="promotion-guild">Discord server</label><select id="promotion-guild" name="guild_id" required>' + "".join(options) + '</select></div>'
+            + '<div class="promotion-field"><label for="promotion-category">Category</label><select id="promotion-category" name="category"><option>Gaming</option><option>Community</option><option>Roleplay</option><option>Social</option><option>Support</option><option selected>Other</option></select></div>'
+            + '<div class="promotion-field"><label for="promotion-invite">Discord invite link</label><input id="promotion-invite" name="invite_url" type="url" placeholder="https://discord.gg/your-invite" required maxlength="300"></div></div></div>'
+            + '<div class="promotion-form-section"><h3>02 · Your advertisement</h3><p class="muted">This text appears on your public server profile.</p><div class="promotion-field"><label for="promotion-advert">Advertisement <span class="muted">· optional · max. 1,200 characters</span></label><textarea id="promotion-advert" name="advert_text" rows="5" maxlength="1200" placeholder="What can members do here? What makes your community special?"></textarea><div class="promotion-char-hint">Keep it clear, welcoming and easy to scan.</div></div></div>'
+            + '<div class="promotion-submit-footer"><span class="muted">Your server is published only after submission.</span><button type="submit">Publish server listing →</button></div></form></section>'
         )
     else:
         add_form = '<div class="notice">No eligible servers found. Invite IronWolf to your server first, then return here with Manage Server or Administrator permission.</div>'
     directory = (
         '<style>'
         '.promotion-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;margin:22px 0;align-items:start}'
+        '.promotion-add{padding:24px!important;margin:22px 0!important;border:1px solid rgba(100,145,230,.3)!important;background:linear-gradient(145deg,rgba(65,105,170,.10),rgba(40,55,80,.04))!important}.promotion-form-heading{display:flex;gap:14px;padding-bottom:18px;border-bottom:1px solid var(--border,#334155)}.promotion-form-icon{display:grid;place-items:center;flex:0 0 42px;height:42px;border-radius:12px;background:rgba(95,145,230,.17);color:#8fb4ff;font-size:23px}.promotion-kicker{font-size:10px;font-weight:800;letter-spacing:.13em;color:#82aaff}.promotion-form-heading h2{margin:4px 0;font-size:22px}.promotion-form-heading p{margin:0}.promotion-submit-form{display:grid;gap:18px;margin-top:18px}.promotion-form-section{display:grid;gap:8px}.promotion-form-section h3{margin:0;font-size:14px}.promotion-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.promotion-field{display:grid;gap:6px;min-width:0}.promotion-field-wide{grid-column:1/-1}.promotion-field label{font-size:12px;font-weight:700}.promotion-field input,.promotion-field select,.promotion-field textarea{width:100%;min-width:0;box-sizing:border-box}.promotion-field textarea{min-height:120px;resize:vertical}.promotion-char-hint{font-size:11px;color:var(--muted,#aab4c3)}.promotion-submit-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border,#334155)}.promotion-submit-footer button{min-height:42px;padding:10px 18px;border-radius:10px;font-weight:750;background:linear-gradient(135deg,#477fe8,#315fc0)!important;color:#fff!important}'
         '.promotion-card{min-width:0;overflow:hidden;border:1px solid var(--border,#334155);border-radius:16px;background:var(--surface,rgba(30,40,58,.92));box-shadow:0 8px 24px rgba(0,0,0,.13);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}'
         '.promotion-card:hover{transform:translateY(-3px);border-color:rgba(100,145,230,.65);box-shadow:0 14px 30px rgba(0,0,0,.2)}'
         '.promotion-details{min-width:0}.promotion-summary{position:relative;display:block;cursor:pointer;list-style:none;padding-bottom:15px}.promotion-summary::-webkit-details-marker{display:none}.promotion-summary:focus-visible{outline:2px solid #6d9cff;outline-offset:-3px;border-radius:14px}'
@@ -2777,12 +2828,14 @@ def server_promotion_directory():
         '.promotion-expanded{padding:0 12px 13px;display:grid;gap:11px;line-height:1.5}.promotion-about,.promotion-features{font-size:12px}.promotion-about p,.promotion-features p{margin:4px 0 0;color:var(--muted,#aab4c3);overflow-wrap:anywhere}.promotion-ad{padding:11px;border-radius:10px;background:rgba(90,130,190,.12);border:1px solid rgba(120,160,220,.2);font-size:12px}.promotion-ad p{white-space:pre-wrap;margin:5px 0 0;overflow-wrap:anywhere}.promotion-no-ad{font-size:11px;color:var(--muted,#aab4c3);margin:0}'
         '.promotion-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:9px;border:1px solid var(--border,#334155);border-radius:10px;background:rgba(127,127,127,.05)}.promotion-meta span{display:grid;gap:3px;min-width:0}.promotion-meta small{font-size:9px;letter-spacing:.07em;color:var(--muted,#aab4c3)}.promotion-meta strong{font-size:11px;overflow-wrap:anywhere}'
         '.promotion-card-actions{display:grid;grid-template-columns:1fr;gap:8px;padding-top:10px;border-top:1px solid var(--border,#334155)}.promotion-card-actions form{margin:0!important}.promotion-card-actions .button,.promotion-card-actions button{width:100%;min-height:38px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:7px;margin:0!important;padding:8px 10px;border-radius:9px;font-size:12px;font-weight:700;text-decoration:none;line-height:1.2}.promotion-join{background:linear-gradient(135deg,#477fe8,#315fc0)!important;color:#fff!important;border:1px solid rgba(255,255,255,.14)!important}.promotion-join:hover{filter:brightness(1.1)}.promotion-delete{background:rgba(239,119,119,.07)!important;color:#ef7777!important;border:1px solid rgba(239,119,119,.4)!important;cursor:pointer}.promotion-delete:hover{background:rgba(239,119,119,.16)!important}.promotion-add textarea{min-height:110px}.promotion-filters{display:grid;grid-template-columns:minmax(220px,2fr) minmax(160px,1fr);gap:10px;margin:18px 0}.promotion-filters input,.promotion-filters select{width:100%;min-width:0;box-sizing:border-box}.promotion-empty{display:none;margin:12px 0}@media(max-width:520px){.promotion-filters{grid-template-columns:1fr}}'
+        '.promotion-directory{margin-top:30px}.promotion-directory-heading{display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap}.promotion-directory-heading h2{font-size:24px;margin:5px 0}.promotion-directory-heading p{margin:0;max-width:680px}.promotion-filters{padding:12px;border:1px solid var(--border,#334155);border-radius:13px;background:rgba(127,127,127,.035)}'
+        '@media(max-width:760px){.promotion-form-grid{grid-template-columns:1fr}.promotion-field-wide{grid-column:auto}.promotion-add{padding:17px!important}.promotion-submit-footer{align-items:stretch}.promotion-submit-footer button{width:100%}}'
         '@media(max-width:1500px){.promotion-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}'
         '@media(max-width:1150px){.promotion-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}'
         '@media(max-width:820px){.promotion-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}'
         '@media(max-width:520px){.promotion-grid{grid-template-columns:1fr}.promotion-banner{height:125px}.promotion-profile-banner{height:145px}.promotion-profile-avatar{flex-basis:72px;width:72px;height:72px;border-radius:18px}.promotion-profile-head{margin-top:-34px;gap:10px}.promotion-profile-title h3{font-size:16px}}'
         '</style>'
-        '<section><div style="display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap"><div><h2>Community directory</h2><p class="muted">Discover Discord communities powered by IronWolf. Select a server to view its profile and advertisement.</p></div><span class="pill">' + str(len(cards)) + ' REGISTERED SERVERS</span></div>'
+        '<section class="promotion-directory"><div class="promotion-directory-heading"><div><span class="promotion-kicker">FIND YOUR PEOPLE</span><h2>Community directory</h2><p class="muted">Explore Discord communities. Open a listing to view its profile, banner and advertisement.</p></div><span class="pill">' + str(len(cards)) + ' REGISTERED SERVERS</span></div>'
         + ('<div class="promotion-filters"><input id="promotion-search" type="search" placeholder="Search servers, topics or descriptions…" aria-label="Search servers"><select id="promotion-category-filter" aria-label="Filter by category"><option value="">All categories</option>' + ''.join('<option value="' + value + '">' + value + '</option>' for value in ("Gaming", "Community", "Roleplay", "Social", "Support", "Other")) + '</select></div><div class="promotion-grid" id="promotion-grid">' + "".join(cards) + '</div><p class="muted promotion-empty" id="promotion-empty">No servers match your search.</p>' if cards else '<div class="card">No servers have registered yet. Be the first to add yours.</div>')
         + ('<script>(function(){const q=document.getElementById("promotion-search"),f=document.getElementById("promotion-category-filter"),grid=document.getElementById("promotion-grid"),empty=document.getElementById("promotion-empty");if(!q||!f||!grid)return;function filter(){const term=q.value.trim().toLocaleLowerCase();const category=f.value;let visible=0;grid.querySelectorAll(".promotion-card").forEach(card=>{const show=(!term||card.dataset.search.includes(term))&&(!category||card.dataset.category===category);card.hidden=!show;if(show)visible++;});if(empty)empty.style.display=visible?"none":"block";}q.addEventListener("input",filter);f.addEventListener("change",filter);})();</script>' if cards else '')
         + '</section>'
