@@ -2788,7 +2788,9 @@ def server_promotion_directory():
     for existing_id, existing_record, existing_guild in listed:
         synced_at = str(existing_record.get("profile_synced_at") or "")
         # Force one refresh after profile-source changes, then keep the ten-minute cache.
-        needs_source_refresh = existing_record.get("profile_source_version") != 2
+        saved_profile = existing_record.get("profile") if isinstance(existing_record.get("profile"), dict) else {}
+        # Keep retrying older listings that still have no imported Discord icon.
+        needs_source_refresh = existing_record.get("profile_source_version") != 2 or not saved_profile.get("icon_url")
         try:
             last_sync = datetime.fromisoformat(synced_at.replace("Z", "+00:00"))
             is_stale = (now - last_sync).total_seconds() >= 600
@@ -2811,7 +2813,14 @@ def server_promotion_directory():
         profile = record.get("profile") if isinstance(record.get("profile"), dict) else {}
         # Always prefer the current discord.py guild asset over an older OAuth snapshot.
         live_icon = guild.icon.url if getattr(guild, "icon", None) else ""
-        icon = str(live_icon or profile.get("icon_url") or "")
+        oauth_profile = oauth_by_id.get(guild_id, {})
+        oauth_icon_hash = str(oauth_profile.get("icon") or "").strip()
+        oauth_icon_ext = "gif" if oauth_icon_hash.startswith("a_") else "png"
+        oauth_icon_url = (
+            "https://cdn.discordapp.com/icons/" + guild_id + "/" + oauth_icon_hash + "." + oauth_icon_ext + "?size=256"
+            if re.fullmatch(r"[A-Za-z0-9_]+", oauth_icon_hash) else ""
+        )
+        icon = str(live_icon or profile.get("icon_url") or oauth_icon_url or "")
         banner_asset = getattr(guild, "banner", None) or getattr(guild, "splash", None)
         banner = str(profile.get("banner_url") or (banner_asset.url if banner_asset else ""))
         icon_html = (
