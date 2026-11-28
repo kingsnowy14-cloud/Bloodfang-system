@@ -752,6 +752,15 @@ BOT_TRANSLATIONS = {
     }
 }
 
+# Reverse the curated German catalogue as well, so legacy German literals are
+# normalized when a server explicitly selects English.
+BOT_TRANSLATIONS["en"] = {
+    translated: source
+    for source, translated in BOT_TRANSLATIONS.get("de", {}).items()
+    if translated and translated != source
+}
+
+
 def server_language(guild_id):
     """Use the dashboard override, or automatically follow the Discord server locale."""
     if guild_id is None:
@@ -798,8 +807,13 @@ def server_now(guild_id):
 @lru_cache(maxsize=8192)
 def _cached_bot_translation(text, language):
     """Translate uncatalogued bot text with bounded retries, fallback, and caching."""
-    if language == "en" or not text:
+    if not text:
         return text
+    if language == "en":
+        # Preserve ordinary English content without an external translation call.
+        # German phrases with common vocabulary or umlauts are normalized to English.
+        if not re.search(r"[äöüßÄÖÜ]|\\b(der|die|das|und|ist|bitte|nicht|wurde|kann|können|willkommen|verlassen|einstellungen|server|kanal|rolle|gespeichert|fehlgeschlagen|erfolgreich|du|dein|deine|für|mit|auf|einen|eine|einem)\\b", text, re.IGNORECASE):
+            return text
     import time
     last_error = None
     for attempt in range(3):
