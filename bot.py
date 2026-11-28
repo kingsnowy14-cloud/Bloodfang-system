@@ -593,7 +593,7 @@ def format_duration(seconds):
 # Defaults are merged recursively into existing per-server settings. Existing values,
 # unknown keys and module-specific configuration are deliberately never overwritten.
 DEFAULT_GUILD_CONFIG = {
-    "bot_language": "en",
+    "bot_language": "auto",
     "bot_timezone": "UTC",
     "channel_translations": {},
     "registration_channel": None,
@@ -691,8 +691,8 @@ def guild_config(guild_id):
     else:
         changed = False
     changed = _merge_missing_defaults(cfg, DEFAULT_GUILD_CONFIG) or changed
-    if cfg.get("bot_language") not in SUPPORTED_BOT_LANGUAGES:
-        cfg["bot_language"] = "en"
+    if cfg.get("bot_language") not in SUPPORTED_BOT_LANGUAGES | {"auto"}:
+        cfg["bot_language"] = "auto"
         changed = True
     # The assistant is intentionally restricted to the single dashboard-selected text channel.
     if cfg.get("ai_mode") != "channel":
@@ -752,15 +752,25 @@ BOT_TRANSLATIONS = {
     }
 }
 
-def server_language(guild_id):
-    """Use the Discord server's preferred locale for all bot messages.
+# Reverse the curated German catalogue as well, so legacy German literals are
+# normalized when a server explicitly selects English.
+BOT_TRANSLATIONS["en"] = {
+    translated: source
+    for source, translated in BOT_TRANSLATIONS.get("de", {}).items()
+    if translated and translated != source
+}
 
-    Discord exposes this as Guild.preferred_locale (for example, de or
-    es-ES). Fall back to English when the guild is unavailable or its locale
-    cannot be mapped to a supported translation target.
-    """
+
+def server_language(guild_id):
+    """Use the dashboard override, or automatically follow the Discord server locale."""
     if guild_id is None:
         return "en"
+    try:
+        selected = str(guild_config(guild_id).get("bot_language", "auto")).lower()
+    except Exception:
+        selected = "auto"
+    if selected in {"en", "de"}:
+        return selected
     guild = bot.get_guild(int(guild_id))
     if guild is None:
         return "en"
@@ -797,8 +807,13 @@ def server_now(guild_id):
 @lru_cache(maxsize=8192)
 def _cached_bot_translation(text, language):
     """Translate uncatalogued bot text with bounded retries, fallback, and caching."""
-    if language == "en" or not text:
+    if not text:
         return text
+    if language == "en":
+        # Preserve ordinary English content without an external translation call.
+        # German phrases with common vocabulary or umlauts are normalized to English.
+        if not re.search(r"[äöüßÄÖÜ]|\b(der|die|das|und|ist|bitte|nicht|wurde|kann|können|willkommen|verlassen|einstellungen|server|kanal|rolle|gespeichert|fehlgeschlagen|erfolgreich|du|dein|deine|für|mit|auf|einen|eine|einem)\b", text, re.IGNORECASE):
+            return text
     import time
     last_error = None
     for attempt in range(3):
@@ -878,8 +893,8 @@ def migrate_all_guild_configs():
             cfg = config[guild_id]
             changed = True
         changed = _merge_missing_defaults(cfg, DEFAULT_GUILD_CONFIG) or changed
-        if cfg.get("bot_language") not in SUPPORTED_BOT_LANGUAGES:
-            cfg["bot_language"] = "en"
+        if cfg.get("bot_language") not in SUPPORTED_BOT_LANGUAGES | {"auto"}:
+            cfg["bot_language"] = "auto"
             changed = True
     # Ensure newly joined servers get a complete default config too.
     for guild in getattr(bot, "guilds", []):
@@ -11501,12 +11516,19 @@ async def language_command(ctx, language: str = "en"):
 @bot.command(name="serverlanguage", aliases=["serverlang"])
 @commands.guild_only()
 @commands.has_guild_permissions(manage_guild=True)
-async def server_language_command(ctx, language: str = "en"):
-    """Keep the server language fixed to English."""
+async def server_language_command(ctx, language: str = "auto"):
+    """Set the server bot language to auto, English, or German."""
+    selected = language.strip().lower()
+    if selected in {"automatic", "discord"}:
+        selected = "auto"
+    if selected not in {"auto", "en", "de"}:
+        await ctx.reply("Choose auto, en, or de.", mention_author=False)
+        return
     cfg = guild_config(ctx.guild.id)
-    cfg["bot_language"] = "en"
+    cfg["bot_language"] = selected
     save_json(CONFIG_FILE, config)
-    await ctx.reply("English is the only supported language for IronWolf.", mention_author=False)
+    labels = {"auto": "Automatic (Discord server language)", "en": "English", "de": "Deutsch"}
+    await ctx.reply(f"Server bot language set to {labels[selected]}.", mention_author=False)
 
 
 @bot.command(name="emoji", aliases=["emojis", "kanalemojis"])
