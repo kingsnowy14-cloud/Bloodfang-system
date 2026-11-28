@@ -29,7 +29,7 @@ def _guild_id(owner, bot):
 
 
 async def _localized_embed(embed, guild_id, translate):
-    if embed is None or not guild_id:
+    if embed is None:
         return embed
     result = embed.copy()
     if result.title:
@@ -49,9 +49,34 @@ async def _localized_embed(embed, guild_id, translate):
     return result
 
 
+async def _localize_view(view, guild_id, translate):
+    """Translate visible button/select text for the destination guild.
+
+    Restore original labels after sending because views may be reused by the
+    bot across multiple guilds with different preferred locales.
+    """
+    if view is None:
+        return []
+    restore = []
+
+    async def replace_attr(obj, attr):
+        value = getattr(obj, attr, None)
+        if isinstance(value, str) and value:
+            translated = await asyncio.to_thread(translate, guild_id, value)
+            if translated != value:
+                restore.append((obj, attr, value))
+                setattr(obj, attr, translated)
+
+    for item in getattr(view, "children", ()):
+        await replace_attr(item, "label")
+        await replace_attr(item, "placeholder")
+        for option in getattr(item, "options", ()):
+            await replace_attr(option, "label")
+            await replace_attr(option, "description")
+    return restore
+
+
 async def _localize_kwargs(kwargs, guild_id, translate):
-    if not guild_id:
-        return kwargs
     content = kwargs.get("content")
     if isinstance(content, str) and content:
         kwargs["content"] = await asyncio.to_thread(translate, guild_id, content)
@@ -65,10 +90,10 @@ async def _localize_kwargs(kwargs, guild_id, translate):
 
 
 def install_discord_localization(bot, translate, language):
-    """Translate outgoing message text and embeds according to each guild setting.
+    """Translate outgoing messages, embeds, and interactive labels per guild.
 
-    Public/DM messages remain untouched. English is a no-op, so the default
-    experience remains exactly as authored.
+    Missing/unknown guild locales resolve to English, including DMs. English
+    is a no-op, so already-English content remains unchanged.
     """
     import discord
 
@@ -89,8 +114,16 @@ def install_discord_localization(bot, translate, language):
             if args and isinstance(args[0], str):
                 args[0] = await asyncio.to_thread(translate, target_guild_id, args[0])
             kwargs = await _localize_kwargs(kwargs, target_guild_id, translate)
+            # Localize button/select labels as well as message and embed text.
+            # Restore shared views afterward so another guild cannot inherit
+            # this guild's translated labels.
+            view_restore = await _localize_view(kwargs.get("view"), target_guild_id, translate)
             args = tuple(args)
-            return await original(self, *args, **kwargs)
+            try:
+                return await original(self, *args, **kwargs)
+            finally:
+                for item, attr, original_value in reversed(view_restore):
+                    setattr(item, attr, original_value)
 
         localized._ironwolf_localized = True
         setattr(cls, method_name, localized)

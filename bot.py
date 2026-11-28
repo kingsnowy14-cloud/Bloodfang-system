@@ -704,7 +704,13 @@ def guild_config(guild_id):
     return cfg
 
 
-SUPPORTED_BOT_LANGUAGES = {"en"}
+# Discord server locales are normalized to Google Translate language codes.
+# The dashboard language is intentionally independent and remains English-only.
+SUPPORTED_BOT_LANGUAGES = {
+    "en", "de", "cs", "fr", "es", "it", "pt", "ru", "ja", "ko",
+    "zh-CN", "zh-TW", "nl", "pl", "tr", "uk", "sv", "da", "no",
+    "fi", "hu", "ro", "bg", "el", "hr", "th", "vi", "id",
+}
 BOT_TRANSLATIONS = {
     "de": {
         "This command has been disabled for this server in the web dashboard.": "Dieser Befehl wurde für diesen Server im Dashboard deaktiviert.",
@@ -747,8 +753,32 @@ BOT_TRANSLATIONS = {
 }
 
 def server_language(guild_id):
-    """IronWolf is English-only, regardless of per-server legacy settings."""
-    return "en"
+    """Use the Discord server's preferred locale for all bot messages.
+
+    Discord exposes this as Guild.preferred_locale (for example, de or
+    es-ES). Fall back to English when the guild is unavailable or its locale
+    cannot be mapped to a supported translation target.
+    """
+    if guild_id is None:
+        return "en"
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        return "en"
+    locale = getattr(guild, "preferred_locale", None)
+    raw_locale = getattr(locale, "value", None) or str(locale or "")
+    raw_locale = raw_locale.replace("_", "-").strip()
+    if not raw_locale:
+        return "en"
+    normalized = raw_locale.lower()
+    special = {
+        "zh-cn": "zh-CN",
+        "zh-tw": "zh-TW",
+        "pt-br": "pt",
+        "es-419": "es",
+        "no": "no",
+    }
+    language = special.get(normalized, normalized.split("-", 1)[0])
+    return language if language in SUPPORTED_BOT_LANGUAGES else "en"
 
 def server_timezone(guild_id):
     """Return the IANA time zone selected for this bot's server in the dashboard."""
@@ -767,6 +797,8 @@ def server_now(guild_id):
 @lru_cache(maxsize=8192)
 def _cached_bot_translation(text, language):
     """Translate uncatalogued bot text with bounded retries, fallback, and caching."""
+    if language == "en" or not text:
+        return text
     import time
     last_error = None
     for attempt in range(3):
