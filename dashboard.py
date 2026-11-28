@@ -2765,9 +2765,9 @@ def server_promotion_directory():
         category = str(record.get("category", "Other"))
         if category not in {"Gaming", "Community", "Roleplay", "Social", "Support", "Other"}:
             category = "Other"
-        searchable = html.escape(" ".join((guild.name, profile_description, str(record.get("advert_text", "") or ""), category, features)).casefold(), quote=True)
         profile_features = profile.get("features") or getattr(guild, "features", []) or []
         features = ", ".join(str(value).replace("_", " ").title() for value in profile_features[:8]) or "No public server features"
+        searchable = html.escape(" ".join((guild.name, profile_description, str(record.get("advert_text", "") or ""), category, features)).casefold(), quote=True)
         created = getattr(guild, "created_at", None)
         created_label = created.strftime("%B %d, %Y") if created else "Not available"
         member_count = str(int(profile.get("member_count") or getattr(guild, "member_count", 0) or 0))
