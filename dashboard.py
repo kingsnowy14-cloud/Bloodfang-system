@@ -2687,15 +2687,24 @@ def server_promotion_directory():
     cards = []
     for guild_id, record, guild in listed:
         icon = guild.icon.url if guild.icon else ""
-        banner = guild.banner.url if getattr(guild, "banner", None) else ""
+        banner_asset = getattr(guild, "banner", None) or getattr(guild, "splash", None)
+        banner = banner_asset.url if banner_asset else ""
         icon_html = (
             '<img class="promotion-avatar" src="' + html.escape(icon, quote=True) +
-            '" alt="' + html.escape(guild.name, quote=True) + ' icon">'
+            '" alt="' + html.escape(guild.name, quote=True) + ' icon" loading="lazy" decoding="async">'
             if icon else '<div class="promotion-avatar promotion-avatar-fallback">🐺</div>'
         )
         banner_html = (
-            '<img class="promotion-banner" src="' + html.escape(banner, quote=True) + '" alt="">'
+            '<img class="promotion-banner" src="' + html.escape(banner, quote=True) + '" alt="" loading="lazy" decoding="async">'
             if banner else '<div class="promotion-banner promotion-banner-fallback"></div>'
+        )
+        profile_icon_html = (
+            '<img class="promotion-profile-avatar" src="' + html.escape(icon, quote=True) + '" alt="' + html.escape(guild.name, quote=True) + ' server icon" loading="lazy" decoding="async">'
+            if icon else '<div class="promotion-profile-avatar promotion-avatar-fallback" aria-hidden="true">🐺</div>'
+        )
+        profile_banner_html = (
+            '<img class="promotion-profile-banner" src="' + html.escape(banner, quote=True) + '" alt="" loading="lazy" decoding="async">'
+            if banner else '<div class="promotion-profile-banner promotion-banner-fallback" aria-hidden="true"></div>'
         )
         pinned = '<span class="promotion-featured">⭐ FEATURED</span>' if guild_id == _SERVER_PROMOTION_PINNED_GUILD else ""
         description = html.escape(str(getattr(guild, "description", "") or "No server description has been set."))
@@ -2725,6 +2734,7 @@ def server_promotion_directory():
             html.escape(guild.name) + '</h2><p class="promotion-members">👥 ' + member_count +
             ' members</p></div></div><span class="promotion-open">View server <span aria-hidden="true">⌄</span></span>'
             '</summary><div class="promotion-expanded">'
+            '<div class="promotion-profile">' + profile_banner_html + '<div class="promotion-profile-head">' + profile_icon_html + '<div class="promotion-profile-title"><div class="promotion-badges">' + pinned + '<span class="promotion-category">' + html.escape(category) + '</span></div><h3>' + html.escape(guild.name) + '</h3><span>' + member_count + ' members</span></div></div></div>'
             '<div class="promotion-about"><strong>About this server</strong><p>' + description + '</p></div>'
             + ('<div class="promotion-ad"><strong>📣 Server advertisement</strong><p>' + advert + '</p></div>' if advert else '<p class="promotion-no-ad">This server has not added an advertisement yet.</p>')
             + '<div class="promotion-meta"><span><small>CREATED</small><strong>' + html.escape(created_label) +
@@ -2761,7 +2771,7 @@ def server_promotion_directory():
         '.promotion-card{min-width:0;overflow:hidden;border:1px solid var(--border,#334155);border-radius:16px;background:var(--surface,rgba(30,40,58,.92));box-shadow:0 8px 24px rgba(0,0,0,.13);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}'
         '.promotion-card:hover{transform:translateY(-3px);border-color:rgba(100,145,230,.65);box-shadow:0 14px 30px rgba(0,0,0,.2)}'
         '.promotion-details{min-width:0}.promotion-summary{position:relative;display:block;cursor:pointer;list-style:none;padding-bottom:15px}.promotion-summary::-webkit-details-marker{display:none}.promotion-summary:focus-visible{outline:2px solid #6d9cff;outline-offset:-3px;border-radius:14px}'
-        '.promotion-banner{display:block;width:100%;height:104px;object-fit:cover;background:linear-gradient(120deg,#263a5c,#45618b 55%,#202c42)}.promotion-banner-fallback{background:radial-gradient(circle at 75% 20%,rgba(115,155,230,.55),transparent 40%),linear-gradient(120deg,#18243a,#354c70)}'
+        '.promotion-banner{display:block;width:100%;height:104px;object-fit:cover;object-position:center 40%;background:linear-gradient(120deg,#263a5c,#45618b 55%,#202c42)}.promotion-banner-fallback{background:radial-gradient(circle at 75% 20%,rgba(115,155,230,.55),transparent 40%),linear-gradient(120deg,#18243a,#354c70)}.promotion-profile{overflow:hidden;border:1px solid var(--border,#334155);border-radius:13px;background:rgba(127,127,127,.035)}.promotion-profile-banner{display:block;width:100%;height:190px;object-fit:cover;object-position:center 40%;background:linear-gradient(120deg,#263a5c,#45618b 55%,#202c42)}.promotion-profile-head{display:flex;align-items:flex-end;gap:13px;position:relative;margin:-42px 15px 13px}.promotion-profile-avatar{flex:0 0 88px;width:88px;height:88px;box-sizing:border-box;object-fit:cover;border-radius:22px;border:5px solid var(--surface,#202938);background:#263449}.promotion-profile-title{min-width:0;padding-bottom:5px}.promotion-profile-title h3{font-size:19px;line-height:1.2;margin:5px 0 3px;overflow-wrap:anywhere}.promotion-profile-title>span{font-size:12px;color:var(--muted,#aab4c3)}'
         '.promotion-card-main{display:flex;align-items:flex-end;gap:10px;padding:0 12px;margin-top:-30px;position:relative}.promotion-avatar{flex:0 0 62px;width:62px;height:62px;box-sizing:border-box;object-fit:cover;border-radius:18px;border:4px solid var(--surface,#202938);background:#263449}.promotion-avatar-fallback{display:grid;place-items:center;font-size:27px;color:#fff}'
         '.promotion-card-heading{min-width:0;flex:1;padding-bottom:3px}.promotion-card-heading h2{font-size:16px;line-height:1.25;margin:7px 0 3px;overflow-wrap:anywhere}.promotion-badges{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.promotion-featured,.promotion-connected{font-size:9px;line-height:1.5;font-weight:750;letter-spacing:.04em;border-radius:5px;padding:3px 6px;background:rgba(100,145,230,.15);color:var(--text,#dbe7ff)}.promotion-featured{background:rgba(242,190,90,.16);color:#e8bd68}.promotion-category{font-size:9px;padding:3px 6px;border-radius:5px;background:rgba(90,190,160,.13);color:#78cdb5}.promotion-members{font-size:11px;color:var(--muted,#aab4c3);margin:0}.promotion-open{display:flex;justify-content:space-between;align-items:center;margin:12px 12px 0;padding-top:10px;border-top:1px solid var(--border,#334155);font-size:12px;font-weight:650;color:var(--muted,#aab4c3)}.promotion-details[open] .promotion-open span{transform:rotate(180deg)}'
         '.promotion-expanded{padding:0 12px 13px;display:grid;gap:11px;line-height:1.5}.promotion-about,.promotion-features{font-size:12px}.promotion-about p,.promotion-features p{margin:4px 0 0;color:var(--muted,#aab4c3);overflow-wrap:anywhere}.promotion-ad{padding:11px;border-radius:10px;background:rgba(90,130,190,.12);border:1px solid rgba(120,160,220,.2);font-size:12px}.promotion-ad p{white-space:pre-wrap;margin:5px 0 0;overflow-wrap:anywhere}.promotion-no-ad{font-size:11px;color:var(--muted,#aab4c3);margin:0}'
@@ -2770,7 +2780,7 @@ def server_promotion_directory():
         '@media(max-width:1500px){.promotion-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}'
         '@media(max-width:1150px){.promotion-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}'
         '@media(max-width:820px){.promotion-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}'
-        '@media(max-width:520px){.promotion-grid{grid-template-columns:1fr}.promotion-banner{height:125px}}'
+        '@media(max-width:520px){.promotion-grid{grid-template-columns:1fr}.promotion-banner{height:125px}.promotion-profile-banner{height:145px}.promotion-profile-avatar{flex-basis:72px;width:72px;height:72px;border-radius:18px}.promotion-profile-head{margin-top:-34px;gap:10px}.promotion-profile-title h3{font-size:16px}}'
         '</style>'
         '<section><div style="display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap"><div><h2>Community directory</h2><p class="muted">Discover Discord communities powered by IronWolf. Select a server to view its profile and advertisement.</p></div><span class="pill">' + str(len(cards)) + ' REGISTERED SERVERS</span></div>'
         + ('<div class="promotion-filters"><input id="promotion-search" type="search" placeholder="Search servers, topics or descriptions…" aria-label="Search servers"><select id="promotion-category-filter" aria-label="Filter by category"><option value="">All categories</option>' + ''.join('<option value="' + value + '">' + value + '</option>' for value in ("Gaming", "Community", "Roleplay", "Social", "Support", "Other")) + '</select></div><div class="promotion-grid" id="promotion-grid">' + "".join(cards) + '</div><p class="muted promotion-empty" id="promotion-empty">No servers match your search.</p>' if cards else '<div class="card">No servers have registered yet. Be the first to add yours.</div>')
