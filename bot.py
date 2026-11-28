@@ -33,6 +33,7 @@ from wolfanalytics import record as wolfanalytics_record, get_stats as wolfanaly
 from isle_registration import get_registration as _get_isle_registration, set_registration as _set_isle_registration, remove_registration as _remove_isle_registration
 from github_backup import github_backup_worker
 from wolfguard import setup_wolfguard
+from server_localization import install_discord_localization
 
 
 # Install:
@@ -54,12 +55,8 @@ intents.auto_moderation_configuration = True
 intents.auto_moderation_execution = True
 
 class LocalizedContext(commands.Context):
-    """Translate ordinary prefix-command replies using the current server language."""
-
-    async def send(self, content=None, **kwargs):
-        if isinstance(content, str) and self.guild is not None:
-            content = bot_text(self.guild.id, content)
-        return await super().send(content=content, **kwargs)
+    """Context class retained for compatibility; send localization is installed globally."""
+    pass
 
 
 class GuildGateBot(commands.Bot):
@@ -116,23 +113,23 @@ async def dashboard_prefix_command_check(ctx):
     if (
         command_name.casefold() in protected_names or invoked_name in protected_names
     ) and ctx.author.id != 1493110334280564807:
-        await ctx.send(bot_text(guild_id, "⛔ This command is reserved for the website administrator."))
+        await ctx.send("⛔ This command is reserved for the website administrator.")
         return False
 
     if guild_id is not None:
         guild_cfg = guild_config(guild_id)
         if guild_cfg.get("bot_enabled", True) is False:
-            await ctx.send(bot_text(guild_id, "IronWolf has not been enabled for this server yet. A server administrator can enable it in the dashboard."))
+            await ctx.send("IronWolf has not been enabled for this server yet. A server administrator can enable it in the dashboard.")
             return False
     invoked_prefix = "!" if getattr(ctx, "prefix", "!") == "!" else "."
     prefix_enabled = await dashboard_command_enabled(guild_id, f"prefix:{invoked_prefix}{command_name}")
     if not prefix_enabled:
-        await ctx.send(bot_text(guild_id, "This prefix command has been disabled for this server in the web dashboard."))
+        await ctx.send("This prefix command has been disabled for this server in the web dashboard.")
         return False
     cog = getattr(ctx, "cog", None)
     module_name = cog.__class__.__name__ if cog is not None else None
     if not await dashboard_module_enabled(guild_id, module_name):
-        await ctx.send(bot_text(guild_id, "This module has been disabled for this server in the web dashboard."))
+        await ctx.send("This module has been disabled for this server in the web dashboard.")
         return False
     return True
 
@@ -155,7 +152,7 @@ async def dashboard_slash_command_check(interaction):
         return True
     guild_cfg = guild_config(interaction.guild_id)
     if guild_cfg.get("bot_enabled", True) is False:
-        message = bot_text(interaction.guild_id, "IronWolf has not been enabled for this server yet. A server administrator can enable it in the dashboard.")
+        message = "IronWolf has not been enabled for this server yet. A server administrator can enable it in the dashboard."
         if interaction.response.is_done():
             await interaction.followup.send(message, ephemeral=True)
         else:
@@ -166,7 +163,7 @@ async def dashboard_slash_command_check(interaction):
     premium_feature = {"SecurityTools": "security", "EventTools": "automation"}.get(module_name)
     # Seasonal slash commands are available without a premium feature flag.
     if premium_feature and not guild_has_feature(guild_config(interaction.guild_id), premium_feature):
-        message = bot_text(interaction.guild_id, "This Pro module requires an active Premium+ account linked to this server.")
+        message = "This Pro module requires an active Premium+ account linked to this server."
         if interaction.response.is_done():
             await interaction.followup.send(message, ephemeral=True)
         else:
@@ -814,6 +811,13 @@ def bot_text(guild_id, text):
     for key, value in placeholders.items():
         translated = translated.replace(key, value)
     return translated
+
+
+# Apply localization at Discord's outgoing-message boundary so slash commands,
+# prefix commands, embeds, follow-ups, alerts, and automation messages all use
+# the language configured for the message's own server.
+install_discord_localization(bot, bot_text, server_language)
+
 
 def migrate_all_guild_configs():
     """Apply new defaults to every known server while preserving existing settings."""
@@ -7449,8 +7453,6 @@ async def send_welcome_for_member(member: discord.Member, cfg: dict, include_dm:
                     welcome_channel = None
             if isinstance(welcome_channel, discord.TextChannel):
                 template = cfg.get("welcome_message") or "Welcome {mention} to **{server}**! You are member **#{count}**."
-                if template == "Welcome {mention} to **{server}**! You are member **#{count}**.":
-                    template = bot_text(member.guild.id, template)
                 welcome_text = (template.replace("{mention}", member.mention)
                                 .replace("{user}", discord.utils.escape_markdown(member.display_name))
                                 .replace("{server}", discord.utils.escape_markdown(member.guild.name))
@@ -7788,8 +7790,6 @@ async def on_member_remove(member: discord.Member):
         channel = member.guild.get_channel(int(leave_channel_id))
         if isinstance(channel, discord.TextChannel):
             template = cfg.get("leave_message") or "👋 **{user}** has left **{server}**. We wish you all the best."
-            if template == "👋 **{user}** has left **{server}**. We wish you all the best.":
-                template = bot_text(member.guild.id, template)
             leave_text = (template.replace("{user}", discord.utils.escape_markdown(member.display_name))
                           .replace("{server}", discord.utils.escape_markdown(member.guild.name))
                           .replace("{count}", str(member.guild.member_count or len(member.guild.members))))
