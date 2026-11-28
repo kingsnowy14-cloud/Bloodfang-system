@@ -2718,6 +2718,7 @@ def server_promotion_directory():
                 "guild_id": guild_id, "guild_name": guild.name, "invite_url": invite_url,
                 "advert_text": advert_text, "category": category, "profile": profile_snapshot,
                 "profile_synced_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "profile_source_version": 2,
                 "owner_id": str(existing.get("owner_id") or session.get("user_id", "")),
                 "registered_at": existing.get("registered_at") or datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -2757,17 +2758,20 @@ def server_promotion_directory():
     now = datetime.now(timezone.utc)
     for existing_id, existing_record, existing_guild in listed:
         synced_at = str(existing_record.get("profile_synced_at") or "")
+        # Force one refresh after profile-source changes, then keep the ten-minute cache.
+        needs_source_refresh = existing_record.get("profile_source_version") != 2
         try:
             last_sync = datetime.fromisoformat(synced_at.replace("Z", "+00:00"))
             is_stale = (now - last_sync).total_seconds() >= 600
         except (TypeError, ValueError):
             is_stale = True
-        if not is_stale:
+        if not (needs_source_refresh or is_stale):
             continue
         existing_record["profile"] = _server_promotion_discord_profile(
             existing_id, existing_guild, oauth_by_id.get(existing_id, {}), existing_record.get("invite_url", "")
         )
         existing_record["profile_synced_at"] = now.isoformat(timespec="seconds")
+        existing_record["profile_source_version"] = 2
         profiles_changed = True
     if profiles_changed:
         with _SERVER_PROMOTION_LOCK:
