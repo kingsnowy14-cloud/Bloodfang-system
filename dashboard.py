@@ -1993,15 +1993,7 @@ def _translate_dashboard(value, language):
         return value
 
 def _dashboard_language():
-    """Use the selected language on a server dashboard; public pages default to English."""
-    guild_id = (request.view_args or {}).get("guild_id")
-    if guild_id and _guild_config:
-        try:
-            selected = str(_guild_config(int(guild_id)).get("bot_language", "en")).lower()
-            if selected in {"de", "en"}:
-                return selected
-        except (TypeError, ValueError, KeyError):
-            pass
+    """The entire website and every guild dashboard are English-only."""
     return "en"
 
 
@@ -5017,10 +5009,7 @@ def guild_page(guild_id):
                 if settings_section == "general":
                     # Missing flag is treated as enabled for legacy servers; new servers explicitly start disabled.
                     cfg["bot_enabled"] = request.form.get("bot_enabled") == "on"
-                    selected_language = request.form.get("bot_language", cfg.get("bot_language", "en")).lower()
-                    if selected_language not in {"de", "en"}:
-                        abort(400, "Unsupported bot language.")
-                    cfg["bot_language"] = selected_language
+                    cfg["bot_language"] = "en"
                     # Welcome and goodbye destinations are configured in the Welcome module.
                     text_channel_ids = {str(item.id) for item in guild.text_channels}
                     for key, label in (("welcome_channel", "Welcome channel"), ("goodbye_channel", "Goodbye channel")):
@@ -5068,10 +5057,7 @@ def guild_page(guild_id):
                         abort(400, "Ungültige Zeitzone ausgewählt.")
                     ZoneInfo(selected_timezone)
                     cfg["bot_timezone"] = selected_timezone
-                    selected_language = request.form.get("bot_language", cfg.get("bot_language", "auto")).lower()
-                    if selected_language not in {"de", "en"}:
-                        abort(400, "Unsupported bot language.")
-                    cfg["bot_language"] = selected_language
+                    cfg["bot_language"] = "en"
                 if settings_section == "channels":
                     for key in CHANNEL_SETTINGS:
                         if key not in request.form:
@@ -5169,9 +5155,7 @@ def guild_page(guild_id):
             settings_html += '<p class="muted">Lege fest, in welcher Zeitzone der Bot Zeiten für diesen Server anzeigen und verwenden soll. Diese Einstellung betrifft nur die Bot-Konfiguration.</p><label for="bot_timezone">Zeitzone</label><select id="bot_timezone" name="bot_timezone">'
             settings_html += ''.join('<option value="' + zone + '"' + (' selected' if selected_timezone == zone else '') + '>' + zone.replace("_", " ") + '</option>' for zone in timezone_choices)
             settings_html += '</select><div class="notice">Aktuelle Bot-Zeit: <strong>' + html.escape(datetime.now(ZoneInfo(selected_timezone if selected_timezone in timezone_choices else "UTC")).strftime("%d.%m.%Y · %H:%M")) + '</strong></div>'
-            selected_language_ui = str(cfg.get("bot_language", "en"))
-            language_choices = (("en", "English"), ("de", "Deutsch"))
-            settings_html += '<h3>🌐 Bot Language</h3><p class="muted">Choose the language IronWolf uses on this Discord server. The website dashboard always stays in English.</p><label for="bot_language">Bot language</label><select id="bot_language" name="bot_language">' + ''.join('<option value="' + lang + '"' + (' selected' if selected_language_ui == lang else '') + '>' + label + '</option>' for lang, label in language_choices) + '</select>'
+            settings_html += '<h3>🌐 Language</h3><p class="muted">IronWolf and the dashboard are available in English only.</p>'
         elif section == "general":
             bot_enabled_checked = " checked" if cfg.get("bot_enabled", True) else ""
             settings_html += '<div class="check"><input type="checkbox" id="bot_enabled" name="bot_enabled"' + bot_enabled_checked + '><label for="bot_enabled">🐺 Enable IronWolf on this server</label></div><p class="muted">When disabled, the bot will not respond on this server. New servers start disabled; existing servers keep their current behavior.</p>'
