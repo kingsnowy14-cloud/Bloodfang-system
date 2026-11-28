@@ -2590,6 +2590,46 @@ def _server_promotion_write(records):
     os.replace(temp, store)
 
 
+def _server_promotion_discord_profile(guild_id, guild, oauth_profile=None):
+    """Build a directory snapshot from Discord's canonical guild API data."""
+    oauth_profile = oauth_profile if isinstance(oauth_profile, dict) else {}
+    api_profile = {}
+    token = getattr(getattr(_bot, "http", None), "token", None) if _bot else None
+    if token:
+        try:
+            response = requests.get(
+                "https://discord.com/api/v10/guilds/" + str(guild_id) + "?with_counts=true",
+                headers={"Authorization": "Bot " + str(token)},
+                timeout=4,
+            )
+            if response.status_code == 200:
+                payload = response.json()
+                if isinstance(payload, dict):
+                    api_profile = payload
+        except (requests.RequestException, ValueError):
+            pass
+    icon_hash = str(api_profile.get("icon") or oauth_profile.get("icon") or "")
+    banner_hash = str(api_profile.get("banner") or oauth_profile.get("banner") or "")
+    icon_ext = "gif" if icon_hash.startswith("a_") else "png"
+    banner_ext = "gif" if banner_hash.startswith("a_") else "png"
+    icon_url = ("https://cdn.discordapp.com/icons/" + str(guild_id) + "/" + icon_hash + "." + icon_ext + "?size=256") if re.fullmatch(r"[A-Za-z0-9_]+", icon_hash) else ""
+    banner_url = ("https://cdn.discordapp.com/banners/" + str(guild_id) + "/" + banner_hash + "." + banner_ext + "?size=1024") if re.fullmatch(r"[A-Za-z0-9_]+", banner_hash) else ""
+    if not icon_url and getattr(guild, "icon", None):
+        icon_url = guild.icon.url
+    if not banner_url:
+        banner_asset = getattr(guild, "banner", None) or getattr(guild, "splash", None)
+        banner_url = banner_asset.url if banner_asset else ""
+    features = api_profile.get("features") or oauth_profile.get("features") or getattr(guild, "features", []) or []
+    member_count = api_profile.get("approximate_member_count") or oauth_profile.get("approximate_member_count") or getattr(guild, "member_count", 0) or 0
+    return {
+        "icon_url": icon_url,
+        "banner_url": banner_url,
+        "description": str(api_profile.get("description") or oauth_profile.get("description") or getattr(guild, "description", "") or "")[:4096],
+        "features": list(features)[:50],
+        "member_count": int(member_count),
+    }
+
+
 @app.route("/server-promotion", methods=["GET", "POST"])
 def server_promotion_directory():
     login = _require_login()
@@ -2641,31 +2681,15 @@ def server_promotion_directory():
         guild = _bot.get_guild(int(guild_id)) if permitted and _bot else None
         if not permitted or guild is None:
             abort(403, "You need Manage Server permission, and IronWolf must already be on that server.")
-        # Save a profile snapshot from Discord OAuth so every visitor sees the
-        # server's real icon, banner and description even without bot cache data.
-        icon_hash = str(oauth_guild.get("icon") or "")
-        banner_hash = str(oauth_guild.get("banner") or "")
-        icon_ext = "gif" if icon_hash.startswith("a_") else "png"
-        banner_ext = "gif" if banner_hash.startswith("a_") else "png"
-        icon_url = ("https://cdn.discordapp.com/icons/" + guild_id + "/" + icon_hash + "." + icon_ext + "?size=256") if re.fullmatch(r"[A-Za-z0-9_]+", icon_hash) else ""
-        banner_url = ("https://cdn.discordapp.com/banners/" + guild_id + "/" + banner_hash + "." + banner_ext + "?size=1024") if re.fullmatch(r"[A-Za-z0-9_]+", banner_hash) else ""
-        if not icon_url and guild.icon:
-            icon_url = guild.icon.url
-        if not banner_url:
-            fallback_banner = getattr(guild, "banner", None) or getattr(guild, "splash", None)
-            banner_url = fallback_banner.url if fallback_banner else ""
-        profile_snapshot = {
-            "icon_url": icon_url, "banner_url": banner_url,
-            "description": str(oauth_guild.get("description") or getattr(guild, "description", "") or "")[:4096],
-            "features": list(oauth_guild.get("features") or getattr(guild, "features", []) or [])[:50],
-            "member_count": int(oauth_guild.get("approximate_member_count") or getattr(guild, "member_count", 0) or 0),
-        }
+        # Pull the canonical Discord guild profile; OAuth and gateway data are fallbacks.
+        profile_snapshot = _server_promotion_discord_profile(guild_id, guild, oauth_guild)
         with _SERVER_PROMOTION_LOCK:
             records = _server_promotion_read()
             existing = records.get(guild_id, {})
             records[guild_id] = {
                 "guild_id": guild_id, "guild_name": guild.name, "invite_url": invite_url,
                 "advert_text": advert_text, "category": category, "profile": profile_snapshot,
+                "profile_synced_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "owner_id": str(existing.get("owner_id") or session.get("user_id", "")),
                 "registered_at": existing.get("registered_at") or datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -2690,41 +2714,6 @@ def server_promotion_directory():
 
     with _SERVER_PROMOTION_LOCK:
         records = _server_promotion_read()
-    # Refresh legacy listings from the current owner's Discord OAuth profile.
-    # Older records predate profile snapshots and otherwise keep showing fallbacks.
-    oauth_by_id = {str(item.get("id")): item for item in user_guilds if isinstance(item, dict)}
-    actor_id = str(session.get("user_id", ""))
-    profile_changed = False
-    for existing_id, existing_record in records.items():
-        if not isinstance(existing_record, dict):
-            continue
-        can_refresh = actor_id == "1493110334280564807" or str(existing_record.get("owner_id", "")) == actor_id
-        oauth_profile = oauth_by_id.get(str(existing_id))
-        existing_guild = _bot.get_guild(int(existing_id)) if _bot and str(existing_id).isdigit() else None
-        if not can_refresh or not oauth_profile or existing_guild is None:
-            continue
-        old_profile = existing_record.get("profile") if isinstance(existing_record.get("profile"), dict) else {}
-        icon_hash = str(oauth_profile.get("icon") or "")
-        banner_hash = str(oauth_profile.get("banner") or "")
-        icon_ext = "gif" if icon_hash.startswith("a_") else "png"
-        banner_ext = "gif" if banner_hash.startswith("a_") else "png"
-        icon_url = ("https://cdn.discordapp.com/icons/" + str(existing_id) + "/" + icon_hash + "." + icon_ext + "?size=256") if re.fullmatch(r"[A-Za-z0-9_]+", icon_hash) else ""
-        banner_url = ("https://cdn.discordapp.com/banners/" + str(existing_id) + "/" + banner_hash + "." + banner_ext + "?size=1024") if re.fullmatch(r"[A-Za-z0-9_]+", banner_hash) else ""
-        if not icon_url and existing_guild.icon:
-            icon_url = existing_guild.icon.url
-        if not banner_url:
-            fallback_banner = getattr(existing_guild, "banner", None) or getattr(existing_guild, "splash", None)
-            banner_url = fallback_banner.url if fallback_banner else ""
-        existing_record["profile"] = {
-            "icon_url": icon_url, "banner_url": banner_url,
-            "description": str(oauth_profile.get("description") or getattr(existing_guild, "description", "") or "")[:4096],
-            "features": list(oauth_profile.get("features") or getattr(existing_guild, "features", []) or [])[:50],
-            "member_count": int(oauth_profile.get("approximate_member_count") or getattr(existing_guild, "member_count", 0) or 0),
-        }
-        profile_changed = True
-    if profile_changed:
-        with _SERVER_PROMOTION_LOCK:
-            _server_promotion_write(records)
     listed = []
     for guild_id, record in records.items():
         guild = _bot.get_guild(int(guild_id)) if _bot and str(guild_id).isdigit() else None
@@ -2733,27 +2722,26 @@ def server_promotion_directory():
         listed.append((str(guild_id), record, guild))
     listed.sort(key=lambda entry: (0 if entry[0] == _SERVER_PROMOTION_PINNED_GUILD else 1, entry[1].get("registered_at", "")))
 
-    # Refresh profile data for every already-listed server from the live bot cache.
-    # Keep stored OAuth data as fallback when Discord does not expose a live field.
-    refreshed_profiles = False
+    # Refresh every advertised server from Discord's canonical guild endpoint.
+    # Cache snapshots for ten minutes to avoid repeated API calls per page view.
+    oauth_by_id = {str(item.get("id")): item for item in user_guilds if isinstance(item, dict)}
+    profiles_changed = False
+    now = datetime.now(timezone.utc)
     for existing_id, existing_record, existing_guild in listed:
-        old_profile = existing_record.get("profile") if isinstance(existing_record.get("profile"), dict) else {}
-        live_icon = getattr(existing_guild, "icon", None)
-        live_banner = getattr(existing_guild, "banner", None) or getattr(existing_guild, "splash", None)
-        live_features = list(getattr(existing_guild, "features", []) or [])
-        live_description = str(getattr(existing_guild, "description", "") or "")
-        live_members = int(getattr(existing_guild, "member_count", 0) or 0)
-        refreshed = {
-            "icon_url": live_icon.url if live_icon else str(old_profile.get("icon_url") or ""),
-            "banner_url": live_banner.url if live_banner else str(old_profile.get("banner_url") or ""),
-            "description": live_description or str(old_profile.get("description") or ""),
-            "features": live_features or list(old_profile.get("features") or []),
-            "member_count": live_members or int(old_profile.get("member_count") or 0),
-        }
-        if refreshed != old_profile:
-            existing_record["profile"] = refreshed
-            refreshed_profiles = True
-    if refreshed_profiles:
+        synced_at = str(existing_record.get("profile_synced_at") or "")
+        try:
+            last_sync = datetime.fromisoformat(synced_at.replace("Z", "+00:00"))
+            is_stale = (now - last_sync).total_seconds() >= 600
+        except (TypeError, ValueError):
+            is_stale = True
+        if not is_stale:
+            continue
+        existing_record["profile"] = _server_promotion_discord_profile(
+            existing_id, existing_guild, oauth_by_id.get(existing_id, {})
+        )
+        existing_record["profile_synced_at"] = now.isoformat(timespec="seconds")
+        profiles_changed = True
+    if profiles_changed:
         with _SERVER_PROMOTION_LOCK:
             _server_promotion_write(records)
 
