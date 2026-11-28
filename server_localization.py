@@ -1,0 +1,106 @@
+"""Guild-aware localization for all Discord message delivery paths."""
+from functools import wraps
+
+
+def _guild_id(owner, bot):
+    value = getattr(owner, "guild_id", None)
+    if value:
+        return int(value)
+    guild = getattr(owner, "guild", None)
+    if guild is not None:
+        return int(guild.id)
+    parent = getattr(owner, "_parent", None)
+    value = getattr(parent, "guild_id", None)
+    if value:
+        return int(value)
+    channel_id = getattr(owner, "channel_id", None)
+    if channel_id:
+        channel = bot.get_channel(int(channel_id))
+        if channel is not None and getattr(channel, "guild", None) is not None:
+            return int(channel.guild.id)
+        for candidate in getattr(bot, "guilds", ()):
+            channel = candidate.get_channel(int(channel_id))
+            if channel is None:
+                channel = candidate.get_thread(int(channel_id))
+            if channel is not None:
+                return int(candidate.id)
+    return None
+
+
+def _localized_embed(embed, guild_id, translate):
+    if embed is None or not guild_id:
+        return embed
+    result = embed.copy()
+    if result.title:
+        result.title = translate(guild_id, result.title)
+    if result.description:
+        result.description = translate(guild_id, result.description)
+    if result.author and result.author.name:
+        result.set_author(name=translate(guild_id, result.author.name),
+                          url=result.author.url, icon_url=result.author.icon_url)
+    if result.footer and result.footer.text:
+        result.set_footer(text=translate(guild_id, result.footer.text),
+                          icon_url=result.footer.icon_url)
+    for index, field in enumerate(result.fields):
+        result.set_field_at(index, name=translate(guild_id, field.name),
+                            value=translate(guild_id, field.value), inline=field.inline)
+    return result
+
+
+def _localize_kwargs(kwargs, guild_id, translate):
+    if not guild_id:
+        return kwargs
+    content = kwargs.get("content")
+    if isinstance(content, str) and content:
+        kwargs["content"] = translate(guild_id, content)
+    embed = kwargs.get("embed")
+    if embed is not None:
+        kwargs["embed"] = _localized_embed(embed, guild_id, translate)
+    embeds = kwargs.get("embeds")
+    if embeds is not None:
+        kwargs["embeds"] = [_localized_embed(item, guild_id, translate) for item in embeds]
+    return kwargs
+
+
+def install_discord_localization(bot, translate, language):
+    """Translate outgoing message text and embeds according to each guild setting.
+
+    Public/DM messages remain untouched. English is a no-op, so the default
+    experience remains exactly as authored.
+    """
+    import discord
+
+    def patch(cls, method_name):
+        original = getattr(cls, method_name, None)
+        if original is None or getattr(original, "_ironwolf_localized", False):
+            return
+
+        @wraps(original)
+        async def localized(self, *args, **kwargs):
+            guild_id = _guild_id(self, bot)
+            if guild_id and language(guild_id) == "de":
+                args = list(args)
+                if args and isinstance(args[0], str):
+                    args[0] = translate(guild_id, args[0])
+                else:
+                    _localize_kwargs(kwargs, guild_id, translate)
+                if args:
+                    kwargs = _localize_kwargs(kwargs, guild_id, translate)
+                args = tuple(args)
+            return await original(self, *args, **kwargs)
+
+        localized._ironwolf_localized = True
+        setattr(cls, method_name, localized)
+
+    # Covers prefix commands, ordinary channel sends, replies, and bot-generated
+    # channel messages such as welcomes, logs, alerts, and automation notices.
+    patch(discord.abc.Messageable, "send")
+
+    # Covers slash-command initial responses, edits, and interaction follow-ups.
+    patch(discord.InteractionResponse, "send_message")
+    patch(discord.InteractionResponse, "edit_message")
+    patch(discord.Interaction, "edit_original_response")
+
+    # Interaction follow-ups are Webhook.send calls. The interaction channel ID
+    # is used to resolve the owning guild without guessing a server.
+    patch(discord.Webhook, "send")
