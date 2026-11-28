@@ -2711,7 +2711,7 @@ def server_promotion_directory():
             + '<p class="promotion-description">' + description + '</p>'
             + profile
             + '<div class="promotion-card-actions"><a class="button promotion-join" href="' + html.escape(record.get("invite_url", ""), quote=True) + '" target="_blank" rel="noopener noreferrer">Join Discord ↗</a>'
-            + ('<form method="post" onsubmit="return confirm(&quot;Remove this server from the directory?&quot;)">' + _csrf_field() + '<input type="hidden" name="action" value="delete"><input type="hidden" name="guild_id" value="' + html.escape(guild_id, quote=True) + '"><button class="promotion-delete" type="submit">Delete server</button></form>' if any(str(item.get("id")) == guild_id and (int(item.get("permissions", "0")) & (MANAGE_GUILD | ADMINISTRATOR)) for item in user_guilds if str(item.get("permissions", "0")).isdigit()) else '')
+            + ('<form method="post" onsubmit="return confirm(&quot;Remove this server from the directory?&quot;)">' + _csrf_field() + '<input type="hidden" name="action" value="delete"><input type="hidden" name="guild_id" value="' + html.escape(guild_id, quote=True) + '"><button class="promotion-delete" type="submit">Delete server</button></form>' if any(eligible_id == guild_id for eligible_id, _ in manageable) else '')
             + '</div></article>'
         )
 
