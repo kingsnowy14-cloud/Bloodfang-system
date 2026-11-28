@@ -2549,13 +2549,42 @@ def index():
         if not (int(item.get("permissions", "0")) & (MANAGE_GUILD | ADMINISTRATOR)):
             continue
         gid = str(item.get("id"))
+        server_name = html.escape(str(item.get("name", "Server")))
+        icon_hash = str(item.get("icon") or "").strip()
+        icon_url = ""
+        if icon_hash and gid.isdigit():
+            icon_ext = "gif" if icon_hash.startswith("a_") else "png"
+            icon_url = f"https://cdn.discordapp.com/icons/{gid}/{icon_hash}.{icon_ext}?size=128"
+        if icon_url:
+            server_avatar = (
+                '<img src="' + html.escape(icon_url, quote=True) + '" alt="' + server_name +
+                '" loading="eager" referrerpolicy="no-referrer" '
+                'style="width:64px;height:64px;border-radius:18px;object-fit:cover;flex:0 0 64px">'
+            )
+        else:
+            server_avatar = (
+                '<div aria-hidden="true" style="width:64px;height:64px;border-radius:18px;'
+                'display:grid;place-items:center;background:var(--surface-2,#263244);'
+                'font-size:26px;flex:0 0 64px">' + html.escape((str(item.get("name") or "S")[:1]).upper()) + '</div>'
+            )
         bot_guild = _bot.get_guild(int(gid)) if _bot else None
         if not bot_guild:
             invite_query = urlencode({"client_id": bot_client_id, "scope": "bot applications.commands", "permissions": "0", "guild_id": gid, "disable_guild_select": "true"})
             invite_url = "https://discord.com/oauth2/authorize?" + invite_query
-            invite_cards.append('<div class="card server-card"><span class="pill">BOT FEHLT</span><h2 style="margin-top:14px">' + html.escape(item.get("name", "Server")) + '</h2><p class="muted">Lade IronWolf zuerst auf diesen Server ein. Danach kannst du die Module öffnen.</p><a class="button" href="' + html.escape(invite_url, quote=True) + '" target="_blank" rel="noopener noreferrer">🤖 Bot jetzt einladen</a></div>')
+            invite_cards.append(
+                '<div class="card server-card"><div style="display:flex;align-items:center;gap:14px">' +
+                server_avatar + '<div><span class="pill">BOT FEHLT</span><h2 style="margin:8px 0 0">' +
+                server_name + '</h2></div></div><p class="muted">Lade IronWolf zuerst auf diesen Server ein. Danach kannst du die Module öffnen.</p>'
+                '<a class="button" href="' + html.escape(invite_url, quote=True) + '" target="_blank" rel="noopener noreferrer">🤖 Bot jetzt einladen</a></div>'
+            )
             continue
-        cards.append(f'<a class="card server-card" style="display:block;text-decoration:none" href="/guild/{gid}"><span class="pill">● BOT VERBUNDEN</span><h2 style="margin-top:14px">{html.escape(item.get("name","Server"))}</h2><p class="muted">Einstellungen, Befehle und Module verwalten</p><strong>Server öffnen ↗</strong></a>')
+        cards.append(
+            f'<a class="card server-card" style="display:block;text-decoration:none" href="/guild/{gid}">'
+            '<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">' +
+            server_avatar + '<div style="min-width:0"><span class="pill">● BOT VERBUNDEN</span>'
+            '<h2 style="margin:8px 0 0;overflow-wrap:anywhere">' + server_name + '</h2></div></div>'
+            '<p class="muted">Einstellungen, Befehle und Module verwalten</p><strong>Server öffnen ↗</strong></a>'
+        )
     if not cards:
         invite_content = ''.join(invite_cards) or '<div class="notice">Du hast keinen Server mit Administrator- oder „Server verwalten“-Rechten gefunden. Bitte wähle beim Einladen einen Server aus, auf dem du diese Rechte besitzt.</div>'
         body = '<section class="card hero"><span class="pill">ERSTER SCHRITT</span><h1 style="margin-top:14px">IronWolf zuerst einladen</h1><p>Bevor du das Dashboard nutzen kannst, muss der Bot auf mindestens einem Server sein, den du verwalten darfst.</p><div class="notice">1. Wähle unten deinen Server. 2. Lade IronWolf ein. 3. Kehre hierher zurück und öffne anschließend das Dashboard.</div></section><h2>Server auswählen</h2><div class="grid">' + invite_content + '</div>'
