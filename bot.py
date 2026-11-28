@@ -863,7 +863,7 @@ def bot_text(guild_id, text):
 class IronWolfCommandTranslator(app_commands.Translator):
     """Localize Discord command names, descriptions, and option text per client locale."""
 
-    async def translate(self, string, locale):
+    async def translate(self, string, locale, context):
         message = string.message
         locale_code = str(getattr(locale, "value", locale)).lower()
         if locale_code.startswith("de"):
