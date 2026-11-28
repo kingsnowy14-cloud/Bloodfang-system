@@ -2590,24 +2590,52 @@ def _server_promotion_write(records):
     os.replace(temp, store)
 
 
-def _server_promotion_discord_profile(guild_id, guild, oauth_profile=None):
-    """Build a directory snapshot from Discord's canonical guild API data."""
+def _server_promotion_discord_profile(guild_id, guild, oauth_profile=None, invite_url=""):
+    """Build a directory snapshot, preferring Discord's canonical profile data."""
     oauth_profile = oauth_profile if isinstance(oauth_profile, dict) else {}
     api_profile = {}
     token = getattr(getattr(_bot, "http", None), "token", None) if _bot else None
+
+    # First try the authenticated guild endpoint.
     if token:
         try:
             response = requests.get(
                 "https://discord.com/api/v10/guilds/" + str(guild_id) + "?with_counts=true",
                 headers={"Authorization": "Bot " + str(token)},
-                timeout=4,
+                timeout=5,
             )
             if response.status_code == 200:
                 payload = response.json()
                 if isinstance(payload, dict):
                     api_profile = payload
-        except (requests.RequestException, ValueError):
-            pass
+            else:
+                print("[SERVER PROMOTION] Discord guild profile returned HTTP %s for %s" % (response.status_code, guild_id), flush=True)
+        except (requests.RequestException, ValueError) as exc:
+            print("[SERVER PROMOTION] Discord guild profile request failed for %s: %s" % (guild_id, exc), flush=True)
+
+    # The invite preview endpoint also exposes the public guild profile and works
+    # without bot authorization. This is especially useful for older listings.
+    if invite_url and not (api_profile.get("icon") and api_profile.get("description")):
+        try:
+            parsed = urlparse(str(invite_url))
+            invite_code = (parsed.path or "").strip("/").split("/")[-1]
+            if invite_code and re.fullmatch(r"[A-Za-z0-9-]{2,100}", invite_code):
+                response = requests.get(
+                    "https://discord.com/api/v10/invites/" + invite_code + "?with_counts=true&with_expiration=true",
+                    timeout=5,
+                )
+                if response.status_code == 200:
+                    invite_payload = response.json()
+                    invite_guild = invite_payload.get("guild") if isinstance(invite_payload, dict) else None
+                    if isinstance(invite_guild, dict) and str(invite_guild.get("id", guild_id)) == str(guild_id):
+                        for key, value in invite_guild.items():
+                            if value not in (None, "", [], 0) and not api_profile.get(key):
+                                api_profile[key] = value
+                else:
+                    print("[SERVER PROMOTION] Discord invite profile returned HTTP %s for %s" % (response.status_code, guild_id), flush=True)
+        except (requests.RequestException, ValueError) as exc:
+            print("[SERVER PROMOTION] Discord invite profile request failed for %s: %s" % (guild_id, exc), flush=True)
+
     icon_hash = str(api_profile.get("icon") or oauth_profile.get("icon") or "")
     banner_hash = str(api_profile.get("banner") or oauth_profile.get("banner") or "")
     icon_ext = "gif" if icon_hash.startswith("a_") else "png"
@@ -2682,7 +2710,7 @@ def server_promotion_directory():
         if not permitted or guild is None:
             abort(403, "You need Manage Server permission, and IronWolf must already be on that server.")
         # Pull the canonical Discord guild profile; OAuth and gateway data are fallbacks.
-        profile_snapshot = _server_promotion_discord_profile(guild_id, guild, oauth_guild)
+        profile_snapshot = _server_promotion_discord_profile(guild_id, guild, oauth_guild, invite_url)
         with _SERVER_PROMOTION_LOCK:
             records = _server_promotion_read()
             existing = records.get(guild_id, {})
@@ -2737,7 +2765,7 @@ def server_promotion_directory():
         if not is_stale:
             continue
         existing_record["profile"] = _server_promotion_discord_profile(
-            existing_id, existing_guild, oauth_by_id.get(existing_id, {})
+            existing_id, existing_guild, oauth_by_id.get(existing_id, {}), existing_record.get("invite_url", "")
         )
         existing_record["profile_synced_at"] = now.isoformat(timespec="seconds")
         profiles_changed = True
