@@ -1438,84 +1438,84 @@ def _module_navigation():
     if active == "overview":
         active = "starter"
     modules = (
-        ("__ai_category__", "🏠 ÜBERSICHT", ""),
-        ("starter", "🏠 Dashboard-Übersicht", "?section=overview"),
-        ("timezone", "🌐 Bot-Zeitzone", "?section=timezone"),
+        ("__ai_category__", "🏠 OVERVIEW", ""),
+        ("starter", "🏠 Dashboard Overview", "?section=overview"),
+        ("timezone", "🌐 Bot Time Zone", "?section=timezone"),
 
-        ("__ai_category__", "👥 COMMUNITY & KOMMUNIKATION", ""),
-        ("welcome", "👋 Willkommen & Abschied", "/welcome"),
-        ("birthdays", "🎂 Geburtstagskalender", "/birthdays"),
-        ("feedback", "💬 Anonymes Feedback", "/feedback"),
-        ("applications", "📝 Bewerbungen", "/applications"),
-        ("tickets", "🎟️ Support-Tickets", "/tickets"),
-        ("quick-support", "🆘 Schnell-Support", "/quick-support"),
-        ("messages", "✉️ Nachrichten-Editor", "/messages"),
+        ("__ai_category__", "👥 COMMUNITY & COMMUNICATION", ""),
+        ("welcome", "👋 Welcome & Goodbye", "/welcome"),
+        ("birthdays", "🎂 Birthday Calendar", "/birthdays"),
+        ("feedback", "💬 Anonymous Feedback", "/feedback"),
+        ("applications", "📝 Applications", "/applications"),
+        ("tickets", "🎟️ Support Tickets", "/tickets"),
+        ("quick-support", "🆘 Quick Support", "/quick-support"),
+        ("messages", "✉️ Message Editor", "/messages"),
 
-        ("__ai_category__", "🧑‍🤝‍🧑 TEAM & VERWALTUNG", ""),
-        ("team-management", "👥 Teamverwaltung", "/team-management"),
-        ("teamlist", "📋 Teamliste", "/teamlist"),
-        ("absence-management", "📅 Abwesenheiten", "/absence-management"),
-        ("commands", "🎛️ Befehle verwalten", "/commands"),
+        ("__ai_category__", "🧑‍🤝‍🧑 TEAM & MANAGEMENT", ""),
+        ("team-management", "👥 Team Management", "/team-management"),
+        ("teamlist", "📋 Team List", "/teamlist"),
+        ("absence-management", "📅 Absence Management", "/absence-management"),
+        ("commands", "🎛️ Manage Commands", "/commands"),
 
-        ("__ai_category__", "🎭 ROLLEN & VERIFIZIERUNG", ""),
-        ("auto-role", "🎭 Automatische Rollen", "/auto-role"),
-        ("auto-nickname", "🏷️ AutoNickname", "/auto-nickname"),
-        ("reaction-roles", "🔁 Reaktionsrollen", "/reaction-roles"),
-        ("roles", "🎖️ Rollen & Belohnungen", "?section=roles#settings-panel"),
-        ("verification", "🔐 Mitglieder-Verifizierung", "/verification"),
-        ("verified-accounts", "🎮 Gaming-Kontoverifizierung", "/verified-accounts"),
+        ("__ai_category__", "🎭 ROLES & VERIFICATION", ""),
+        ("auto-role", "🎭 Auto Roles", "/auto-role"),
+        ("auto-nickname", "🏷️ Auto Nickname", "/auto-nickname"),
+        ("reaction-roles", "🔁 Reaction Roles", "/reaction-roles"),
+        ("roles", "🎖️ Roles & Rewards", "?section=roles#settings-panel"),
+        ("verification", "🔐 Member Verification", "/verification"),
+        ("verified-accounts", "🎮 Gaming Account Verification", "/verified-accounts"),
 
         ("__ai_category__", "⚙️ SERVER & ROLEPLAY", ""),
-        ("channels", "📡 Kanäle & Protokolle", "?section=channels#settings-panel"),
-        ("rp-control", "🎭 RP Start / Stopp", "/rp-control"),
-        ("ausweis", "🪪 RP-Ausweis", "/ausweis"),
-        ("property-sales", "🏡 Anwesenverkauf", "/property-sales"),
-        ("temporary-voice", "🔊 Temporäre Sprachkanäle", "/temporary-voice"),
-        ("branding", "🎨 Server-Design", "/branding"),
-        ("custom-bot", "🤖 Bot-Profil anpassen", "/custom-bot"),
+        ("channels", "📡 Channels & Logs", "?section=channels#settings-panel"),
+        ("rp-control", "🎭 RP Start / Stop", "/rp-control"),
+        ("ausweis", "🪪 RP ID Card", "/ausweis"),
+        ("property-sales", "🏡 Property Sales", "/property-sales"),
+        ("temporary-voice", "🔊 Temporary Voice Channels", "/temporary-voice"),
+        ("branding", "🎨 Server Branding", "/branding"),
+        ("custom-bot", "🤖 Customize Bot Profile", "/custom-bot"),
 
-        ("__ai_category__", "🛡️ SICHERHEIT & MODERATION", ""),
+        ("__ai_category__", "🛡️ SECURITY & MODERATION", ""),
         ("security-lab", "🛡️ Security Center", "/security-lab"),
-        ("wolfshield", "🧱 Schutz-Einstellungen", "/wolfshield"),
+        ("wolfshield", "🧱 Protection Settings", "/wolfshield"),
         ("honeypot", "🍯 Honeypot", "/honeypot"),
-        ("ping-protection", "📡 Ping-Schutz", "/ping-protection"),
-        ("actions", "⚔️ Aktionszentrale", "/actions"),
+        ("ping-protection", "📡 Ping Protection", "/ping-protection"),
+        ("actions", "⚔️ Action Center", "/actions"),
 
-        ("__ai_category__", "📈 AUTOMATION & WIRTSCHAFT", ""),
-        ("automation", "📣 Automationen", "/automation"),
-        ("economy", "💰 Wirtschaft & Economy", "/economy"),
-        ("server-boost", "🚀 Server-Boosts", "/server-boost"),
-        ("shift-tracker", "⏱️ Schichtverwaltung", "/shifts"),
+        ("__ai_category__", "📈 AUTOMATION & ECONOMY", ""),
+        ("automation", "📣 Automations", "/automation"),
+        ("economy", "💰 Economy", "/economy"),
+        ("server-boost", "🚀 Server Boosts", "/server-boost"),
+        ("shift-tracker", "⏱️ Shift Management", "/shifts"),
 
-        ("__ai_category__", "🧠 KI & KREATIVITÄT", ""),
-        ("ai", "🧠 KI-Assistent & Wissen", "/ai"),
-        ("image-generator", "🖼️ Bildgenerierung", "/image-generator"),
+        ("__ai_category__", "🧠 AI & CREATIVITY", ""),
+        ("ai", "🧠 AI Assistant & Knowledge", "/ai"),
+        ("image-generator", "🖼️ Image Generation", "/image-generator"),
 
         ("__ai_category__", "🎮 GAMING", ""),
-        ("games", "🎮 IronWolf-Spiele", "/games"),
+        ("games", "🎮 IronWolf Games", "/games"),
 
         ("__ai_category__", "📊 STATISTIK & SYSTEM", ""),
-        ("server-statistics", "📊 Server-Statistiken", "/server-statistics"),
-        ("stats", "📈 Live-Statistiken", "/stats"),
-        ("audit-log", "📜 Änderungsprotokoll", "/audit-log"),
-        ("health", "🩺 Systemstatus", "/health"),
-        ("backup", "🗄️ Backup & Wiederherstellung", "/backup"),
-        ("module-manager", "🧩 Modulverwaltung", "?section=modules"),
-        ("module-template", "🛠️ Modulvorlagen", "?section=template"),
+        ("server-statistics", "📊 Server Statistics", "/server-statistics"),
+        ("stats", "📈 Live Statistics", "/stats"),
+        ("audit-log", "📜 Audit Log", "/audit-log"),
+        ("health", "🩺 System Status", "/health"),
+        ("backup", "🗄️ Backup & Restore", "/backup"),
+        ("module-manager", "🧩 Module Manager", "?section=modules"),
+        ("module-template", "🛠️ Module Templates", "?section=template"),
 
-        ("__ai_category__", "👑 PREMIUM-FUNKTIONEN", ""),
-        ("premium", "✨ Premium-Übersicht", "/premium"),
-        ("premium-ticket", "🎟️ Ticket-System Pro", "/tickets"),
+        ("__ai_category__", "👑 PREMIUM FEATURES", ""),
+        ("premium", "✨ Premium Overview", "/premium"),
+        ("premium-ticket", "🎟️ Ticket System Pro", "/tickets"),
         ("premium-branding", "🎨 Custom Branding Pro", "/branding"),
         ("premium-custom-bot", "🤖 Custom Bot Profile Pro", "/custom-bot"),
         ("premium-security", "🛡️ Security Pro", "/commands"),
         ("premium-automation", "📣 Automation Pro", "/automation"),
         ("premium-invite", "📨 Invite Tracker Pro", "?section=general#settings-panel"),
-        ("premium-boost", "🚀 Server-Boost-System Pro", "/server-boost"),
-        ("premium-applications", "📝 Pro-Bewerbungen", "/applications"),
-        ("premium-shifts", "⏱️ Schicht-Tracker Pro", "/shifts"),
-        ("premium-nickname", "🏷️ AutoNickname Pro", "/auto-nickname"),
-        ("premium-role", "🎭 AutoRole Pro", "/auto-role"),
+        ("premium-boost", "🚀 Server Boost System Pro", "/server-boost"),
+        ("premium-applications", "📝 Applications Pro", "/applications"),
+        ("premium-shifts", "⏱️ Shift Tracker Pro", "/shifts"),
+        ("premium-nickname", "🏷️ Auto Nickname Pro", "/auto-nickname"),
+        ("premium-role", "🎭 Auto Role Pro", "/auto-role"),
         ("premium-analytics", "📊 WolfAnalytics", "/wolfanalytics"),
     )
     links = []
@@ -1541,7 +1541,7 @@ def _module_navigation():
         '<aside class="module-nav" aria-label="Server modules">'
         '<div class="module-nav-title">SERVER MODULES</div>' +
         '<label class="module-search-label" for="module-nav-search">🔎 Module suchen</label>' +
-        '<input id="module-nav-search" class="module-nav-search" type="search" placeholder="Modul suchen …" autocomplete="off" aria-label="Module durchsuchen">' +
+        '<input id="module-nav-search" class="module-nav-search" type="search" placeholder="Search modules …" autocomplete="off" aria-label="Search modules">' +
         '<div class="module-nav-list">' + ''.join(links) + '</div>' +
         '<script>(function(){var input=document.getElementById("module-nav-search");if(!input)return;var items=Array.prototype.slice.call(document.querySelectorAll(".module-nav-list .module-nav-link"));input.addEventListener("input",function(){var q=input.value.trim().toLocaleLowerCase();items.forEach(function(item){item.hidden=q!==""&&item.textContent.toLocaleLowerCase().indexOf(q)===-1;});});})();</script></aside>'
     )
@@ -1622,7 +1622,7 @@ DASHBOARD_TRANSLATIONS["en"].update({
 DASHBOARD_TRANSLATIONS["en"].update({
     "🎨 KI & Kreativität": "🎨 AI & Creativity",
     "🤖 AI Assistant & Wissen": "🤖 AI Assistant & Knowledge",
-    "🖼️ Bildgenerierung": "🖼️ Image Generation",
+    "🖼️ Image Generation": "🖼️ Image Generation",
     "Gültig bis": "Valid until",
     "Speichern": "Save",
     "Einstellungen": "Settings",
@@ -3273,7 +3273,7 @@ def birthday_dashboard(guild_id):
                 panel_message = await panel_channel.send(embed=embed, view=_bot.BirthdayRegisterView(), allowed_mentions=discord.AllowedMentions.none())
                 cfg["birthday_signup_message_id"] = panel_message.id
                 calendar_message = await panel_channel.send(
-                    embed=discord.Embed(title="🎂 Geburtstagskalender", description="Die Liste wird automatisch aktualisiert, sobald Mitglieder ihren Geburtstag eintragen.", color=discord.Color.from_rgb(83, 160, 255)),
+                    embed=discord.Embed(title="🎂 Birthday Calendar", description="Die Liste wird automatisch aktualisiert, sobald Mitglieder ihren Geburtstag eintragen.", color=discord.Color.from_rgb(83, 160, 255)),
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
                 cfg["birthday_calendar_message_id"] = calendar_message.id
@@ -6469,15 +6469,15 @@ def guild_message_builder(guild_id):
         bot_member = guild.me
         if bot_member is None or not channel.permissions_for(bot_member).send_messages:
             abort(403, "Der Bot darf in diesem Kanal keine Nachrichten senden.")
-        content = request.form.get("message", "").strip()
-        title = request.form.get("embed_title", "").strip()[:256]
-        description = request.form.get("embed_description", "").strip()[:4000]
+        content = request.form.get("message", "")  # Preserve the exact text entered by the dashboard user.
+        title = request.form.get("embed_title", "")[:256]  # Preserve user-entered whitespace and line breaks.
+        description = request.form.get("embed_description", "")[:4000]  # Preserve user-entered whitespace and line breaks.
         embed_color = request.form.get("embed_color", "5865F2").strip().lstrip("#")
         if not re.fullmatch(r"[0-9a-fA-F]{6}", embed_color):
             abort(400, "Bitte eine gültige Embed-Farbe auswählen.")
         if len(content) > 2000:
             abort(400, "Die Nachricht darf höchstens 2000 Zeichen haben.")
-        if not content and not title and not description:
+        if not content.strip() and not title.strip() and not description.strip():
             abort(400, "Bitte gib Nachrichtentext oder Embed-Inhalt ein.")
         button_records = []
         labels = request.form.getlist("button_label")
@@ -6529,7 +6529,7 @@ def guild_message_builder(guild_id):
                     abort(400, "Ungültige Button-Farbe.")
                 button_records.append({"type": "role", "label": label, "role_id": role.id, "style": style})
         embed = None
-        if title or description:
+        if title.strip() or description.strip():
             embed = discord.Embed(title=title or None, description=description or None, color=int(embed_color, 16))
             embed.set_footer(text="IronWolf · Created by KingSnowy")
         view = _bot.build_dashboard_message_view(guild.id, button_records) if _bot and hasattr(_bot, "build_dashboard_message_view") else None
