@@ -698,7 +698,7 @@ def guild_config(guild_id):
     return cfg
 
 
-SUPPORTED_BOT_LANGUAGES = {"de", "en"}
+SUPPORTED_BOT_LANGUAGES = {"en"}
 BOT_TRANSLATIONS = {
     "de": {
         "This command has been disabled for this server in the web dashboard.": "Dieser Befehl wurde für diesen Server im Dashboard deaktiviert.",
@@ -739,14 +739,7 @@ BOT_TRANSLATIONS = {
 }
 
 def server_language(guild_id):
-    """Resolve the configured server language, including Discord locale for auto."""
-    if guild_id is None:
-        return "en"
-    cfg = guild_config(guild_id)
-    selected = str(cfg.get("bot_language", "en")).lower()
-    if selected in {"de", "en"}:
-        return selected
-    # Only German and English are supported; legacy "auto" settings fall back to English.
+    """IronWolf uses English for all server-facing bot messages."""
     return "en"
 
 def server_timezone(guild_id):
@@ -1056,12 +1049,8 @@ async def premium_automation_worker():
 
 
 def user_language(user_id, discord_locale=None):
-    """Return a saved personal language, falling back to Discord locale and English."""
-    selected = str(data.get("languages", {}).get(str(user_id), "auto")).lower()
-    if selected in {"de", "en"}:
-        return selected
-    locale = str(discord_locale or "").lower()
-    return "de" if locale.startswith("de") else "en"
+    """IronWolf uses English for all private forms and confirmations."""
+    return "en"
 
 
 TEXTS = {
@@ -1111,13 +1100,9 @@ TEXTS = {
 
 
 def set_user_language(user_id, language):
-    if language not in {"de", "en", "auto"}:
-        raise ValueError("language must be de, en or auto")
+    """Keep legacy callers compatible while enforcing English-only responses."""
     languages = data.setdefault("languages", {})
-    if language == "auto":
-        languages.pop(str(user_id), None)
-    else:
-        languages[str(user_id)] = language
+    languages[str(user_id)] = "en"
     save_json(DATA_FILE, data)
 
 
@@ -1177,9 +1162,8 @@ class LanguageSelect(discord.ui.Select):
     def __init__(self):
         options = [
             discord.SelectOption(label="English", value="en", emoji="🇬🇧"),
-            discord.SelectOption(label="Deutsch", value="de", emoji="🇩🇪"),
         ]
-        super().__init__(placeholder="Choose language / Sprache wählen",
+        super().__init__(placeholder="Language: English",
                          min_values=1, max_values=1, options=options,
                          custom_id="registration:language")
 
