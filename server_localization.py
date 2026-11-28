@@ -141,10 +141,10 @@ def install_discord_localization(bot, translate, language):
             # embeds receive a real embed footer while preserving existing text.
             footer_text = _server_footer(bot, target_guild_id, translate)
             if footer_text:
-                if args and isinstance(args[0], str) and args[0]:
+                if args and isinstance(args[0], str) and args[0] and footer_text not in args[0]:
                     suffix = f"\\n\\n— {footer_text}"
                     args[0] = args[0][:max(0, 2000 - len(suffix))] + suffix
-                elif isinstance(kwargs.get("content"), str) and kwargs["content"]:
+                elif isinstance(kwargs.get("content"), str) and kwargs["content"] and footer_text not in kwargs["content"]:
                     suffix = f"\\n\\n— {footer_text}"
                     kwargs["content"] = kwargs["content"][:max(0, 2000 - len(suffix))] + suffix
                 if kwargs.get("embed") is not None:
