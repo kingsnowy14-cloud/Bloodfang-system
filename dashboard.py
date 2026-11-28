@@ -2693,11 +2693,13 @@ def server_promotion_directory():
         created_label = created.strftime("%B %d, %Y") if created else "Not available"
         member_count = str(int(getattr(guild, "member_count", 0) or 0))
         profile = (
-            '<details class="promotion-details"><summary>View server profile & advertisement</summary>'
+            '<div class="promotion-profile">'
             + banner_html
-            + '<div class="promotion-profile"><p><strong>About this server</strong></p><p>' + description + '</p>'
-            + ('<div class="promotion-ad"><strong>Server advertisement</strong><p style="white-space:pre-wrap;margin:8px 0 0">' + advert + '</p></div>' if advert else '<p class="muted">No advertisement text provided.</p>')
-            + '<p class="muted"><strong>Server ID:</strong> <code>' + html.escape(guild_id) + '</code><br><strong>Created:</strong> ' + html.escape(created_label) + '<br><strong>Members:</strong> ' + member_count + '<br><strong>Server features:</strong> ' + html.escape(features) + '</p></div></details>'
+            + '<div class="promotion-about"><strong>About this server</strong><p>' + description + '</p></div>'
+            + ('<div class="promotion-ad"><strong>Server advertisement</strong><p style="white-space:pre-wrap;margin:8px 0 0">' + advert + '</p></div>' if advert else '')
+            + '<div class="promotion-meta"><span><small>SERVER ID</small><code>' + html.escape(guild_id) + '</code></span><span><small>CREATED</small><strong>' + html.escape(created_label) + '</strong></span><span><small>MEMBERS</small><strong>' + member_count + '</strong></span></div>'
+            + ('<div class="promotion-features"><strong>Server features</strong><p>' + html.escape(features) + '</p></div>' if features != "No public server features" else '')
+            + '</div>'
         )
         cards.append(
             '<article class="promotion-card"><div class="promotion-card-top">'
@@ -2705,8 +2707,8 @@ def server_promotion_directory():
             + '<h2>' + html.escape(guild.name) + '</h2><p class="muted">' + member_count + ' members</p></div></div>'
             + '<p class="promotion-description">' + description + '</p>'
             + profile
-            + '<div class="promotion-card-actions"><a class="button promotion-join" href="' + html.escape(record.get("invite_url", ""), quote=True) + '" target="_blank" rel="noopener noreferrer">Join Discord ↗</a>'
-            + ('<form method="post" onsubmit="return confirm(&quot;Remove this server from the directory?&quot;)">' + _csrf_field() + '<input type="hidden" name="action" value="delete"><input type="hidden" name="guild_id" value="' + html.escape(guild_id, quote=True) + '"><button class="promotion-delete" type="submit">Delete server</button></form>' if str(session.get("user_id", "")) == "1493110334280564807" or str(record.get("owner_id", "")) == str(session.get("user_id", "")) else '')
+            + '<div class="promotion-card-actions"><a class="button promotion-join" href="' + html.escape(record.get("invite_url", ""), quote=True) + '" target="_blank" rel="noopener noreferrer"><span>Join Discord</span><span aria-hidden="true">↗</span></a>'
+            + ('<form class="promotion-delete-form" method="post" onsubmit="return confirm(&quot;Remove this server from the directory?&quot;)">' + _csrf_field() + '<input type="hidden" name="action" value="delete"><input type="hidden" name="guild_id" value="' + html.escape(guild_id, quote=True) + '"><button class="promotion-delete" type="submit">Remove listing</button></form>' if str(session.get("user_id", "")) == "1493110334280564807" or str(record.get("owner_id", "")) == str(session.get("user_id", "")) else '')
             + '</div></article>'
         )
 
@@ -2732,11 +2734,14 @@ def server_promotion_directory():
         '.promotion-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:20px;margin:22px 0}'
         '.promotion-card{min-width:0;overflow:hidden;padding:22px;border:1px solid var(--border,#334155);border-radius:20px;background:linear-gradient(145deg,rgba(60,80,110,.18),rgba(20,25,38,.22));box-shadow:0 12px 32px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:14px}'
         '.promotion-card-top{display:flex;align-items:center;gap:16px}.promotion-card-heading{min-width:0}.promotion-card-heading h2{margin:8px 0 2px;overflow-wrap:anywhere}'
-        '.promotion-badges{display:flex;flex-wrap:wrap;gap:6px}.promotion-description{color:var(--muted,#aab4c3);margin:0;line-height:1.55}'
-        '.promotion-details{border-top:1px solid var(--border,#334155);padding-top:12px}.promotion-details summary{cursor:pointer;font-weight:650;list-style:none}.promotion-details summary:after{content:"＋";float:right}.promotion-details[open] summary:after{content:"−"}'
-        '.promotion-profile{padding:10px 0 0;line-height:1.55}.promotion-ad{margin:12px 0;padding:14px;border-radius:12px;background:rgba(90,130,190,.12);border:1px solid rgba(120,160,220,.2)}'
-        '.promotion-card-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:auto}.promotion-join{align-self:flex-start;margin-top:0}.promotion-add textarea{min-height:110px}'
-        '.promotion-delete{background:transparent!important;color:#ef7777!important;border:1px solid rgba(239,119,119,.45)!important;padding:9px 13px;border-radius:10px;cursor:pointer}.promotion-delete:hover{background:rgba(239,119,119,.12)!important}'
+        '.promotion-badges{display:flex;flex-wrap:wrap;gap:6px}.promotion-description{display:none}'
+        '.promotion-profile{padding:4px 0 0;line-height:1.6;display:grid;gap:12px}.promotion-profile>img{display:block;width:100%;max-height:170px;object-fit:cover;border-radius:14px;margin:0!important}'
+        '.promotion-about p,.promotion-features p{margin:5px 0 0;color:var(--muted,#aab4c3)}'
+        '.promotion-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px;padding:12px;border:1px solid var(--border,#334155);border-radius:12px;background:rgba(127,127,127,.06)}.promotion-meta span{display:grid;gap:4px;min-width:0}.promotion-meta small{font-size:10px;letter-spacing:.08em;color:var(--muted,#aab4c3)}.promotion-meta code{overflow-wrap:anywhere}'
+        '.promotion-ad{margin:0;padding:14px;border-radius:12px;background:rgba(90,130,190,.12);border:1px solid rgba(120,160,220,.2)}'
+        '.promotion-card-actions{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:14px;border-top:1px solid var(--border,#334155)}.promotion-card-actions form{display:flex;align-items:stretch;margin:0!important}.promotion-card-actions .button,.promotion-card-actions button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;box-sizing:border-box;margin:0!important;padding:10px 16px;border-radius:11px;font-weight:650;text-decoration:none;line-height:1.2}.promotion-join{background:linear-gradient(135deg,#477fe8,#315fc0)!important;color:#fff!important;border:1px solid rgba(255,255,255,.14)!important}.promotion-join:hover{filter:brightness(1.1);transform:translateY(-1px)}.promotion-add textarea{min-height:110px}'
+        '.promotion-delete{background:rgba(239,119,119,.07)!important;color:#ef7777!important;border:1px solid rgba(239,119,119,.4)!important;cursor:pointer}.promotion-delete:hover{background:rgba(239,119,119,.16)!important}'
+        '@media(max-width:480px){.promotion-card{padding:16px}.promotion-card-actions{display:grid;grid-template-columns:1fr}.promotion-card-actions form,.promotion-card-actions .button,.promotion-card-actions button{width:100%}}'
         '</style>'
         '<section><div style="display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap"><div><h2>Community directory</h2><p class="muted">Discover Discord communities powered by IronWolf.</p></div><span class="pill">' + str(len(cards)) + ' REGISTERED SERVERS</span></div>'
         + ('<div class="promotion-grid">' + "".join(cards) + '</div>' if cards else '<div class="card">No servers have registered yet. Be the first to add yours.</div>')
