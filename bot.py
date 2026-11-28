@@ -11460,20 +11460,10 @@ async def translate_command_error(ctx, error):
 
 
 @bot.command(name="language", aliases=["lang"])
-async def language_command(ctx, language: str = "auto"):
-    """Set your personal language preference."""
-    language = language.lower()
-    if language not in {"de", "en", "auto"}:
-        await ctx.reply("🌐 Usage: `!language de`, `!language en` or `!language auto`.", mention_author=False)
-        return
-    set_user_language(ctx.author.id, language)
-    label = {"de": "Deutsch", "en": "English", "auto": "automatisch erkannt"}[language]
-    message = (
-        f"✅ Deine persönliche IronWolf-Sprache ist jetzt **{label}**."
-        if language == "de"
-        else f"✅ Your personal IronWolf language is now **{label}**."
-    )
-    await ctx.reply(message, mention_author=False)
+async def language_command(ctx, language: str = "en"):
+    """Keep personal language preferences fixed to English."""
+    set_user_language(ctx.author.id, "en")
+    await ctx.reply("English is the only supported language for IronWolf.", mention_author=False)
 
 
 @bot.command(name="serverlanguage", aliases=["serverlang"])
