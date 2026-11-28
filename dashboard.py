@@ -2201,8 +2201,8 @@ def website_page_not_found(error):
 def website_internal_error(error):
     return _website_error_response(
         500,
-        "Something went wrong",
-        "IronWolf is having a temporary technical problem. Please try again shortly.",
+        "Website temporarily down",
+        "The website is currently down while we are making some updates. Please check back soon.",
         "Try again",
         request.path or "/",
     )
@@ -2212,8 +2212,8 @@ def website_internal_error(error):
 def website_unavailable(error):
     return _website_error_response(
         503,
-        "Temporarily unavailable",
-        "IronWolf is temporarily unavailable, for example because of maintenance. Please try again shortly.",
+        "Website temporarily down",
+        "The website is currently down while we are making some updates. Please check back soon.",
         "Try again",
         request.path or "/",
     )
