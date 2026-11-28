@@ -1494,7 +1494,7 @@ def _module_navigation():
         ("__ai_category__", "🎮 GAMING", ""),
         ("games", "🎮 IronWolf Games", "/games"),
 
-        ("__ai_category__", "📊 STATISTIK & SYSTEM", ""),
+        ("__ai_category__", "📊 STATISTICS & SYSTEM", ""),
         ("server-statistics", "📊 Server Statistics", "/server-statistics"),
         ("stats", "📈 Live Statistics", "/stats"),
         ("audit-log", "📜 Audit Log", "/audit-log"),
@@ -1622,7 +1622,7 @@ DASHBOARD_TRANSLATIONS["en"].update({
 DASHBOARD_TRANSLATIONS["en"].update({
     "🎨 KI & Kreativität": "🎨 AI & Creativity",
     "🤖 AI Assistant & Wissen": "🤖 AI Assistant & Knowledge",
-    "🖼️ Image Generation": "🖼️ Image Generation",
+    "🖼️ Bildgenerierung": "🖼️ Image Generation",
     "Gültig bis": "Valid until",
     "Speichern": "Save",
     "Einstellungen": "Settings",
@@ -3273,7 +3273,7 @@ def birthday_dashboard(guild_id):
                 panel_message = await panel_channel.send(embed=embed, view=_bot.BirthdayRegisterView(), allowed_mentions=discord.AllowedMentions.none())
                 cfg["birthday_signup_message_id"] = panel_message.id
                 calendar_message = await panel_channel.send(
-                    embed=discord.Embed(title="🎂 Birthday Calendar", description="Die Liste wird automatisch aktualisiert, sobald Mitglieder ihren Geburtstag eintragen.", color=discord.Color.from_rgb(83, 160, 255)),
+                    embed=discord.Embed(title="🎂 Geburtstagskalender", description="Die Liste wird automatisch aktualisiert, sobald Mitglieder ihren Geburtstag eintragen.", color=discord.Color.from_rgb(83, 160, 255)),
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
                 cfg["birthday_calendar_message_id"] = calendar_message.id
