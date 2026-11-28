@@ -2528,7 +2528,7 @@ def index():
         body = """<section class="card hero"><span class="pill">CONTROL CENTER</span><h1 style="margin-top:16px">Dein Server. Deine Regeln.</h1>
 <p>Verwalte deine IronWolf-Server an einem Ort: Einstellungen, Befehle und Modulvorlagen.</p>
 <div class="notice">🔐 Die Anmeldung erfolgt über Discord. Du kannst nur Server verwalten, auf denen du „Server verwalten“ oder Administrator-Rechte besitzt und auf denen der Bot online ist.</div>
-<a class="button" href="/login">Sign in with Discord</a> <a class="button secondary" href="/server-promotion">Discord-Server bewerben</a> <a class="button secondary" href="https://github.com/kingsnowy14-cloud/the-isle-signin-bot/releases/download/desktop-latest/IronWolf-Setup.exe">⬇️ IronWolf für Windows herunterladen</a>
+<a class="button" href="/login">Sign in with Discord</a> <a class="button secondary" href="/server-promotion">Promote your Discord server</a> <a class="button secondary" href="https://github.com/kingsnowy14-cloud/the-isle-signin-bot/releases/download/desktop-latest/IronWolf-Setup.exe">⬇️ IronWolf für Windows herunterladen</a>
 <div class="notice">Windows-App: Nach der Installation kann IronWolf beim Windows-Anmelden starten. Die Discord-Anmeldung bleibt weiterhin erforderlich.</div>
 <div class="notice">✨ <strong>Premium costs €5 per year.</strong> Fragen oder Nachrichten? <a href="https://discord.gg/KDKs5WPgaC" target="_blank" rel="noopener noreferrer">Join our Discord</a>.</div>
 <h2>Was du hier machen kannst</h2><ul><li>Serverbezogene Einstellungen mit Formularen ändern</li><li>Prefix- und Slash-Befehle einzeln aktivieren/deaktivieren</li><li>Neue Python-Modulvorlagen erstellen und herunterladen</li></ul></section>"""
@@ -2560,7 +2560,7 @@ def index():
         invite_content = ''.join(invite_cards) or '<div class="notice">Du hast keinen Server mit Administrator- oder „Server verwalten“-Rechten gefunden. Bitte wähle beim Einladen einen Server aus, auf dem du diese Rechte besitzt.</div>'
         body = '<section class="card hero"><span class="pill">ERSTER SCHRITT</span><h1 style="margin-top:14px">IronWolf zuerst einladen</h1><p>Bevor du das Dashboard nutzen kannst, muss der Bot auf mindestens einem Server sein, den du verwalten darfst.</p><div class="notice">1. Wähle unten deinen Server. 2. Lade IronWolf ein. 3. Kehre hierher zurück und öffne anschließend das Dashboard.</div></section><h2>Server auswählen</h2><div class="grid">' + invite_content + '</div>'
         return _render("Bot einladen", body)
-    body = '<section class="card hero"><span class="pill">WELCOME TO IRONWOLF</span><h1 style="margin-top:14px">Your Control Center 🐺</h1><p>Manage your connected Discord servers from one convenient interface.</p><div class="notice">✨ <strong>Premium costs €5 per year.</strong> <a href="https://discord.gg/KDKs5WPgaC" target="_blank" rel="noopener noreferrer">Join our Discord ↗</a></div><div class="grid"><div><h2>How it works</h2><ol><li>Select the server you want to manage below.</li><li>Under <strong>Settings</strong>, configure channels, roles, and server options.</li><li>Under <strong>Modules</strong>, enable or disable features for this server.</li><li>Open <strong>Commands</strong> to manage prefix and slash commands by category.</li><li>Use the <strong>Action Center</strong> for supported moderation actions.</li></ol></div><div><h2>Important notes</h2><ul><li>You need Administrator or Manage Server permissions.</li><li>The bot must be online on the server.</li><li>Changes to modules and commands apply only to the selected server.</li><li>Dangerous actions require additional confirmation and appropriate permissions.</li></ul></div></div></section><p><a class="button secondary" href="/server-promotion">📣 Discord-Server bewerben</a></p><h2>Your servers</h2><p class="muted">Select a server to open its settings.</p>'
+    body = '<section class="card hero"><span class="pill">WELCOME TO IRONWOLF</span><h1 style="margin-top:14px">Your Control Center 🐺</h1><p>Manage your connected Discord servers from one convenient interface.</p><div class="notice">✨ <strong>Premium costs €5 per year.</strong> <a href="https://discord.gg/KDKs5WPgaC" target="_blank" rel="noopener noreferrer">Join our Discord ↗</a></div><div class="grid"><div><h2>How it works</h2><ol><li>Select the server you want to manage below.</li><li>Under <strong>Settings</strong>, configure channels, roles, and server options.</li><li>Under <strong>Modules</strong>, enable or disable features for this server.</li><li>Open <strong>Commands</strong> to manage prefix and slash commands by category.</li><li>Use the <strong>Action Center</strong> for supported moderation actions.</li></ol></div><div><h2>Important notes</h2><ul><li>You need Administrator or Manage Server permissions.</li><li>The bot must be online on the server.</li><li>Changes to modules and commands apply only to the selected server.</li><li>Dangerous actions require additional confirmation and appropriate permissions.</li></ul></div></div></section><p><a class="button secondary" href="/server-promotion">📣 Promote your Discord server</a></p><h2>Your servers</h2><p class="muted">Select a server to open its settings.</p>'
     body += _public_status_panel()
     if str(session.get("user_id", "")) == PREMIUM_ADMIN_ID:
         body += '<p><a class="button" href="/premium">✨ Manage Premium →</a></p>'
@@ -2601,6 +2601,7 @@ def server_promotion_directory():
             abort(400, "Security check failed. Please reload the page.")
         guild_id = str(request.form.get("guild_id", "")).strip()
         invite_url = str(request.form.get("invite_url", "")).strip()
+        advert_text = str(request.form.get("advert_text", "")).strip()[:1200]
         if not re.fullmatch(r"\d{17,20}", guild_id):
             abort(400, "Please select a valid Discord server.")
         parsed = urlparse(invite_url)
@@ -2626,6 +2627,7 @@ def server_promotion_directory():
                 "guild_id": guild_id,
                 "guild_name": guild.name,
                 "invite_url": invite_url,
+                "advert_text": advert_text,
                 "owner_id": str(session.get("user_id", "")),
                 "registered_at": existing.get("registered_at") or datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -2661,13 +2663,30 @@ def server_promotion_directory():
     cards = []
     for guild_id, record, guild in listed:
         icon = guild.icon.url if guild.icon else ""
-        icon_html = '<img src="' + html.escape(icon, quote=True) + '" alt="" style="width:56px;height:56px;border-radius:16px;object-fit:cover">' if icon else '<div class="notice" style="width:56px;height:56px;display:grid;place-items:center">🐺</div>'
+        banner = guild.banner.url if getattr(guild, "banner", None) else ""
+        icon_html = '<img src="' + html.escape(icon, quote=True) + '" alt="' + html.escape(guild.name, quote=True) + ' icon" style="width:68px;height:68px;border-radius:20px;object-fit:cover;border:1px solid rgba(255,255,255,.14)">' if icon else '<div style="width:68px;height:68px;border-radius:20px;display:grid;place-items:center;background:rgba(127,127,127,.16);font-size:30px">🐺</div>'
+        banner_html = '<img src="' + html.escape(banner, quote=True) + '" alt="" style="width:100%;height:130px;object-fit:cover;border-radius:14px;margin:12px 0">' if banner else ""
         pinned = '<span class="pill">⭐ FEATURED SERVER</span>' if guild_id == _SERVER_PROMOTION_PINNED_GUILD else ""
+        description = html.escape(str(getattr(guild, "description", "") or "No server description has been set."))
+        advert = html.escape(str(record.get("advert_text", "") or ""))
+        features = ", ".join(str(value).replace("_", " ").title() for value in (getattr(guild, "features", []) or [])[:8]) or "No public server features"
+        created = getattr(guild, "created_at", None)
+        created_label = created.strftime("%B %d, %Y") if created else "Not available"
+        member_count = str(int(getattr(guild, "member_count", 0) or 0))
+        profile = (
+            '<details class="promotion-details"><summary>View server profile & advertisement</summary>'
+            + banner_html
+            + '<div class="promotion-profile"><p><strong>About this server</strong></p><p>' + description + '</p>'
+            + ('<div class="promotion-ad"><strong>Server advertisement</strong><p style="white-space:pre-wrap;margin:8px 0 0">' + advert + '</p></div>' if advert else '<p class="muted">No advertisement text provided.</p>')
+            + '<p class="muted"><strong>Server ID:</strong> <code>' + html.escape(guild_id) + '</code><br><strong>Created:</strong> ' + html.escape(created_label) + '<br><strong>Members:</strong> ' + member_count + '<br><strong>Server features:</strong> ' + html.escape(features) + '</p></div></details>'
+        )
         cards.append(
-            '<article class="card server-card"><div style="display:flex;align-items:center;gap:14px">'
-            + icon_html + '<div><h2 style="margin:0">' + html.escape(guild.name) + '</h2>'
-            + '<p class="muted" style="margin:4px 0">' + str(int(getattr(guild, "member_count", 0) or 0)) + ' members</p></div></div>'
-            + pinned + '<p><a class="button" href="' + html.escape(record.get("invite_url", ""), quote=True) + '" target="_blank" rel="noopener noreferrer">Join Discord ↗</a></p></article>'
+            '<article class="promotion-card"><div class="promotion-card-top">'
+            + icon_html + '<div class="promotion-card-heading"><div class="promotion-badges">' + pinned + '<span class="pill">IRONWOLF CONNECTED</span></div>'
+            + '<h2>' + html.escape(guild.name) + '</h2><p class="muted">' + member_count + ' members</p></div></div>'
+            + '<p class="promotion-description">' + description + '</p>'
+            + profile
+            + '<a class="button promotion-join" href="' + html.escape(record.get("invite_url", ""), quote=True) + '" target="_blank" rel="noopener noreferrer">Join Discord ↗</a></article>'
         )
 
     options = ['<option value="">Choose a server…</option>']
@@ -2676,18 +2695,33 @@ def server_promotion_directory():
     notice = '<div class="notice">Your server has been added to the directory.</div>' if request.args.get("saved") == "1" else ""
     if manageable:
         add_form = (
-            '<section class="card"><h2>Add your server</h2><p class="muted">Only servers where IronWolf is already installed and you have Manage Server or Administrator permission can be added. Your server appears only after you submit this form.</p>'
+            '<section class="card promotion-add"><h2>Add your server</h2><p class="muted">Only servers where IronWolf is already installed and you have Manage Server or Administrator permission can be added. Your server appears only after you submit this form.</p>'
             + '<form method="post">' + _csrf_field()
             + '<label for="promotion-guild">Discord server</label><select id="promotion-guild" name="guild_id" required>'
             + "".join(options) + '</select><label for="promotion-invite">Discord invite link</label>'
             + '<input id="promotion-invite" name="invite_url" type="url" placeholder="https://discord.gg/your-invite" required maxlength="300">'
+            + '<label for="promotion-advert">Advertisement text <span class="muted">(optional, max. 1,200 characters)</span></label>'
+            + '<textarea id="promotion-advert" name="advert_text" rows="4" maxlength="1200" placeholder="Tell people what makes your community special…"></textarea>'
             + '<button type="submit">Add Server</button></form></section>'
         )
     else:
         add_form = '<div class="notice">No eligible servers found. Invite IronWolf to your server first, then return here with Manage Server or Administrator permission.</div>'
-    directory = '<section><h2>Registered Discord servers</h2><p class="muted">Only servers whose administrators have opted in are shown.</p><div class="grid">' + ("".join(cards) or '<div class="card">No servers have registered yet. Be the first to add yours.</div>') + '</div></section>'
-    body = '<section class="card hero"><span class="pill">IRONWOLF COMMUNITY</span><h1 style="margin-top:14px">Promote your Discord server</h1><p>Add your community to the public IronWolf server directory. You choose the invite link, and your server is listed only with your approval.</p>' + notice + '</section>' + add_form + directory
-    return _render("Discord-Server bewerben", body)
+    directory = (
+        '<style>'
+        '.promotion-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:20px;margin:22px 0}'
+        '.promotion-card{min-width:0;overflow:hidden;padding:22px;border:1px solid var(--border,#334155);border-radius:20px;background:linear-gradient(145deg,rgba(60,80,110,.18),rgba(20,25,38,.22));box-shadow:0 12px 32px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:14px}'
+        '.promotion-card-top{display:flex;align-items:center;gap:16px}.promotion-card-heading{min-width:0}.promotion-card-heading h2{margin:8px 0 2px;overflow-wrap:anywhere}'
+        '.promotion-badges{display:flex;flex-wrap:wrap;gap:6px}.promotion-description{color:var(--muted,#aab4c3);margin:0;line-height:1.55}'
+        '.promotion-details{border-top:1px solid var(--border,#334155);padding-top:12px}.promotion-details summary{cursor:pointer;font-weight:650;list-style:none}.promotion-details summary:after{content:"＋";float:right}.promotion-details[open] summary:after{content:"−"}'
+        '.promotion-profile{padding:10px 0 0;line-height:1.55}.promotion-ad{margin:12px 0;padding:14px;border-radius:12px;background:rgba(90,130,190,.12);border:1px solid rgba(120,160,220,.2)}'
+        '.promotion-join{align-self:flex-start;margin-top:auto}.promotion-add textarea{min-height:110px}'
+        '</style>'
+        '<section><div style="display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap"><div><h2>Community directory</h2><p class="muted">Discover Discord communities powered by IronWolf.</p></div><span class="pill">' + str(len(cards)) + ' REGISTERED SERVERS</span></div>'
+        + ('<div class="promotion-grid">' + "".join(cards) + '</div>' if cards else '<div class="card">No servers have registered yet. Be the first to add yours.</div>')
+        + '</section>'
+    )
+    body = '<section class="card hero"><span class="pill">IRONWOLF COMMUNITY</span><h1 style="margin-top:14px">Promote your Discord server</h1><p>Add your community to the IronWolf server directory. You choose the invite link and advertisement text, and your server is listed only with your approval.</p>' + notice + '</section>' + add_form + directory
+    return _render("Discord Server Directory", body)
 
 
 @app.route("/feedback", methods=["GET", "POST"])
