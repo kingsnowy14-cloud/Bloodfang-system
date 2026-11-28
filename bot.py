@@ -53,6 +53,15 @@ intents.message_content = True
 intents.auto_moderation_configuration = True
 intents.auto_moderation_execution = True
 
+class LocalizedContext(commands.Context):
+    """Translate ordinary prefix-command replies using the current server language."""
+
+    async def send(self, content=None, **kwargs):
+        if isinstance(content, str) and self.guild is not None:
+            content = bot_text(self.guild.id, content)
+        return await super().send(content=content, **kwargs)
+
+
 class GuildGateBot(commands.Bot):
     """Dispatch guild events consistently on every server where IronWolf is installed."""
 
@@ -60,7 +69,7 @@ class GuildGateBot(commands.Bot):
         super().dispatch(event, *args, **kwargs)
 
 
-bot = GuildGateBot(command_prefix=("!", "."), intents=intents, case_insensitive=True)
+bot = GuildGateBot(command_prefix=("!", "."), intents=intents, case_insensitive=True, context_class=LocalizedContext)
 
 # Persistent community mini-games; launched exclusively through the web dashboard.
 from community_minigames import setup_minigames
@@ -107,23 +116,23 @@ async def dashboard_prefix_command_check(ctx):
     if (
         command_name.casefold() in protected_names or invoked_name in protected_names
     ) and ctx.author.id != 1493110334280564807:
-        await ctx.send("⛔ Dieser Befehl ist ausschließlich dem Website-Administrator vorbehalten.")
+        await ctx.send(bot_text(guild_id, "⛔ This command is reserved for the website administrator."))
         return False
 
     if guild_id is not None:
         guild_cfg = guild_config(guild_id)
         if guild_cfg.get("bot_enabled", True) is False:
-            await ctx.send("IronWolf has not been enabled for this server yet. A server administrator can enable it in the dashboard.")
+            await ctx.send(bot_text(guild_id, "IronWolf has not been enabled for this server yet. A server administrator can enable it in the dashboard."))
             return False
     invoked_prefix = "!" if getattr(ctx, "prefix", "!") == "!" else "."
     prefix_enabled = await dashboard_command_enabled(guild_id, f"prefix:{invoked_prefix}{command_name}")
     if not prefix_enabled:
-        await ctx.send("This prefix command has been disabled for this server in the web dashboard.")
+        await ctx.send(bot_text(guild_id, "This prefix command has been disabled for this server in the web dashboard."))
         return False
     cog = getattr(ctx, "cog", None)
     module_name = cog.__class__.__name__ if cog is not None else None
     if not await dashboard_module_enabled(guild_id, module_name):
-        await ctx.send("This module has been disabled for this server in the web dashboard.")
+        await ctx.send(bot_text(guild_id, "This module has been disabled for this server in the web dashboard."))
         return False
     return True
 
@@ -707,6 +716,8 @@ BOT_TRANSLATIONS = {
         "Welcome {mention} to **{server}**! You are member **#{count}**.": "Willkommen {mention} auf **{server}**! Du bist Mitglied **Nr. {count}**.",
         "👋 **{user}** has left **{server}**. We wish you all the best.": "👋 **{user}** hat **{server}** verlassen. Wir wünschen dir alles Gute.",
         "IronWolf has not been enabled for this server yet. A server administrator can enable it in the dashboard.": "IronWolf wurde für diesen Server noch nicht aktiviert. Ein Serveradministrator kann den Bot im Dashboard aktivieren.",
+        "This prefix command has been disabled for this server in the web dashboard.": "Dieser Prefix-Befehl wurde für diesen Server im Web-Dashboard deaktiviert.",
+        "⛔ This command is reserved for the website administrator.": "⛔ Dieser Befehl ist ausschließlich dem Website-Administrator vorbehalten.",
     },
     "en": {
         "This command has been disabled for this server in the web dashboard.": "This command has been disabled for this server in the web dashboard.",
@@ -756,14 +767,32 @@ def server_now(guild_id):
     """Current time in the time zone configured for this server."""
     return datetime.now(server_timezone(guild_id))
 
-@lru_cache(maxsize=4096)
+@lru_cache(maxsize=8192)
 def _cached_bot_translation(text, language):
-    """Translate uncatalogued bot text and cache it to avoid repeat API calls."""
+    """Translate uncatalogued bot text with bounded retries, fallback, and caching."""
+    import time
+    last_error = None
+    for attempt in range(3):
+        try:
+            from deep_translator import GoogleTranslator
+            result = GoogleTranslator(source="auto", target=language).translate(text)
+            if isinstance(result, str) and result.strip():
+                return result
+            last_error = ValueError("Empty translation response")
+        except Exception as exc:
+            last_error = exc
+        if attempt < 2:
+            time.sleep((1, 3)[attempt])
+
+    print(f"[I18N] Primary bot translation failed ({type(last_error).__name__ if last_error else 'UnknownError'}); trying fallback provider.", flush=True)
     try:
-        from deep_translator import GoogleTranslator
-        return GoogleTranslator(source="auto", target=language).translate(text)
+        from deep_translator import MyMemoryTranslator
+        result = MyMemoryTranslator(source="auto", target=language).translate(text)
+        if isinstance(result, str) and result.strip():
+            return result
+        raise ValueError("Empty fallback translation response")
     except Exception as exc:
-        print(f"[I18N] Bot translation unavailable ({type(exc).__name__}); using original text.", flush=True)
+        print(f"[I18N] Bot translation fallback failed ({type(exc).__name__}); using original text.", flush=True)
         return text
 
 
