@@ -812,7 +812,7 @@ def _cached_bot_translation(text, language):
     if language == "en":
         # Preserve ordinary English content without an external translation call.
         # German phrases with common vocabulary or umlauts are normalized to English.
-        if not re.search(r"[äöüßÄÖÜ]|\\b(der|die|das|und|ist|bitte|nicht|wurde|kann|können|willkommen|verlassen|einstellungen|server|kanal|rolle|gespeichert|fehlgeschlagen|erfolgreich|du|dein|deine|für|mit|auf|einen|eine|einem)\\b", text, re.IGNORECASE):
+        if not re.search(r"[äöüßÄÖÜ]|\b(der|die|das|und|ist|bitte|nicht|wurde|kann|können|willkommen|verlassen|einstellungen|server|kanal|rolle|gespeichert|fehlgeschlagen|erfolgreich|du|dein|deine|für|mit|auf|einen|eine|einem)\b", text, re.IGNORECASE):
             return text
     import time
     last_error = None
