@@ -2326,7 +2326,19 @@ def _command_records(guild_id):
     disabled_modules = set(cfg.get("disabled_modules", []))
     records = []
     seen = set()
+    # Server-building / destructive template commands are website-admin-only
+    # and intentionally never appear in any guild dashboard command list.
+    website_admin_only_commands = {
+        "serverbau", "serverRPbau", "server_rp_bau", "developerbuild",
+        "serverbuild", "server-rp-bau", "deleteserver", "filmserver",
+        "flimserver", "TheIsleBau",
+    }
+    website_admin_only_commands = {name.casefold() for name in website_admin_only_commands}
     for command in _bot.walk_commands():
+        command_names = {str(command.name).casefold(), str(command.qualified_name).casefold()}
+        command_names.update(str(alias).casefold() for alias in getattr(command, "aliases", []))
+        if command_names & website_admin_only_commands:
+            continue
         if command.hidden or command.name == "help":
             continue
         qualified_name = command.qualified_name
