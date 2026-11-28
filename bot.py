@@ -882,6 +882,23 @@ class IronWolfCommandTranslator(app_commands.Translator):
             dashboard_english = {}
 
         bot_german = BOT_TRANSLATIONS.get("de", {})
+        slash_text = {
+            "Zeigt einen Discord-Account anhand seiner User-ID an.": "Shows a Discord account by its user ID.",
+            "Zeigt geladene IronWolf-Module und Serverstatus": "Shows loaded IronWolf modules and server status.",
+            "Grund der Verwarnung": "Reason for the warning",
+            "Welche Nachrichten sollen gelöscht werden?": "Which messages should be deleted?",
+            "Rolle für erfolgreich verifizierte Mitglieder": "Role for successfully verified members",
+            "Optionale Rolle für noch nicht verifizierte Mitglieder": "Optional role for unverified members",
+            "Emoji für den Verifizierungsbutton": "Emoji for the verification button",
+            "Optional: Creator-Quelle, wenn mehrere Alerts derselben Plattform existieren": "Optional: creator source when multiple alerts exist for the same platform",
+            "Privater Kanal für Sicherheitsmeldungen": "Private channel for security alerts",
+            "Kanal für das öffentliche Bewerbungs-Panel": "Channel for the public application panel",
+            "Privater Kanal für eingehende Bewerbungen": "Private channel for incoming applications",
+            "Kanal für Entscheidungsprotokolle": "Channel for decision logs",
+            "Zur Bestätigung: die ID dieses Discord-Servers": "To confirm: the ID of this Discord server",
+            "Direkte HTTPS-Bild-URL für das neue Profilbild": "Direct HTTPS image URL for the new profile picture",
+            "Direkte HTTPS-Bild-URL für den neuen Banner": "Direct HTTPS image URL for the new banner",
+        }
         if target == "de":
             dashboard_german = {english: german for german, english in dashboard_english.items()}
             command_names = {
@@ -890,16 +907,17 @@ class IronWolfCommandTranslator(app_commands.Translator):
                 "verification": "verifizierung", "server-info": "serverinfo",
                 "user-info": "benutzerinfo", "warn": "warnen", "shift": "schicht",
             }
-            return bot_german.get(message) or dashboard_german.get(message) or command_names.get(message)
+            return bot_german.get(message) or dashboard_german.get(message) or slash_text.get(message) or command_names.get(message)
         dashboard_german_to_english = dashboard_english
         bot_english = {german: english for english, german in bot_german.items()}
+        slash_text_english = {english: german for german, english in slash_text.items()}
         command_names = {
             "geburtstag": "birthday", "ausweis": "id-card",
             "bewerbung": "application", "abwesenheit": "absence",
             "verifizierung": "verification", "serverinfo": "server-info",
             "benutzerinfo": "user-info", "warnen": "warn", "schicht": "shift",
         }
-        return dashboard_german_to_english.get(message) or bot_english.get(message) or command_names.get(message)
+        return dashboard_german_to_english.get(message) or bot_english.get(message) or slash_text_english.get(message) or command_names.get(message)
 
 
 # Apply localization at Discord's outgoing-message boundary so slash commands,
