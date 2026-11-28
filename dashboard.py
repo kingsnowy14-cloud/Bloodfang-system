@@ -1627,6 +1627,27 @@ DASHBOARD_TRANSLATIONS["en"].update({
     "Speichern": "Save",
     "Einstellungen": "Settings",
     "Zur Serverübersicht": "Back to server overview",
+    "Module suchen …": "Search modules …",
+    "Modul suchen …": "Search modules …",
+    "Module durchsuchen": "Search modules",
+    "Modul-Manager": "Module Manager",
+    "Aktionszentrale": "Action Center",
+    "Wichtige Hinweise": "Important notes",
+    "So funktioniert es": "How it works",
+    "Wähle unten den Server aus, den du verwalten möchtest.": "Select the server you want to manage below.",
+    "Unter": "Under",
+    "legst du Kanäle, Rollen und Serveroptionen fest.": "configure channels, roles, and server options.",
+    "aktivierst oder deaktivierst du Funktionen für diesen Server.": "enable or disable features for this server.",
+    "Öffne": "Open",
+    "um Prefix- und Slash-Befehle gruppiert zu verwalten.": "to manage prefix and slash commands by category.",
+    "Nutze die": "Use the",
+    "für unterstützte Moderationsaktionen.": "for supported moderation actions.",
+    "Du brauchst Administrator- oder Server-verwalten-Rechte.": "You need Administrator or Manage Server permissions.",
+    "Der Bot muss auf dem Server online sein.": "The bot must be online on the server.",
+    "Änderungen an Modulen und Befehlen gelten nur für den ausgewählten Server.": "Changes to modules and commands apply only to the selected server.",
+    "Gefährliche Aktionen benötigen zusätzliche Bestätigung und passende Rechte.": "Dangerous actions require additional confirmation and appropriate permissions.",
+    "Wähle einen Server, um seine Einstellungen zu öffnen.": "Select a server to open its settings.",
+    "Deine Server": "Your servers",
 })
 
 
@@ -2444,7 +2465,7 @@ def index():
         invite_content = ''.join(invite_cards) or '<div class="notice">Du hast keinen Server mit Administrator- oder „Server verwalten“-Rechten gefunden. Bitte wähle beim Einladen einen Server aus, auf dem du diese Rechte besitzt.</div>'
         body = '<section class="card hero"><span class="pill">ERSTER SCHRITT</span><h1 style="margin-top:14px">IronWolf zuerst einladen</h1><p>Bevor du das Dashboard nutzen kannst, muss der Bot auf mindestens einem Server sein, den du verwalten darfst.</p><div class="notice">1. Wähle unten deinen Server. 2. Lade IronWolf ein. 3. Kehre hierher zurück und öffne anschließend das Dashboard.</div></section><h2>Server auswählen</h2><div class="grid">' + invite_content + '</div>'
         return _render("Bot einladen", body)
-    body = '<section class="card hero"><span class="pill">WELCOME TO IRONWOLF</span><h1 style="margin-top:14px">Your Control Center 🐺</h1><p>Hier steuerst du deine verbundenen Discord Servers bequem über eine Oberfläche.</p><div class="notice">✨ <strong>Premium costs €5 per year.</strong> <a href="https://discord.gg/KDKs5WPgaC" target="_blank" rel="noopener noreferrer">Nachrichten auf Discord ↗</a></div><div class="grid"><div><h2>So funktioniert es</h2><ol><li>Wähle unten den Server aus, den du verwalten möchtest.</li><li>Unter <strong>Einstellungen</strong> legst du Kanäle, Rollen und Serveroptionen fest.</li><li>Unter <strong>Module</strong> aktivierst oder deaktivierst du Funktionen für diesen Server.</li><li>Öffne <strong>Befehle</strong>, um Prefix- und Slash-Befehle gruppiert zu verwalten.</li><li>Nutze die <strong>Aktionszentrale</strong> für unterstützte Moderationsaktionen.</li></ol></div><div><h2>Wichtige Hinweise</h2><ul><li>Du brauchst Administrator- oder Server-verwalten-Rechte.</li><li>Der Bot muss auf dem Server online sein.</li><li>Änderungen an Modulen und Befehlen gelten nur für den ausgewählten Server.</li><li>Gefährliche Aktionen benötigen zusätzliche Bestätigung und passende Rechte.</li></ul></div></div></section><h2>Deine Server</h2><p class="muted">Wähle einen Server, um seine Einstellungen zu öffnen.</p>'
+    body = '<section class="card hero"><span class="pill">WELCOME TO IRONWOLF</span><h1 style="margin-top:14px">Your Control Center 🐺</h1><p>Manage your connected Discord servers from one convenient interface.</p><div class="notice">✨ <strong>Premium costs €5 per year.</strong> <a href="https://discord.gg/KDKs5WPgaC" target="_blank" rel="noopener noreferrer">Join our Discord ↗</a></div><div class="grid"><div><h2>How it works</h2><ol><li>Select the server you want to manage below.</li><li>Under <strong>Settings</strong>, configure channels, roles, and server options.</li><li>Under <strong>Modules</strong>, enable or disable features for this server.</li><li>Open <strong>Commands</strong> to manage prefix and slash commands by category.</li><li>Use the <strong>Action Center</strong> for supported moderation actions.</li></ol></div><div><h2>Important notes</h2><ul><li>You need Administrator or Manage Server permissions.</li><li>The bot must be online on the server.</li><li>Changes to modules and commands apply only to the selected server.</li><li>Dangerous actions require additional confirmation and appropriate permissions.</li></ul></div></div></section><h2>Your servers</h2><p class="muted">Select a server to open its settings.</p>'
     body += _public_status_panel()
     if str(session.get("user_id", "")) == PREMIUM_ADMIN_ID:
         body += '<p><a class="button" href="/premium">✨ Manage Premium →</a></p>'
