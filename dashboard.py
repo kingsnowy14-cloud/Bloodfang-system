@@ -1358,7 +1358,7 @@ def _selection_menu_script():
         return label.querySelector('input').checked;
       }).length;
       count.textContent = visible + ' Rollen angezeigt';
-      summary.textContent = selected + ' ausgewählt';
+      summary.textContent = selected + ' selected';
     }
     input.addEventListener('input', update);
     options.forEach(function (label) {
@@ -1860,6 +1860,54 @@ DASHBOARD_TRANSLATIONS["en"].update({
     "Bitte einen gültigen Textkanal für den Eintragen-Button auswählen.": "Please select a valid text channel for the signup button.",
     "Einstellungen gespeichert.": "Settings saved.",
     "Änderungen gespeichert.": "Changes saved.",
+    "Temporärer Voice-Trigger": "Temporary voice trigger",
+    "Cursor-Größe": "Cursor size",
+    "0 ausgewählt": "0 selected",
+    "Gelöschte Rolle": "Deleted role",
+    "Gelöschter Kanal": "Deleted channel",
+    "Nicht verfügbar": "Unavailable",
+    "Nicht ausgewählt": "Not selected",
+    "Prüfrolle": "Review role",
+    "Aktivitätsverlauf": "Activity history",
+    "Der Bot benötigt „Rollen verwalten“ und seine höchste Rolle muss über der ausgewählten Rolle liegen.": "The bot needs Manage Roles, and its highest role must be above the selected role.",
+    "Das Steam-Konto ist gespeichert. Im Dashboard ist für diesen Server noch keine Verifizierungsrolle ausgewählt.": "The Steam account is saved. No verification role has been selected for this server in the dashboard yet.",
+    "Klicke auf **Ausweis beantragen**. Das Formular wird dir privat per DM geschickt. Dein fertiger Ausweis wird als Bild im ausgewählten Kanal und zusätzlich per DM veröffentlicht.": "Click **Apply for ID card**. The form will be sent to you privately by DM. Your completed ID card will be published as an image in the selected channel and sent by DM as well.",
+    "Schaltet die darunter ausgewählten Link-Prüfungen ein.": "Enables the link checks selected below.",
+    "Entfernt discord.gg- und discord.com/invite-Links, außer bei erlaubten Rollen oder in erlaubten Kanälen.": "Removes discord.gg and discord.com/invite links except for allowed roles or channels.",
+    "Entfernt Link-Nachrichten, die von Webhooks gesendet werden. Normale Webhook-Nachrichten ohne Links bleiben erlaubt.": "Removes link messages sent by webhooks. Normal webhook messages without links remain allowed.",
+    "Blockiert gesperrte Domains und bekannte Discord-/Steam-Imitationsmuster.": "Blocks blocked domains and known Discord/Steam impersonation patterns.",
+    "Rollen, die Discord-Invites senden dürfen": "Roles allowed to send Discord invites",
+    "Nur diese Rollen umgehen den Invite-Filter, nicht den Scam- oder Webhook-Schutz.": "Only these roles bypass the invite filter, not scam or webhook protection.",
+    "Kanäle, in denen Discord-Invites erlaubt sind": "Channels where Discord invites are allowed",
+    "Nur diese Kanäle umgehen den Invite-Filter.": "Only these channels bypass the invite filter.",
+    "Eine Domain pro Zeile, z. B. fake-login.example. Maximal 100 Domains.": "One domain per line, e.g. fake-login.example. Maximum 100 domains.",
+    "Die Ausnahmelisten gelten ausschließlich für Discord-Invite-Links. Scam-Erkennungen und verdächtige Links aus Webhooks werden weiterhin blockiert. Für die automatische Löschung benötigt IronWolf „Nachrichten verwalten“ im jeweiligen Kanal.": "The allowlists apply only to Discord invite links. Scam detections and suspicious webhook links are still blocked. IronWolf needs Manage Messages in the relevant channel to delete messages automatically.",
+    "Erkennt ungewöhnlich viele neue Mitglieder innerhalb eines Zeitfensters.": "Detects an unusually high number of new members within a time window.",
+    "Beitritte bis Alarm": "Joins before alert",
+    "Erkennungsfenster (Sekunden)": "Detection window (seconds)",
+    "Schutzphase (Sekunden)": "Lockdown duration (seconds)",
+    "Timeout-Dauer (Minuten)": "Timeout duration (minutes)",
+    "Accountalter-Hinweis (Tage)": "Account age threshold (days)",
+    "Reaktion während der Schutzphase": "Action during lockdown",
+    "Sicherheitshinweis: Das Accountalter ist nur ein Kontextsignal und löst allein keine Strafe aus. Im Modus „Timeout“ werden Nicht-Bot-Mitglieder, die während einer aktiven Schutzphase beitreten, für die eingestellte Dauer eingeschränkt. Benötigt „Mitglieder moderieren“ und eine passende Rollenposition.": "Security note: Account age is contextual information only and does not trigger a penalty by itself. In Timeout mode, non-bot members who join during an active lockdown are restricted for the configured duration. Requires Moderate Members and an appropriate role position.",
+    "So funktioniert die Schutzphase": "How the lockdown works",
+    "IronWolf zählt Nicht-Bot-Beitritte im konfigurierten Zeitfenster.": "IronWolf counts non-bot joins during the configured time window.",
+    "Wird die Schwelle erreicht, wird eine Schutzphase aktiviert und ein Sicherheitslog gesendet.": "When the threshold is reached, a lockdown is activated and a security log is sent.",
+    "Während der Schutzphase protokolliert der Bot Beitritte und führt – je nach gewählter Aktion – keine Moderation oder einen Timeout aus.": "During the lockdown, the bot logs joins and either takes no moderation action or applies a timeout, depending on the selected action.",
+    "Serveraktivität im Überblick: Beitritte, Austritte und Nachrichten. Es werden nur Zähler und Zeitstempel gespeichert – keine Nachrichteninhalte.": "An overview of server activity: joins, leaves, and messages. Only counts and timestamps are stored — never message content.",
+    "Letzte 24 Stunden": "Last 24 hours",
+    "Letzte 7 Tage": "Last 7 days",
+    "Letzte 30 Tage": "Last 30 days",
+    "24 Stunden": "24 hours",
+    "7 Tage": "7 days",
+    "30 Tage": "30 days",
+    "Säulendiagramm": "Column chart",
+    "Balkendiagramm": "Bar chart",
+    "Liniendiagramm": "Line chart",
+    "Noch kein Berichtskanal ausgewählt": "No report channel selected yet",
+    "Die Erfassung beginnt mit dem Aktivieren von WolfAnalytics. Frühere Aktivitäten werden nicht rückwirkend gezählt.": "Tracking begins when WolfAnalytics is enabled. Earlier activity is not counted retroactively.",
+    "Wähle den Berichtskanal unter": "Choose the report channel under",
+    "Der Bot kann dort einen Statistikbericht als Bild posten.": "The bot can post a statistics report there as an image.",
 })
 
 # Pre-sort the local English catalogue once; page rendering must never call remote translators.
@@ -8998,7 +9046,7 @@ def guild_wolfshield(guild_id):
         '</div>'
         '<script>'
         'function filterLinkPicker(input){const card=input.closest(".link-pick");const q=input.value.trim().toLocaleLowerCase();card.querySelectorAll(".link-pick-item").forEach(item=>{item.style.display=item.dataset.search.includes(q)?"flex":"none"});}'
-        'document.querySelectorAll(".link-pick").forEach(card=>{const update=()=>{const n=card.querySelectorAll("input[type=checkbox]:checked").length;card.querySelector("[data-picker-count]").textContent=n+" ausgewählt";};card.addEventListener("change",update);update();});'
+        'document.querySelectorAll(".link-pick").forEach(card=>{const update=()=>{const n=card.querySelectorAll("input[type=checkbox]:checked").length;card.querySelector("[data-picker-count]").textContent=n+" selected";};card.addEventListener("change",update);update();});'
         '</script>'
         '<label class="card">Eigene Scam-Blockliste <small>Eine Domain pro Zeile, z. B. fake-login.example. Maximal 100 Domains.</small>'
         '<textarea name="link_blocked_domains" rows="5" maxlength="3000">' + blocked_domains_value + '</textarea></label>'

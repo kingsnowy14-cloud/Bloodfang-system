@@ -860,6 +860,67 @@ def bot_text(guild_id, text):
     return translated
 
 
+class IronWolfCommandTranslator(app_commands.Translator):
+    """Localize Discord command names, descriptions, and option text per client locale."""
+
+    async def translate(self, string, locale):
+        message = string.message
+        locale_code = str(getattr(locale, "value", locale)).lower()
+        if locale_code.startswith("de"):
+            target = "de"
+        elif locale_code.startswith("en"):
+            target = "en"
+        else:
+            return None
+
+        # Reuse the curated local catalogues; command sync must never depend on
+        # rate-limited external translation providers.
+        try:
+            from dashboard import DASHBOARD_TRANSLATIONS
+            dashboard_english = DASHBOARD_TRANSLATIONS.get("en", {})
+        except Exception:
+            dashboard_english = {}
+
+        bot_german = BOT_TRANSLATIONS.get("de", {})
+        slash_text = {
+            "Zeigt einen Discord-Account anhand seiner User-ID an.": "Shows a Discord account by its user ID.",
+            "Zeigt geladene IronWolf-Module und Serverstatus": "Shows loaded IronWolf modules and server status.",
+            "Grund der Verwarnung": "Reason for the warning",
+            "Welche Nachrichten sollen gelöscht werden?": "Which messages should be deleted?",
+            "Rolle für erfolgreich verifizierte Mitglieder": "Role for successfully verified members",
+            "Optionale Rolle für noch nicht verifizierte Mitglieder": "Optional role for unverified members",
+            "Emoji für den Verifizierungsbutton": "Emoji for the verification button",
+            "Optional: Creator-Quelle, wenn mehrere Alerts derselben Plattform existieren": "Optional: creator source when multiple alerts exist for the same platform",
+            "Privater Kanal für Sicherheitsmeldungen": "Private channel for security alerts",
+            "Kanal für das öffentliche Bewerbungs-Panel": "Channel for the public application panel",
+            "Privater Kanal für eingehende Bewerbungen": "Private channel for incoming applications",
+            "Kanal für Entscheidungsprotokolle": "Channel for decision logs",
+            "Zur Bestätigung: die ID dieses Discord-Servers": "To confirm: the ID of this Discord server",
+            "Direkte HTTPS-Bild-URL für das neue Profilbild": "Direct HTTPS image URL for the new profile picture",
+            "Direkte HTTPS-Bild-URL für den neuen Banner": "Direct HTTPS image URL for the new banner",
+        }
+        if target == "de":
+            dashboard_german = {english: german for german, english in dashboard_english.items()}
+            slash_text_german = {english: german for german, english in slash_text.items()}
+            command_names = {
+                "birthday": "geburtstag", "id-card": "ausweis",
+                "application": "bewerbung", "absence": "abwesenheit",
+                "verification": "verifizierung", "server-info": "serverinfo",
+                "user-info": "benutzerinfo", "warn": "warnen", "shift": "schicht",
+            }
+            return bot_german.get(message) or dashboard_german.get(message) or slash_text_german.get(message) or command_names.get(message)
+        dashboard_german_to_english = dashboard_english
+        bot_english = {german: english for english, german in bot_german.items()}
+        slash_text_english = slash_text
+        command_names = {
+            "geburtstag": "birthday", "ausweis": "id-card",
+            "bewerbung": "application", "abwesenheit": "absence",
+            "verifizierung": "verification", "serverinfo": "server-info",
+            "benutzerinfo": "user-info", "warnen": "warn", "schicht": "shift",
+        }
+        return dashboard_german_to_english.get(message) or bot_english.get(message) or slash_text_english.get(message) or command_names.get(message)
+
+
 # Apply localization at Discord's outgoing-message boundary so slash commands,
 # prefix commands, embeds, follow-ups, alerts, and automation messages all use
 # the language configured for the message's own server.
@@ -11112,6 +11173,14 @@ async def on_ready():
                 print(f"[QUICK SUPPORT] Could not reopen thread {_thread_id}: {type(exc).__name__}: {exc}", flush=True)
     save_json(DATA_FILE, data)
     print(f"[QUICK SUPPORT] Previous cases reset; {_quick_support_reopened} archived threads reopened.", flush=True)
+    if not getattr(bot, "_slash_translator_registered", False):
+        try:
+            await bot.tree.set_translator(IronWolfCommandTranslator())
+            bot._slash_translator_registered = True
+            print("[I18N] Discord slash-command localizations registered (client locale: English/German).", flush=True)
+        except Exception as exc:
+            print(f"[I18N] Could not register slash-command translator: {type(exc).__name__}: {exc}", flush=True)
+
     try:
         # Discord allows at most 100 global slash commands. Keep economy commands
         # guild-scoped so they do not prevent the main command set from syncing.
