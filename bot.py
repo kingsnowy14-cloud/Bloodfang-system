@@ -7469,7 +7469,6 @@ async def send_welcome_for_member(member: discord.Member, cfg: dict, include_dm:
                     welcome_channel = None
             if isinstance(welcome_channel, discord.TextChannel):
                 template = cfg.get("welcome_message") or "Welcome {mention} to **{server}**! You are member **#{count}**."
-                if template == "Welcome {mention} to **{server}**! You are member **#{count}**.":
                 welcome_text = (template.replace("{mention}", member.mention)
                                 .replace("{user}", discord.utils.escape_markdown(member.display_name))
                                 .replace("{server}", discord.utils.escape_markdown(member.guild.name))
@@ -7807,7 +7806,6 @@ async def on_member_remove(member: discord.Member):
         channel = member.guild.get_channel(int(leave_channel_id))
         if isinstance(channel, discord.TextChannel):
             template = cfg.get("leave_message") or "👋 **{user}** has left **{server}**. We wish you all the best."
-            if template == "👋 **{user}** has left **{server}**. We wish you all the best.":
             leave_text = (template.replace("{user}", discord.utils.escape_markdown(member.display_name))
                           .replace("{server}", discord.utils.escape_markdown(member.guild.name))
                           .replace("{count}", str(member.guild.member_count or len(member.guild.members))))
