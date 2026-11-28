@@ -1358,7 +1358,7 @@ def _selection_menu_script():
         return label.querySelector('input').checked;
       }).length;
       count.textContent = visible + ' Rollen angezeigt';
-      summary.textContent = selected + ' ausgewählt';
+      summary.textContent = selected + ' selected';
     }
     input.addEventListener('input', update);
     options.forEach(function (label) {
@@ -1862,7 +1862,7 @@ DASHBOARD_TRANSLATIONS["en"].update({
     "Änderungen gespeichert.": "Changes saved.",
     "Temporärer Voice-Trigger": "Temporary voice trigger",
     "Cursor-Größe": "Cursor size",
-    "ausgewählt": "selected",
+    "0 ausgewählt": "0 selected",
     "Gelöschte Rolle": "Deleted role",
     "Gelöschter Kanal": "Deleted channel",
     "Nicht verfügbar": "Unavailable",
@@ -9046,7 +9046,7 @@ def guild_wolfshield(guild_id):
         '</div>'
         '<script>'
         'function filterLinkPicker(input){const card=input.closest(".link-pick");const q=input.value.trim().toLocaleLowerCase();card.querySelectorAll(".link-pick-item").forEach(item=>{item.style.display=item.dataset.search.includes(q)?"flex":"none"});}'
-        'document.querySelectorAll(".link-pick").forEach(card=>{const update=()=>{const n=card.querySelectorAll("input[type=checkbox]:checked").length;card.querySelector("[data-picker-count]").textContent=n+" ausgewählt";};card.addEventListener("change",update);update();});'
+        'document.querySelectorAll(".link-pick").forEach(card=>{const update=()=>{const n=card.querySelectorAll("input[type=checkbox]:checked").length;card.querySelector("[data-picker-count]").textContent=n+" selected";};card.addEventListener("change",update);update();});'
         '</script>'
         '<label class="card">Eigene Scam-Blockliste <small>Eine Domain pro Zeile, z. B. fake-login.example. Maximal 100 Domains.</small>'
         '<textarea name="link_blocked_domains" rows="5" maxlength="3000">' + blocked_domains_value + '</textarea></label>'
