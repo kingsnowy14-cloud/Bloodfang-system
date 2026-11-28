@@ -183,7 +183,7 @@ def _make_id_card(guild, member, answers, questions, card_id, issue_date, transl
     try:
         request = urllib.request.Request(
             str(member.display_avatar.with_size(256).url),
-            headers={"User-Agent": "Bloodfang-RP-ID/1.0"}
+            headers={"User-Agent": "IronWolf-ID/1.0"}
         )
         with urllib.request.urlopen(request, timeout=4) as response:
             avatar_bytes = response.read(1_500_000)
