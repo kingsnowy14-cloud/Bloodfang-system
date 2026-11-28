@@ -2311,6 +2311,8 @@ def _module_records(guild_id):
     for command in _bot.tree.walk_commands():
         if isinstance(command, app_commands.Group):
             continue
+        if str(command.name).casefold() in website_admin_only_commands or str(command.qualified_name).casefold() in website_admin_only_commands:
+            continue
         cog = getattr(command, "binding", None)
         if cog is not None:
             modules[cog.__class__.__name__] = cog.__class__.__name__
