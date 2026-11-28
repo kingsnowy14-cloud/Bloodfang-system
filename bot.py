@@ -848,6 +848,19 @@ def bot_text(guild_id, text):
     known = BOT_TRANSLATIONS.get(language, {}).get(text)
     if known is not None:
         return known
+    # Reuse the dashboard's curated bilingual catalogue for exact bot strings
+    # before calling external translation providers (which may be rate-limited).
+    try:
+        from dashboard import DASHBOARD_TRANSLATIONS
+        dashboard_english = DASHBOARD_TRANSLATIONS.get("en", {})
+        if language == "en" and text in dashboard_english:
+            return dashboard_english[text]
+        if language == "de":
+            dashboard_german = {english: german for german, english in dashboard_english.items()}
+            if text in dashboard_german:
+                return dashboard_german[text]
+    except Exception:
+        pass
     placeholders = {}
     def protect(match):
         key = f"IWPLACEHOLDER{len(placeholders)}TOKEN"
