@@ -77,8 +77,6 @@ async def _localize_view(view, guild_id, translate):
 
 
 async def _localize_kwargs(kwargs, guild_id, translate):
-    if not guild_id:
-        return kwargs
     content = kwargs.get("content")
     if isinstance(content, str) and content:
         kwargs["content"] = await asyncio.to_thread(translate, guild_id, content)
@@ -116,8 +114,16 @@ def install_discord_localization(bot, translate, language):
             if args and isinstance(args[0], str):
                 args[0] = await asyncio.to_thread(translate, target_guild_id, args[0])
             kwargs = await _localize_kwargs(kwargs, target_guild_id, translate)
+            # Localize button/select labels as well as message and embed text.
+            # Restore shared views afterward so another guild cannot inherit
+            # this guild's translated labels.
+            view_restore = await _localize_view(kwargs.get("view"), target_guild_id, translate)
             args = tuple(args)
-            return await original(self, *args, **kwargs)
+            try:
+                return await original(self, *args, **kwargs)
+            finally:
+                for item, attr, original_value in reversed(view_restore):
+                    setattr(item, attr, original_value)
 
         localized._ironwolf_localized = True
         setattr(cls, method_name, localized)
