@@ -29,7 +29,7 @@ def _guild_id(owner, bot):
 
 
 async def _localized_embed(embed, guild_id, translate):
-    if embed is None or not guild_id:
+    if embed is None:
         return embed
     result = embed.copy()
     if result.title:
@@ -55,7 +55,7 @@ async def _localize_view(view, guild_id, translate):
     Restore original labels after sending because views may be reused by the
     bot across multiple guilds with different preferred locales.
     """
-    if view is None or not guild_id:
+    if view is None:
         return []
     restore = []
 
