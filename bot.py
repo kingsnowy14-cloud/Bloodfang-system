@@ -704,7 +704,7 @@ def guild_config(guild_id):
     return cfg
 
 
-SUPPORTED_BOT_LANGUAGES = {"de", "en"}
+SUPPORTED_BOT_LANGUAGES = {"en"}
 BOT_TRANSLATIONS = {
     "de": {
         "This command has been disabled for this server in the web dashboard.": "Dieser Befehl wurde für diesen Server im Dashboard deaktiviert.",
@@ -747,14 +747,7 @@ BOT_TRANSLATIONS = {
 }
 
 def server_language(guild_id):
-    """Resolve the configured server language, including Discord locale for auto."""
-    if guild_id is None:
-        return "en"
-    cfg = guild_config(guild_id)
-    selected = str(cfg.get("bot_language", "en")).lower()
-    if selected in {"de", "en"}:
-        return selected
-    # Only German and English are supported; legacy "auto" settings fall back to English.
+    """IronWolf is English-only, regardless of per-server legacy settings."""
     return "en"
 
 def server_timezone(guild_id):
@@ -11487,21 +11480,11 @@ async def language_command(ctx, language: str = "auto"):
 @commands.guild_only()
 @commands.has_guild_permissions(manage_guild=True)
 async def server_language_command(ctx, language: str = "en"):
-    """Set this server's default bot language."""
-    language = language.lower()
-    if language not in {"de", "en"}:
-        await ctx.reply("🌐 Usage: `!serverlanguage en` or `!serverlanguage de`.", mention_author=False)
-        return
+    """Keep the server language fixed to English."""
     cfg = guild_config(ctx.guild.id)
-    cfg["bot_language"] = language
+    cfg["bot_language"] = "en"
     save_json(CONFIG_FILE, config)
-    label = {"de": "Deutsch", "en": "English"}[language]
-    message = (
-        f"✅ Die Standardsprache von IronWolf für diesen Server ist jetzt **{label}**."
-        if language == "de"
-        else f"✅ IronWolf's default language for this server is now **{label}**."
-    )
-    await ctx.reply(message, mention_author=False)
+    await ctx.reply("English is the only supported language for IronWolf.", mention_author=False)
 
 
 @bot.command(name="emoji", aliases=["emojis", "kanalemojis"])
