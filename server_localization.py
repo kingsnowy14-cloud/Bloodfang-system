@@ -49,6 +49,33 @@ async def _localized_embed(embed, guild_id, translate):
     return result
 
 
+async def _localize_view(view, guild_id, translate):
+    """Translate visible button/select text for the destination guild.
+
+    Restore original labels after sending because views may be reused by the
+    bot across multiple guilds with different preferred locales.
+    """
+    if view is None or not guild_id:
+        return []
+    restore = []
+
+    async def replace_attr(obj, attr):
+        value = getattr(obj, attr, None)
+        if isinstance(value, str) and value:
+            translated = await asyncio.to_thread(translate, guild_id, value)
+            if translated != value:
+                restore.append((obj, attr, value))
+                setattr(obj, attr, translated)
+
+    for item in getattr(view, "children", ()):
+        await replace_attr(item, "label")
+        await replace_attr(item, "placeholder")
+        for option in getattr(item, "options", ()):
+            await replace_attr(option, "label")
+            await replace_attr(option, "description")
+    return restore
+
+
 async def _localize_kwargs(kwargs, guild_id, translate):
     if not guild_id:
         return kwargs
