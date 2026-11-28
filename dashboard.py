@@ -1862,6 +1862,11 @@ DASHBOARD_TRANSLATIONS["en"].update({
     "Änderungen gespeichert.": "Changes saved.",
 })
 
+# Pre-sort the local English catalogue once; page rendering must never call remote translators.
+_DASHBOARD_ENGLISH_TRANSLATIONS = tuple(
+    sorted(DASHBOARD_TRANSLATIONS.get("en", {}).items(), key=lambda item: len(item[0]), reverse=True)
+)
+
 @lru_cache(maxsize=8192)
 def _translate_dashboard_text(value, language):
     if not value or not value.strip():
@@ -1978,19 +1983,13 @@ class _DashboardTextTranslator(HTMLParser):
 
 
 def _translate_dashboard(value, language):
-    if not value or language not in {"de", "en"}:
+    if not value or language != "en":
         return value
-    translations = DASHBOARD_TRANSLATIONS.get(language, {})
-    for source in sorted(translations, key=len, reverse=True):
-        value = value.replace(source, translations[source])
-    parser = _DashboardTextTranslator(language)
-    try:
-        parser.feed(value)
-        parser.close()
-        return parser.translate()
-    except Exception as exc:
-        print(f"[I18N] Dashboard HTML translation skipped ({type(exc).__name__}); showing source HTML.", flush=True)
-        return value
+    # English is the only supported dashboard language. Apply local, deterministic
+    # phrase replacements only; do not parse every HTML node or call slow external APIs.
+    for source, translated in _DASHBOARD_ENGLISH_TRANSLATIONS:
+        value = value.replace(source, translated)
+    return value
 
 def _dashboard_language():
     """The entire website and every guild dashboard are English-only."""
@@ -2326,6 +2325,27 @@ def _guild_roles(guild):
     return [(role.id, role.name) for role in guild.roles if not role.is_default() and not role.managed]
 
 
+_PAGE_VIEWS_SCHEMA_READY = False
+_PAGE_VIEWS_SCHEMA_LOCK = threading.Lock()
+
+
+def _ensure_page_views_schema(conn):
+    global _PAGE_VIEWS_SCHEMA_READY
+    if _PAGE_VIEWS_SCHEMA_READY:
+        return
+    with _PAGE_VIEWS_SCHEMA_LOCK:
+        if _PAGE_VIEWS_SCHEMA_READY:
+            return
+        conn.execute("CREATE TABLE IF NOT EXISTS page_views (day TEXT NOT NULL, path TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(day,path))")
+        conn.execute("""CREATE TABLE IF NOT EXISTS website_visitor_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visited_at TEXT NOT NULL,
+            discord_name TEXT NOT NULL,
+            path TEXT NOT NULL
+        )""")
+        _PAGE_VIEWS_SCHEMA_READY = True
+
+
 @app.before_request
 def log_dashboard_navigation():
     """Log module-page requests and count anonymous aggregate website views."""
@@ -2335,18 +2355,13 @@ def log_dashboard_navigation():
         assets = (".js", ".css", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico", ".woff", ".woff2", ".map")
         if not path.startswith(ignored) and path not in {"/favicon.ico", "/robots.txt"} and not path.lower().endswith(assets):
             try:
-                with sqlite3.connect(str(data_path("website_page_views.sqlite3")), timeout=10) as conn:
-                    conn.execute("PRAGMA busy_timeout=10000")
-                    conn.execute("CREATE TABLE IF NOT EXISTS page_views (day TEXT NOT NULL, path TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(day,path))")
+                with sqlite3.connect(str(data_path("website_page_views.sqlite3")), timeout=0.25) as conn:
+                    # Analytics are best-effort and must never hold up dashboard navigation.
+                    conn.execute("PRAGMA busy_timeout=250")
+                    _ensure_page_views_schema(conn)
                     conn.execute("INSERT INTO page_views(day,path,views) VALUES(date('now'),?,1) ON CONFLICT(day,path) DO UPDATE SET views=views+1", (path[:300],))
                     discord_name = str(session.get("discord_username", "")).strip()
                     if discord_name:
-                        conn.execute("""CREATE TABLE IF NOT EXISTS website_visitor_events (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            visited_at TEXT NOT NULL,
-                            discord_name TEXT NOT NULL,
-                            path TEXT NOT NULL
-                        )""")
                         conn.execute(
                             "INSERT INTO website_visitor_events(visited_at,discord_name,path) VALUES(?,?,?)",
                             (datetime.now(timezone.utc).isoformat(timespec="seconds"), discord_name[:100], path[:300]),
