@@ -5075,7 +5075,6 @@ def guild_page(guild_id):
                         abort(400, "Ungültige Zeitzone ausgewählt.")
                     ZoneInfo(selected_timezone)
                     cfg["bot_timezone"] = selected_timezone
-                    cfg["bot_language"] = "en"
                 if settings_section == "channels":
                     for key in CHANNEL_SETTINGS:
                         if key not in request.form:
