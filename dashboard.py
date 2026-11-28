@@ -1979,7 +1979,15 @@ def _translate_dashboard(value, language):
         return value
 
 def _dashboard_language():
-    """The website UI is English-only; bot language is configured separately."""
+    """Use the selected language on a server dashboard; public pages default to English."""
+    guild_id = (request.view_args or {}).get("guild_id")
+    if guild_id and _guild_config:
+        try:
+            selected = str(_guild_config(int(guild_id)).get("bot_language", "en")).lower()
+            if selected in {"de", "en"}:
+                return selected
+        except (TypeError, ValueError, KeyError):
+            pass
     return "en"
 
 
@@ -1988,8 +1996,8 @@ def _render(title, body, status=200):
     team_only_page = request.path.startswith("/team-management/") or request.path.endswith("/team-management")
     body = ("" if team_only_page else _module_navigation()) + body
     current_path = html.escape(request.path + (("?" + request.query_string.decode("utf-8", "ignore")) if request.query_string else ""), quote=True)
-    # The dashboard is always rendered in English, independent of bot language.
-    rendered_page = _translate_dashboard(_page(title, body), "en")
+    # Server pages follow the language selected for that Discord server.
+    rendered_page = _translate_dashboard(_page(title, body), language)
     rendered_page = re.sub(r'<html lang="[^"]*">', f'<html lang="{language}">', rendered_page, count=1)
     response = make_response(rendered_page, status)
     response.headers["Content-Language"] = language
