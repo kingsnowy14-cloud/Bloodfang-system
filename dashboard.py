@@ -2733,6 +2733,30 @@ def server_promotion_directory():
         listed.append((str(guild_id), record, guild))
     listed.sort(key=lambda entry: (0 if entry[0] == _SERVER_PROMOTION_PINNED_GUILD else 1, entry[1].get("registered_at", "")))
 
+    # Refresh profile data for every already-listed server from the live bot cache.
+    # Keep stored OAuth data as fallback when Discord does not expose a live field.
+    refreshed_profiles = False
+    for existing_id, existing_record, existing_guild in listed:
+        old_profile = existing_record.get("profile") if isinstance(existing_record.get("profile"), dict) else {}
+        live_icon = getattr(existing_guild, "icon", None)
+        live_banner = getattr(existing_guild, "banner", None) or getattr(existing_guild, "splash", None)
+        live_features = list(getattr(existing_guild, "features", []) or [])
+        live_description = str(getattr(existing_guild, "description", "") or "")
+        live_members = int(getattr(existing_guild, "member_count", 0) or 0)
+        refreshed = {
+            "icon_url": live_icon.url if live_icon else str(old_profile.get("icon_url") or ""),
+            "banner_url": live_banner.url if live_banner else str(old_profile.get("banner_url") or ""),
+            "description": live_description or str(old_profile.get("description") or ""),
+            "features": live_features or list(old_profile.get("features") or []),
+            "member_count": live_members or int(old_profile.get("member_count") or 0),
+        }
+        if refreshed != old_profile:
+            existing_record["profile"] = refreshed
+            refreshed_profiles = True
+    if refreshed_profiles:
+        with _SERVER_PROMOTION_LOCK:
+            _server_promotion_write(records)
+
     cards = []
     for guild_id, record, guild in listed:
         profile = record.get("profile") if isinstance(record.get("profile"), dict) else {}
@@ -2837,6 +2861,7 @@ def server_promotion_directory():
         '@media(max-width:820px){.promotion-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}'
         '@media(max-width:520px){.promotion-grid{grid-template-columns:1fr}.promotion-banner{height:125px}.promotion-profile-banner{height:145px}.promotion-profile-avatar{flex-basis:72px;width:72px;height:72px;border-radius:18px}.promotion-profile-head{margin-top:-34px;gap:10px}.promotion-profile-title h3{font-size:16px}}'
         '.promotion-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin:24px 0}.promotion-card{background:linear-gradient(160deg,#17182b 0%,#101322 100%);border:1px solid rgba(139,92,246,.22);border-radius:18px;box-shadow:0 12px 30px rgba(0,0,0,.24)}.promotion-card:hover{border-color:rgba(139,92,246,.72);box-shadow:0 18px 38px rgba(56,25,120,.28)}.promotion-banner{height:132px;background:linear-gradient(135deg,#25134d,#171e3c 55%,#111827)}.promotion-avatar,.promotion-profile-avatar{background:#21143f;border-color:#17182b}.promotion-profile{background:#111426;border-color:rgba(139,92,246,.3);border-radius:16px}.promotion-profile-banner{height:220px;background:linear-gradient(135deg,#35156c,#18254d 55%,#101322)}.promotion-profile-avatar{border-color:#111426;box-shadow:0 0 0 2px rgba(139,92,246,.65)}.promotion-category{background:rgba(139,92,246,.18);color:#c4b5fd}.promotion-connected{background:rgba(34,197,94,.12);color:#86efac}.promotion-featured{background:rgba(245,158,11,.16);color:#fcd34d}.promotion-open{color:#c4b5fd}.promotion-join{background:linear-gradient(135deg,#6d28d9,#4f1fb8)!important;border-color:rgba(196,181,253,.28)!important}.promotion-add{background:linear-gradient(145deg,rgba(76,29,149,.22),rgba(17,19,37,.9))!important;border:1px solid rgba(139,92,246,.35)!important;border-radius:18px}.promotion-form-icon{background:rgba(139,92,246,.2);color:#c4b5fd}.promotion-kicker{color:#c4b5fd}.promotion-submit-footer button{background:linear-gradient(135deg,#6d28d9,#4f1fb8)!important}.promotion-filters{background:rgba(17,19,37,.82);border-color:rgba(139,92,246,.22);border-radius:15px;padding:14px}.promotion-directory-heading h2{font-size:28px;letter-spacing:-.03em}.promotion-directory{color:#eef0ff}.promotion-directory-heading{align-items:center;padding:22px 24px;border:1px solid rgba(139,92,246,.24);border-radius:20px;background:radial-gradient(ellipse at 8% 0%,rgba(124,58,237,.25),transparent 58%),linear-gradient(120deg,#17152b,#101322);}.promotion-directory-heading h2{font-size:clamp(27px,3vw,38px);letter-spacing:-.04em;margin:8px 0}.promotion-directory-heading p{max-width:650px;line-height:1.6}.promotion-filters{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:12px;margin:18px 0 24px;padding:14px;border:1px solid rgba(139,92,246,.28);border-radius:16px;background:linear-gradient(120deg,rgba(30,25,55,.96),rgba(17,19,37,.96));box-shadow:0 12px 30px rgba(0,0,0,.18)}.promotion-search-wrap{display:flex;align-items:center;gap:10px;min-width:0;padding:0 14px;border:1px solid rgba(167,139,250,.25);border-radius:11px;background:#0d1020;color:#c4b5fd;font-size:23px}.promotion-search-wrap input{width:100%;min-width:0;border:0!important;outline:0!important;background:transparent!important;color:#f4f2ff!important;box-shadow:none!important;padding:13px 0!important;font-size:14px}.promotion-search-wrap:focus-within{border-color:#9b7afa;box-shadow:0 0 0 3px rgba(139,92,246,.14)}.promotion-filters select{border:1px solid rgba(167,139,250,.25)!important;border-radius:11px!important;background:#0d1020!important;color:#f4f2ff!important;padding:12px!important}.promotion-members{color:#b8bdd5}.promotion-about p,.promotion-features p{color:#c5c9df}@media(max-width:1500px){.promotion-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1050px){.promotion-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.promotion-grid{grid-template-columns:1fr}.promotion-banner{height:145px}.promotion-profile-banner{height:165px}.promotion-directory-heading{padding:18px!important}.promotion-filters{grid-template-columns:1fr}.promotion-filters select{width:100%}}'
+        '.promotion-details[open]>.promotion-summary{display:none}'
         '</style>'
         '<section class="promotion-directory"><div class="promotion-directory-heading"><div><span class="promotion-kicker">FIND YOUR PEOPLE</span><h2>Discover your next community</h2><p class="muted">Search by server name, interests, description or advertisement. Open any community to explore its full Discord profile.</p></div><span class="pill">' + str(len(cards)) + ' REGISTERED SERVERS</span></div>'
         + ('<div class="promotion-filters"><label class="promotion-search-wrap"><span aria-hidden="true">⌕</span><input id="promotion-search" type="search" placeholder="Search communities, games, topics…" aria-label="Search communities"></label><select id="promotion-category-filter" aria-label="Filter by category"><option value="">All categories</option>' + ''.join('<option value="' + value + '">' + value + '</option>' for value in ("Gaming", "Community", "Roleplay", "Social", "Support", "Other")) + '</select></div><div class="promotion-grid" id="promotion-grid">' + "".join(cards) + '</div><p class="muted promotion-empty" id="promotion-empty">No servers match your search.</p>' if cards else '<div class="card">No servers have registered yet. Be the first to add yours.</div>')
