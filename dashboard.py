@@ -2621,6 +2621,10 @@ def server_promotion_directory():
             abort(400, "Invalid action.")
         invite_url = str(request.form.get("invite_url", "")).strip()
         advert_text = str(request.form.get("advert_text", "")).strip()[:1200]
+        category = str(request.form.get("category", "Other")).strip()
+        allowed_categories = {"Gaming", "Community", "Roleplay", "Social", "Support", "Other"}
+        if category not in allowed_categories:
+            category = "Other"
         if not re.fullmatch(r"\d{17,20}", guild_id):
             abort(400, "Please select a valid Discord server.")
         parsed = urlparse(invite_url)
@@ -2647,6 +2651,7 @@ def server_promotion_directory():
                 "guild_name": guild.name,
                 "invite_url": invite_url,
                 "advert_text": advert_text,
+                "category": category,
                 "owner_id": str(existing.get("owner_id") or session.get("user_id", "")),
                 "registered_at": existing.get("registered_at") or datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -2695,6 +2700,10 @@ def server_promotion_directory():
         pinned = '<span class="promotion-featured">⭐ FEATURED</span>' if guild_id == _SERVER_PROMOTION_PINNED_GUILD else ""
         description = html.escape(str(getattr(guild, "description", "") or "No server description has been set."))
         advert = html.escape(str(record.get("advert_text", "") or ""))
+        category = str(record.get("category", "Other"))
+        if category not in {"Gaming", "Community", "Roleplay", "Social", "Support", "Other"}:
+            category = "Other"
+        searchable = html.escape(" ".join((guild.name, str(getattr(guild, "description", "") or ""), str(record.get("advert_text", "") or ""), category)).casefold(), quote=True)
         features = ", ".join(str(value).replace("_", " ").title() for value in (getattr(guild, "features", []) or [])[:8]) or "No public server features"
         created = getattr(guild, "created_at", None)
         created_label = created.strftime("%B %d, %Y") if created else "Not available"
@@ -2708,11 +2717,11 @@ def server_promotion_directory():
             if is_owner else ""
         )
         cards.append(
-            '<article class="promotion-card"><details class="promotion-details">'
+            '<article class="promotion-card" data-search="' + searchable + '" data-category="' + html.escape(category, quote=True) + '"><details class="promotion-details">'
             '<summary class="promotion-summary">'
             + banner_html + '<div class="promotion-card-main">' + icon_html +
             '<div class="promotion-card-heading"><div class="promotion-badges">' + pinned +
-            '<span class="promotion-connected">● IRONWOLF</span></div><h2>' +
+            '<span class="promotion-connected">● IRONWOLF</span><span class="promotion-category">' + html.escape(category) + '</span></div><h2>' +
             html.escape(guild.name) + '</h2><p class="promotion-members">👥 ' + member_count +
             ' members</p></div></div><span class="promotion-open">View server <span aria-hidden="true">⌄</span></span>'
             '</summary><div class="promotion-expanded">'
@@ -2740,6 +2749,7 @@ def server_promotion_directory():
             + "".join(options) + '</select><label for="promotion-invite">Discord invite link</label>'
             + '<input id="promotion-invite" name="invite_url" type="url" placeholder="https://discord.gg/your-invite" required maxlength="300">'
             + '<label for="promotion-advert">Advertisement text <span class="muted">(optional, max. 1,200 characters)</span></label>'
+            + '<label for="promotion-category">Category</label><select id="promotion-category" name="category"><option>Gaming</option><option>Community</option><option>Roleplay</option><option>Social</option><option>Support</option><option selected>Other</option></select>'
             + '<textarea id="promotion-advert" name="advert_text" rows="4" maxlength="1200" placeholder="Tell people what makes your community special…"></textarea>'
             + '<button type="submit">Add Server</button></form></section>'
         )
@@ -2753,17 +2763,18 @@ def server_promotion_directory():
         '.promotion-details{min-width:0}.promotion-summary{position:relative;display:block;cursor:pointer;list-style:none;padding-bottom:15px}.promotion-summary::-webkit-details-marker{display:none}.promotion-summary:focus-visible{outline:2px solid #6d9cff;outline-offset:-3px;border-radius:14px}'
         '.promotion-banner{display:block;width:100%;height:104px;object-fit:cover;background:linear-gradient(120deg,#263a5c,#45618b 55%,#202c42)}.promotion-banner-fallback{background:radial-gradient(circle at 75% 20%,rgba(115,155,230,.55),transparent 40%),linear-gradient(120deg,#18243a,#354c70)}'
         '.promotion-card-main{display:flex;align-items:flex-end;gap:10px;padding:0 12px;margin-top:-30px;position:relative}.promotion-avatar{flex:0 0 62px;width:62px;height:62px;box-sizing:border-box;object-fit:cover;border-radius:18px;border:4px solid var(--surface,#202938);background:#263449}.promotion-avatar-fallback{display:grid;place-items:center;font-size:27px;color:#fff}'
-        '.promotion-card-heading{min-width:0;flex:1;padding-bottom:3px}.promotion-card-heading h2{font-size:16px;line-height:1.25;margin:7px 0 3px;overflow-wrap:anywhere}.promotion-badges{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.promotion-featured,.promotion-connected{font-size:9px;line-height:1.5;font-weight:750;letter-spacing:.04em;border-radius:5px;padding:3px 6px;background:rgba(100,145,230,.15);color:var(--text,#dbe7ff)}.promotion-featured{background:rgba(242,190,90,.16);color:#e8bd68}.promotion-members{font-size:11px;color:var(--muted,#aab4c3);margin:0}.promotion-open{display:flex;justify-content:space-between;align-items:center;margin:12px 12px 0;padding-top:10px;border-top:1px solid var(--border,#334155);font-size:12px;font-weight:650;color:var(--muted,#aab4c3)}.promotion-details[open] .promotion-open span{transform:rotate(180deg)}'
+        '.promotion-card-heading{min-width:0;flex:1;padding-bottom:3px}.promotion-card-heading h2{font-size:16px;line-height:1.25;margin:7px 0 3px;overflow-wrap:anywhere}.promotion-badges{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.promotion-featured,.promotion-connected{font-size:9px;line-height:1.5;font-weight:750;letter-spacing:.04em;border-radius:5px;padding:3px 6px;background:rgba(100,145,230,.15);color:var(--text,#dbe7ff)}.promotion-featured{background:rgba(242,190,90,.16);color:#e8bd68}.promotion-category{font-size:9px;padding:3px 6px;border-radius:5px;background:rgba(90,190,160,.13);color:#78cdb5}.promotion-members{font-size:11px;color:var(--muted,#aab4c3);margin:0}.promotion-open{display:flex;justify-content:space-between;align-items:center;margin:12px 12px 0;padding-top:10px;border-top:1px solid var(--border,#334155);font-size:12px;font-weight:650;color:var(--muted,#aab4c3)}.promotion-details[open] .promotion-open span{transform:rotate(180deg)}'
         '.promotion-expanded{padding:0 12px 13px;display:grid;gap:11px;line-height:1.5}.promotion-about,.promotion-features{font-size:12px}.promotion-about p,.promotion-features p{margin:4px 0 0;color:var(--muted,#aab4c3);overflow-wrap:anywhere}.promotion-ad{padding:11px;border-radius:10px;background:rgba(90,130,190,.12);border:1px solid rgba(120,160,220,.2);font-size:12px}.promotion-ad p{white-space:pre-wrap;margin:5px 0 0;overflow-wrap:anywhere}.promotion-no-ad{font-size:11px;color:var(--muted,#aab4c3);margin:0}'
         '.promotion-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:9px;border:1px solid var(--border,#334155);border-radius:10px;background:rgba(127,127,127,.05)}.promotion-meta span{display:grid;gap:3px;min-width:0}.promotion-meta small{font-size:9px;letter-spacing:.07em;color:var(--muted,#aab4c3)}.promotion-meta strong{font-size:11px;overflow-wrap:anywhere}'
-        '.promotion-card-actions{display:grid;grid-template-columns:1fr;gap:8px;padding-top:10px;border-top:1px solid var(--border,#334155)}.promotion-card-actions form{margin:0!important}.promotion-card-actions .button,.promotion-card-actions button{width:100%;min-height:38px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:7px;margin:0!important;padding:8px 10px;border-radius:9px;font-size:12px;font-weight:700;text-decoration:none;line-height:1.2}.promotion-join{background:linear-gradient(135deg,#477fe8,#315fc0)!important;color:#fff!important;border:1px solid rgba(255,255,255,.14)!important}.promotion-join:hover{filter:brightness(1.1)}.promotion-delete{background:rgba(239,119,119,.07)!important;color:#ef7777!important;border:1px solid rgba(239,119,119,.4)!important;cursor:pointer}.promotion-delete:hover{background:rgba(239,119,119,.16)!important}.promotion-add textarea{min-height:110px}'
+        '.promotion-card-actions{display:grid;grid-template-columns:1fr;gap:8px;padding-top:10px;border-top:1px solid var(--border,#334155)}.promotion-card-actions form{margin:0!important}.promotion-card-actions .button,.promotion-card-actions button{width:100%;min-height:38px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:7px;margin:0!important;padding:8px 10px;border-radius:9px;font-size:12px;font-weight:700;text-decoration:none;line-height:1.2}.promotion-join{background:linear-gradient(135deg,#477fe8,#315fc0)!important;color:#fff!important;border:1px solid rgba(255,255,255,.14)!important}.promotion-join:hover{filter:brightness(1.1)}.promotion-delete{background:rgba(239,119,119,.07)!important;color:#ef7777!important;border:1px solid rgba(239,119,119,.4)!important;cursor:pointer}.promotion-delete:hover{background:rgba(239,119,119,.16)!important}.promotion-add textarea{min-height:110px}.promotion-filters{display:grid;grid-template-columns:minmax(220px,2fr) minmax(160px,1fr);gap:10px;margin:18px 0}.promotion-filters input,.promotion-filters select{width:100%;min-width:0;box-sizing:border-box}.promotion-empty{display:none;margin:12px 0}@media(max-width:520px){.promotion-filters{grid-template-columns:1fr}}'
         '@media(max-width:1500px){.promotion-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}'
         '@media(max-width:1150px){.promotion-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}'
         '@media(max-width:820px){.promotion-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}'
         '@media(max-width:520px){.promotion-grid{grid-template-columns:1fr}.promotion-banner{height:125px}}'
         '</style>'
         '<section><div style="display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap"><div><h2>Community directory</h2><p class="muted">Discover Discord communities powered by IronWolf. Select a server to view its profile and advertisement.</p></div><span class="pill">' + str(len(cards)) + ' REGISTERED SERVERS</span></div>'
-        + ('<div class="promotion-grid">' + "".join(cards) + '</div>' if cards else '<div class="card">No servers have registered yet. Be the first to add yours.</div>')
+        + ('<div class="promotion-filters"><input id="promotion-search" type="search" placeholder="Search servers, topics or descriptions…" aria-label="Search servers"><select id="promotion-category-filter" aria-label="Filter by category"><option value="">All categories</option>' + ''.join('<option value="' + value + '">' + value + '</option>' for value in ("Gaming", "Community", "Roleplay", "Social", "Support", "Other")) + '</select></div><div class="promotion-grid" id="promotion-grid">' + "".join(cards) + '</div><p class="muted promotion-empty" id="promotion-empty">No servers match your search.</p>' if cards else '<div class="card">No servers have registered yet. Be the first to add yours.</div>')
+        + ('<script>(function(){const q=document.getElementById("promotion-search"),f=document.getElementById("promotion-category-filter"),grid=document.getElementById("promotion-grid"),empty=document.getElementById("promotion-empty");if(!q||!f||!grid)return;function filter(){const term=q.value.trim().toLocaleLowerCase();const category=f.value;let visible=0;grid.querySelectorAll(".promotion-card").forEach(card=>{const show=(!term||card.dataset.search.includes(term))&&(!category||card.dataset.category===category);card.hidden=!show;if(show)visible++;});if(empty)empty.style.display=visible?"none":"block";}q.addEventListener("input",filter);f.addEventListener("change",filter);})();</script>' if cards else '')
         + '</section>'
     )
     body = '<section class="card hero"><span class="pill">IRONWOLF COMMUNITY</span><h1 style="margin-top:14px">Promote your Discord server</h1><p>Add your community to the IronWolf server directory. You choose the invite link and advertisement text, and your server is listed only with your approval.</p>' + notice + '</section>' + add_form + directory
