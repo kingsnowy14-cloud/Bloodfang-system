@@ -28,6 +28,28 @@ def _guild_id(owner, bot):
     return None
 
 
+def _server_footer(bot, guild_id, translate):
+    if guild_id is None:
+        return None
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        return None
+    label = translate(guild_id, "Server:")
+    return f"{label} {guild.name}"
+
+
+def _add_embed_server_footer(embed, footer_text):
+    if embed is None or not footer_text:
+        return embed
+    result = embed.copy()
+    existing = result.footer.text if result.footer else None
+    icon_url = result.footer.icon_url if result.footer else None
+    if footer_text not in (existing or ""):
+        combined = f"{existing} • {footer_text}" if existing else footer_text
+        result.set_footer(text=combined[:2048], icon_url=icon_url)
+    return result
+
+
 async def _localized_embed(embed, guild_id, translate):
     if embed is None:
         return embed
@@ -114,6 +136,24 @@ def install_discord_localization(bot, translate, language):
             if args and isinstance(args[0], str):
                 args[0] = await asyncio.to_thread(translate, target_guild_id, args[0])
             kwargs = await _localize_kwargs(kwargs, target_guild_id, translate)
+            # Add the originating server to every guild message. Discord has
+            # no footer field for plain text, so use a final attribution line;
+            # embeds receive a real embed footer while preserving existing text.
+            footer_text = _server_footer(bot, target_guild_id, translate)
+            if footer_text:
+                if args and isinstance(args[0], str) and args[0]:
+                    suffix = f"\\n\\n— {footer_text}"
+                    args[0] = args[0][:max(0, 2000 - len(suffix))] + suffix
+                elif isinstance(kwargs.get("content"), str) and kwargs["content"]:
+                    suffix = f"\\n\\n— {footer_text}"
+                    kwargs["content"] = kwargs["content"][:max(0, 2000 - len(suffix))] + suffix
+                if kwargs.get("embed") is not None:
+                    kwargs["embed"] = _add_embed_server_footer(kwargs["embed"], footer_text)
+                if kwargs.get("embeds") is not None:
+                    kwargs["embeds"] = [
+                        _add_embed_server_footer(item, footer_text)
+                        for item in kwargs["embeds"]
+                    ]
             # Localize button/select labels as well as message and embed text.
             # Restore shared views afterward so another guild cannot inherit
             # this guild's translated labels.
