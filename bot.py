@@ -860,6 +860,48 @@ def bot_text(guild_id, text):
     return translated
 
 
+class IronWolfCommandTranslator(app_commands.Translator):
+    """Localize Discord command names, descriptions, and option text per client locale."""
+
+    async def translate(self, string, locale):
+        message = string.message
+        locale_code = str(getattr(locale, "value", locale)).lower()
+        if locale_code.startswith("de"):
+            target = "de"
+        elif locale_code.startswith("en"):
+            target = "en"
+        else:
+            return None
+
+        # Reuse the curated local catalogues; command sync must never depend on
+        # rate-limited external translation providers.
+        try:
+            from dashboard import DASHBOARD_TRANSLATIONS
+            dashboard_english = DASHBOARD_TRANSLATIONS.get("en", {})
+        except Exception:
+            dashboard_english = {}
+
+        bot_german = BOT_TRANSLATIONS.get("de", {})
+        if target == "de":
+            dashboard_german = {english: german for german, english in dashboard_english.items()}
+            command_names = {
+                "birthday": "geburtstag", "id-card": "ausweis",
+                "application": "bewerbung", "absence": "abwesenheit",
+                "verification": "verifizierung", "server-info": "serverinfo",
+                "user-info": "benutzerinfo", "warn": "warnen", "shift": "schicht",
+            }
+            return bot_german.get(message) or dashboard_german.get(message) or command_names.get(message)
+        dashboard_german_to_english = dashboard_english
+        bot_english = {german: english for english, german in bot_german.items()}
+        command_names = {
+            "geburtstag": "birthday", "ausweis": "id-card",
+            "bewerbung": "application", "abwesenheit": "absence",
+            "verifizierung": "verification", "serverinfo": "server-info",
+            "benutzerinfo": "user-info", "warnen": "warn", "schicht": "shift",
+        }
+        return dashboard_german_to_english.get(message) or bot_english.get(message) or command_names.get(message)
+
+
 # Apply localization at Discord's outgoing-message boundary so slash commands,
 # prefix commands, embeds, follow-ups, alerts, and automation messages all use
 # the language configured for the message's own server.
@@ -11112,6 +11154,14 @@ async def on_ready():
                 print(f"[QUICK SUPPORT] Could not reopen thread {_thread_id}: {type(exc).__name__}: {exc}", flush=True)
     save_json(DATA_FILE, data)
     print(f"[QUICK SUPPORT] Previous cases reset; {_quick_support_reopened} archived threads reopened.", flush=True)
+    if not getattr(bot, "_slash_translator_registered", False):
+        try:
+            await bot.tree.set_translator(IronWolfCommandTranslator())
+            bot._slash_translator_registered = True
+            print("[I18N] Discord slash-command localizations registered (client locale: English/German).", flush=True)
+        except Exception as exc:
+            print(f"[I18N] Could not register slash-command translator: {type(exc).__name__}: {exc}", flush=True)
+
     try:
         # Discord allows at most 100 global slash commands. Keep economy commands
         # guild-scoped so they do not prevent the main command set from syncing.
