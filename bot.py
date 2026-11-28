@@ -910,7 +910,7 @@ class IronWolfCommandTranslator(app_commands.Translator):
             return bot_german.get(message) or dashboard_german.get(message) or slash_text.get(message) or command_names.get(message)
         dashboard_german_to_english = dashboard_english
         bot_english = {german: english for english, german in bot_german.items()}
-        slash_text_english = {english: german for german, english in slash_text.items()}
+        slash_text_english = slash_text
         command_names = {
             "geburtstag": "birthday", "ausweis": "id-card",
             "bewerbung": "application", "abwesenheit": "absence",
