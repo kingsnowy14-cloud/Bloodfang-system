@@ -1162,9 +1162,8 @@ class LanguageSelect(discord.ui.Select):
     def __init__(self):
         options = [
             discord.SelectOption(label="English", value="en", emoji="🇬🇧"),
-            discord.SelectOption(label="Deutsch", value="de", emoji="🇩🇪"),
         ]
-        super().__init__(placeholder="Choose language / Sprache wählen",
+        super().__init__(placeholder="Language: English",
                          min_values=1, max_values=1, options=options,
                          custom_id="registration:language")
 
