@@ -90,10 +90,10 @@ async def _localize_kwargs(kwargs, guild_id, translate):
 
 
 def install_discord_localization(bot, translate, language):
-    """Translate outgoing message text and embeds according to each guild setting.
+    """Translate outgoing messages, embeds, and interactive labels per guild.
 
-    Public/DM messages remain untouched. English is a no-op, so the default
-    experience remains exactly as authored.
+    Missing/unknown guild locales resolve to English, including DMs. English
+    is a no-op, so already-English content remains unchanged.
     """
     import discord
 
